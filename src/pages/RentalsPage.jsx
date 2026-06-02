@@ -162,6 +162,7 @@ export default function RentalsPage() {
     if (!confirm(`ยืนยันส่งกล้อง "${rental.camera?.name}" ให้ลูกค้าแล้ว?`)) return
     try {
       await updateRental(rental.id, { status: 'active' })
+      await updateCamera(rental.camera_id, { status: 'rented' })
       await reload()
       sendLineNotify(
         `[HICHAO.CNX] 🟠 ส่งกล้องแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}\n🗓 คืนวันที่ ${rental.end_date}`
