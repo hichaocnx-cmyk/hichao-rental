@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getCameras, updateCamera } from '../lib/cameras'
 import { getCustomers, createCustomer } from '../lib/customers'
-import { createRental, updateRental } from '../lib/rentals'
+import { createRental, updateRental, deleteRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 
 const EMPTY_CUSTOMER = { name: '', phone: '', line_id: '', id_card: '' }
@@ -78,7 +78,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   useEffect(() => {
     Promise.all([
       getCameras().then(d => {
-        const available = d.filter(c => c.status === 'available' || c.status === 'returned')
+        const available = d.filter(c => c.status !== 'maintenance')
         if (isEdit && rental.camera_id && !available.find(c => c.id === rental.camera_id)) {
           const current = d.find(c => c.id === rental.camera_id)
           if (current) available.unshift(current)
@@ -194,15 +194,35 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         `✅ จ่ายวันรับกล้อง: ฿${dueOnPickup.toLocaleString()}`
 
       if (isEdit) {
+        const cameraChanged = form.camera_id !== rental.camera_id
         await updateRental(rental.id, payload)
-        if (form.camera_id !== rental.camera_id) {
-          await updateCamera(rental.camera_id, { status: 'available' })
-          await updateCamera(form.camera_id, { status: 'rented' })
+        if (cameraChanged) {
+          try {
+            await updateCamera(rental.camera_id, { status: 'available' })
+            await updateCamera(form.camera_id, { status: 'rented' })
+          } catch (camErr) {
+            // rollback rental ถ้า camera update ล้มเหลว
+            await updateRental(rental.id, {
+              camera_id: rental.camera_id,
+              ...Object.fromEntries(
+                ['start_date','end_date','pickup_time','return_time','pickup_location','return_location',
+                 'price_per_day','deposit','insurance','delivery_fee','discount','due_on_pickup','total_price','notes']
+                .map(k => [k, rental[k]])
+              )
+            }).catch(() => {})
+            throw new Error('อัปเดตสถานะกล้องล้มเหลว กรุณาลองใหม่: ' + camErr.message)
+          }
         }
         sendLineNotify(buildLineMsg('[HICHAO.CNX] ✏️ แก้ไขรายการเช่า')).catch(console.warn)
       } else {
-        await createRental({ ...payload, status: 'booked' })
-        await updateCamera(form.camera_id, { status: 'rented' })
+        const newRental = await createRental({ ...payload, status: 'booked' })
+        try {
+          await updateCamera(form.camera_id, { status: 'rented' })
+        } catch (camErr) {
+          // rollback rental ถ้า camera update ล้มเหลว
+          await deleteRental(newRental.id).catch(() => {})
+          throw new Error('อัปเดตสถานะกล้องล้มเหลว กรุณาลองใหม่: ' + camErr.message)
+        }
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
       onSaved()

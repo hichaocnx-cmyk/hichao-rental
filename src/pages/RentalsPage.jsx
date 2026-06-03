@@ -162,6 +162,7 @@ export default function RentalsPage() {
     if (!confirm(`ยืนยันส่งกล้อง "${rental.camera?.name}" ให้ลูกค้าแล้ว?`)) return
     try {
       await updateRental(rental.id, { status: 'active' })
+      await updateCamera(rental.camera_id, { status: 'rented' })
       await reload()
       sendLineNotify(
         `[HICHAO.CNX] 🟠 ส่งกล้องแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}\n🗓 คืนวันที่ ${rental.end_date}`
@@ -224,7 +225,7 @@ export default function RentalsPage() {
   const handleDelete = async (rental) => {
     if (!confirm('ลบรายการนี้?')) return
     try {
-      if (rental.status === 'active') await updateCamera(rental.camera_id, { status: 'available' })
+      if ((rental.status === 'active' || rental.status === 'booked') && rental.camera_id) await updateCamera(rental.camera_id, { status: 'available' })
       await deleteRental(rental.id); await reload()
     } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
   }
