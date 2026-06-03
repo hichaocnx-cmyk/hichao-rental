@@ -201,7 +201,10 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
             await updateCamera(rental.camera_id, { status: 'available' })
             await updateCamera(form.camera_id, { status: 'rented' })
           } catch (camErr) {
+<<<<<<< HEAD
             // rollback rental ถ้า camera update ล้มเหลว
+=======
+>>>>>>> 51e14436c0a7a9480ab1b32aa81edba89957612d
             await updateRental(rental.id, {
               camera_id: rental.camera_id,
               ...Object.fromEntries(
@@ -219,7 +222,10 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         try {
           await updateCamera(form.camera_id, { status: 'rented' })
         } catch (camErr) {
+<<<<<<< HEAD
           // rollback rental ถ้า camera update ล้มเหลว
+=======
+>>>>>>> 51e14436c0a7a9480ab1b32aa81edba89957612d
           await deleteRental(newRental.id).catch(() => {})
           throw new Error('อัปเดตสถานะกล้องล้มเหลว กรุณาลองใหม่: ' + camErr.message)
         }

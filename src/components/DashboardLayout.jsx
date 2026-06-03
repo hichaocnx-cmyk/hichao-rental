@@ -1,8 +1,19 @@
 import { useState } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useApp } from '../context/AppContext'
+
+const PAGE_TITLES = {
+  '/dashboard':     'Dashboard',
+  '/cameras':       'กล้อง',
+  '/report':        'รายงาน',
+  '/expenses':      'รายจ่าย',
+  '/rentals':       'เช่า & ลูกค้า',
+  '/customers':     'ลูกค้า',
+  '/notifications': 'การแจ้งเตือน',
+  '/calendar':      'ปฏิทิน',
+}
 
 const bottomNavItems = [
   {
@@ -58,20 +69,20 @@ const bottomNavItems = [
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { unreadCount } = useApp()
+  const location = useLocation()
+  const pageTitle = PAGE_TITLES[location.pathname] || 'Dashboard'
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar onMenuClick={() => setSidebarOpen(true)} title={pageTitle} />
 
-        {/* main content — เพิ่ม pb-16 บน mobile เผื่อ bottom nav */}
         <main className="flex-1 overflow-y-auto p-4 pb-20 lg:pb-6 lg:p-6">
           <Outlet />
         </main>
 
-        {/* ── Bottom Navigation (mobile only) ── */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex items-stretch safe-area-bottom">
           {bottomNavItems.map(item => (
             <NavLink
