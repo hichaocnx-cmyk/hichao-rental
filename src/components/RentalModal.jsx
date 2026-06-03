@@ -4,7 +4,7 @@ import { getCustomers, createCustomer } from '../lib/customers'
 import { createRental, updateRental, deleteRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 
-const EMPTY_CUSTOMER = { name: '', phone: '', line_id: '', id_card: '' }
+const EMPTY_CUSTOMER = { name: '', phone: '' }
 
 // ── ตารางราคาตามรุ่นกล้อง ──────────────────────────────────────
 const CAMERA_PRICES = {
@@ -55,7 +55,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
   const [cameras, setCameras] = useState([])
   const [customers, setCustomers] = useState([])
-  const [customerMode, setCustomerMode] = useState('existing')
+  const [customerMode] = useState('new')
   const [form, setForm] = useState({
     camera_id:        rental?.camera_id        || '',
     customer_id:      rental?.customer_id      || '',
@@ -66,9 +66,9 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     return_time:      rental?.return_time      || '',
     pickup_location:  rental?.pickup_location  || '',
     return_location:  rental?.return_location  || '',
-    deposit:          rental?.deposit          != null ? String(rental.deposit)      : '0',
-    delivery_fee:     rental?.delivery_fee     != null ? String(rental.delivery_fee) : '0',
-    discount:         rental?.discount         != null ? String(rental.discount)     : '0',
+    deposit:          rental?.deposit          != null ? String(rental.deposit)      : '',
+    delivery_fee:     rental?.delivery_fee     != null ? String(rental.delivery_fee) : '',
+    discount:         rental?.discount         != null ? String(rental.discount)     : '',
     notes:            rental?.notes            || '',
   })
   const [newCustomer, setNewCustomer] = useState(EMPTY_CUSTOMER)
@@ -89,9 +89,9 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     ]).catch(console.error)
   }, [])
 
-  // เมื่อ start_date หรือ days เปลี่ยน → คำนวณ end_date
+  // เมื่อ start_date หรือ days เปลี่ยน → คำนวณ end_date (เฉพาะตอนสร้างใหม่)
   useEffect(() => {
-    if (form.start_date && form.days) {
+    if (!isEdit && form.start_date && form.days) {
       const n = parseInt(form.days) - 1
       const newEnd = addDays(form.start_date, n)
       setForm(f => ({ ...f, end_date: newEnd }))
@@ -130,17 +130,15 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       if (new Date(form.end_date) < new Date(form.start_date)) throw new Error('วันคืนต้องไม่ก่อนวันรับ')
 
       let customerId = form.customer_id
-      if (customerMode === 'new') {
+      if (!isEdit) {
         if (!newCustomer.name.trim()) throw new Error('กรุณาใส่ชื่อลูกค้า')
         const created = await createCustomer({
           name: newCustomer.name.trim(),
           phone: newCustomer.phone.trim() || null,
-          line_id: newCustomer.line_id.trim() || null,
-          id_card: newCustomer.id_card.trim() || null,
         })
         customerId = created.id
       }
-      if (!customerId) throw new Error('กรุณาเลือกหรือเพิ่มลูกค้า')
+      if (!customerId) throw new Error('กรุณากรอกข้อมูลลูกค้า')
 
       const pricePerDay = getCameraKey(selectedCamera?.name)
         ? (days > 0 ? Math.round(rentalPrice / days) : 0)
@@ -166,7 +164,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       }
 
       const camName = selectedCamera?.name || rental?.camera?.name || 'กล้อง'
-      const custObj = customerMode === 'new' ? newCustomer : customers.find(c => c.id === customerId)
+      const custObj = isEdit ? customers.find(c => c.id === customerId) || rental?.customer : newCustomer
       const custName = custObj?.name || '—'
       const custPhone = custObj?.phone || '—'
 
@@ -318,17 +316,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
               <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">2</span>
               ข้อมูลลูกค้า
             </h4>
-            <div className="flex rounded-lg border border-gray-200 mb-3 overflow-hidden">
-              <button type="button" onClick={() => setCustomerMode('existing')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${customerMode === 'existing' ? 'bg-brand-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-                ลูกค้าเดิม
-              </button>
-              <button type="button" onClick={() => setCustomerMode('new')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${customerMode === 'new' ? 'bg-brand-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-                + ลูกค้าใหม่
-              </button>
-            </div>
-            {customerMode === 'existing' ? (
+            {isEdit ? (
               <select name="customer_id" value={form.customer_id} onChange={set} className={inputCls}>
                 <option value="">-- เลือกลูกค้า --</option>
                 {customers.map(c => (
@@ -336,24 +324,14 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 ))}
               </select>
             ) : (
-              <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
                   <input name="name" value={newCustomer.name} onChange={setNC} placeholder="ชื่อ นามสกุล" className={inputCls} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">เบอร์โทร</label>
-                    <input name="phone" value={newCustomer.phone} onChange={setNC} placeholder="0812345678" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">LINE ID</label>
-                    <input name="line_id" value={newCustomer.line_id} onChange={setNC} placeholder="@lineid" className={inputCls} />
-                  </div>
-                </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">เลขบัตรประชาชน</label>
-                  <input name="id_card" value={newCustomer.id_card} onChange={setNC} placeholder="1-xxxx-xxxxx-xx-x" maxLength={13} className={inputCls} />
+                  <label className="block text-xs font-medium text-gray-600 mb-1">เบอร์โทร</label>
+                  <input name="phone" value={newCustomer.phone} onChange={setNC} placeholder="0812345678" className={inputCls} />
                 </div>
               </div>
             )}
@@ -365,22 +343,26 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
               <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">3</span>
               วันที่และเวลา
             </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">วันรับกล้อง <span className="text-red-500">*</span></label>
-                <input type="date" name="start_date" value={form.start_date} onChange={set} required className={inputCls} />
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">วันรับกล้อง <span className="text-red-500">*</span></label>
+                  <input type="date" name="start_date" value={form.start_date} onChange={set} required className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">เวลารับกล้อง</label>
+                  <input type="time" name="pickup_time" value={form.pickup_time} onChange={set} className={inputCls} />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">วันคืนกล้อง (คำนวณอัตโนมัติ)</label>
-                <input type="date" name="end_date" value={form.end_date} onChange={set} min={form.start_date} className={`${inputCls} bg-gray-50`} readOnly />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">เวลารับกล้อง</label>
-                <input type="time" name="pickup_time" value={form.pickup_time} onChange={set} className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">เวลาคืนกล้อง</label>
-                <input type="time" name="return_time" value={form.return_time} onChange={set} className={inputCls} />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">วันคืนกล้อง <span className="text-red-500">*</span></label>
+                  <input type="date" name="end_date" value={form.end_date} onChange={set} min={form.start_date} required className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">เวลาคืนกล้อง</label>
+                  <input type="time" name="return_time" value={form.return_time} onChange={set} className={inputCls} />
+                </div>
               </div>
             </div>
           </section>
@@ -412,15 +394,15 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
             <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">ค่าจองมัดจำ (฿)</label>
-                <input type="number" name="deposit" value={form.deposit} onChange={set} min="0" placeholder="0" className={inputCls} />
+                <input type="number" name="deposit" value={form.deposit} onChange={set} min="0" placeholder="" className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">ค่าส่ง (฿)</label>
-                <input type="number" name="delivery_fee" value={form.delivery_fee} onChange={set} min="0" placeholder="0" className={inputCls} />
+                <input type="number" name="delivery_fee" value={form.delivery_fee} onChange={set} min="0" placeholder="" className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">ส่วนลด (฿)</label>
-                <input type="number" name="discount" value={form.discount} onChange={set} min="0" placeholder="0" className={inputCls} />
+                <input type="number" name="discount" value={form.discount} onChange={set} min="0" placeholder="" className={inputCls} />
               </div>
             </div>
 
