@@ -3,6 +3,7 @@ import { getCameras } from '../lib/cameras'
 import { getCustomers } from '../lib/customers'
 import { getRentals } from '../lib/rentals'
 import { getExpenses } from '../lib/expenses'
+import { supabase } from '../lib/supabaseClient'
 
 const AppContext = createContext(null)
 
@@ -31,6 +32,23 @@ export function AppProvider({ children }) {
   const reloadRentals = useCallback(async () => { setRentals(await getRentals()) }, [])
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  // ── Realtime subscriptions ─────────────────────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-all')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rentals' },
+        () => getRentals().then(setRentals).catch(console.error))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cameras' },
+        () => getCameras().then(setCameras).catch(console.error))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' },
+        () => getCustomers().then(setCustomers).catch(console.error))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' },
+        () => getExpenses().then(setExpenses).catch(console.error))
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   // Computed stats
   const stats = useMemo(() => {
