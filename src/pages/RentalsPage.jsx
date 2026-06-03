@@ -9,8 +9,17 @@ import InvoiceModal from '../components/InvoiceModal'
 // ── Calendar constants ──────────────────────────────────────────
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 const DAYS_TH   = ['อา','จ','อ','พ','พฤ','ศ','ส']
-const CAL_COLORS = ['bg-blue-400','bg-purple-400','bg-pink-400','bg-orange-400','bg-teal-400','bg-indigo-400','bg-rose-400','bg-amber-400','bg-cyan-400','bg-green-400']
 const ds = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+const RENTAL_COLORS = [
+  { bar:'#007AFF', bg:'#ddeeff', text:'#004fa3' },
+  { bar:'#34C759', bg:'#d4f5df', text:'#1a6e3c' },
+  { bar:'#AF52DE', bg:'#ecdeff', text:'#6b21a8' },
+  { bar:'#FF9500', bg:'#ffeacc', text:'#a05000' },
+  { bar:'#FF2D55', bg:'#ffd6de', text:'#9b1c2e' },
+  { bar:'#00C7BE', bg:'#ccf5f3', text:'#0a6b67' },
+  { bar:'#5856D6', bg:'#e4e3ff', text:'#3730a3' },
+  { bar:'#FF6B35', bg:'#ffe4d6', text:'#9a3400' },
+]
 
 // ── Rental constants ────────────────────────────────────────────
 const R_STATUS = {
@@ -130,17 +139,21 @@ export default function RentalsPage() {
 
   const activeRentals = rentals.filter(r => r.status !== 'cancelled' && r.status !== 'returned')
 
-  const cameraColorMap = useMemo(() => {
+  const rentalColorMap = useMemo(() => {
     const map = {}; let idx = 0
-    activeRentals.forEach(r => { if (r.camera_id && !(r.camera_id in map)) { map[r.camera_id] = idx++ % CAL_COLORS.length } })
+    const sorted = [...rentals].sort((a, b) => (a.start_date||'').localeCompare(b.start_date||''))
+    sorted.forEach(r => { if (r.id && !(r.id in map)) { map[r.id] = RENTAL_COLORS[idx++ % RENTAL_COLORS.length] } })
     return map
-  }, [activeRentals])
+  }, [rentals])
 
   const rentalsOnDate = (dateStr) => activeRentals.filter(r => r.start_date <= dateStr && r.end_date >= dateStr)
 
+  const prevDaysInMonth = new Date(year, month, 0).getDate()
   const cells = []
-  for (let i = 0; i < firstDay; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  for (let i = 0; i < firstDay; i++) cells.push({ day: prevDaysInMonth - firstDay + 1 + i, type: 'prev' })
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: 'cur' })
+  const remainder = 42 - cells.length
+  for (let i = 1; i <= remainder; i++) cells.push({ day: i, type: 'next' })
 
   // ── Rental list filtered ───────────────────────────────────────
   const filteredRentals = useMemo(() => {
@@ -331,103 +344,101 @@ export default function RentalsPage() {
       {/* ── Main layout: Calendar (left) + List (right) ──────── */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
 
-        {/* ── Calendar ──────────────────────────────────────── */}
+        {/* ── Calendar (iOS style) ───────────────────────────── */}
         <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 overflow-hidden">
           {/* Month nav */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <button onClick={() => setCurrent(new Date(year, month-1))} className="p-1.5 hover:bg-gray-100 rounded-lg">
-              <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <button onClick={() => setCurrent(new Date(year, month-1))}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             </button>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-gray-900">{MONTHS_TH[month]} {year+543}</span>
               <button onClick={() => { setCurrent(new Date()); setSelectedDay(null) }}
-                className="text-[10px] px-2 py-0.5 bg-brand-50 text-brand-600 hover:bg-brand-100 rounded-full font-medium">วันนี้</button>
+                className="text-[10px] px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">วันนี้</button>
             </div>
-            <button onClick={() => setCurrent(new Date(year, month+1))} className="p-1.5 hover:bg-gray-100 rounded-lg">
-              <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+            <button onClick={() => setCurrent(new Date(year, month+1))}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
             </button>
           </div>
 
           {/* Day headers */}
           <div className="grid grid-cols-7 border-b border-gray-100">
             {DAYS_TH.map((d,i) => (
-              <div key={d} className={`py-2 text-center text-[10px] font-semibold ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-400'}`}>{d}</div>
+              <div key={d} className={`py-2 text-center text-[10px] font-medium tracking-wide ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-400'}`}>{d}</div>
             ))}
           </div>
 
           {/* Grid */}
           {loading ? (
-            <div className="flex items-center justify-center py-12"><div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+            <div className="flex items-center justify-center py-12"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <div className="grid grid-cols-7">
-              {cells.map((d, i) => {
-                if (!d) return <div key={`e-${i}`} className="min-h-[56px] border-b border-r border-gray-50" />
-                const dateStr = ds(year, month, d)
-                const dayRentals = rentalsOnDate(dateStr)
-                const isToday    = dateStr === todayStr
-                const isSel      = selectedDay === dateStr
-                const isWeekend  = i%7===0 || i%7===6
+              {cells.map((cell, i) => {
+                const cellDs = cell.type === 'cur' ? ds(year, month, cell.day)
+                  : cell.type === 'prev' ? ds(year, month-1, cell.day)
+                  : ds(year, month+1, cell.day)
+                const dayRentals = cell.type === 'cur' ? rentalsOnDate(cellDs) : []
+                const isToday = cellDs === todayStr
+                const isSel = selectedDay === cellDs
+                const isOther = cell.type !== 'cur'
+                const colIdx = i % 7
                 return (
-                  <div key={d} onClick={() => setSelectedDay(isSel ? null : dateStr)}
-                    className={`min-h-[56px] border-b border-r border-gray-100 p-1 cursor-pointer transition-colors
-                      ${isSel ? 'bg-brand-50 ring-1 ring-inset ring-brand-300' : isWeekend ? 'bg-gray-50/40 hover:bg-gray-100/60' : 'hover:bg-gray-50'}`}>
-                    <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium mb-0.5
-                      ${isToday ? 'bg-brand-500 text-white' : isSel ? 'text-brand-700 font-bold' : isWeekend ? 'text-gray-400' : 'text-gray-700'}`}>
-                      {d}
+                  <div key={`${cell.type}-${cell.day}-${i}`}
+                    onClick={() => cell.type === 'cur' && setSelectedDay(isSel ? null : cellDs)}
+                    className={`border-b border-r border-gray-100 min-h-[72px] p-1 relative
+                      ${cell.type === 'cur' ? 'cursor-pointer' : 'cursor-default'}
+                      ${isSel && !isOther ? 'bg-blue-50/60' : isOther ? 'bg-gray-50/20' : 'hover:bg-gray-50'}`}>
+                    <div className="flex justify-center mb-1">
+                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium
+                        ${isToday ? 'bg-blue-500 text-white font-semibold'
+                          : isOther ? 'text-gray-300'
+                          : colIdx===0 ? 'text-red-400'
+                          : colIdx===6 ? 'text-blue-400'
+                          : isSel ? 'text-blue-600 font-semibold'
+                          : 'text-gray-700'}`}>
+                        {cell.day}
+                      </span>
                     </div>
-                    <div className="space-y-px">
-                      {dayRentals.slice(0,2).map(r => (
-                        <div key={r.id}
-                          className={`h-4 rounded-sm flex items-center px-1 text-white text-[9px] font-medium overflow-hidden leading-none
-                            ${CAL_COLORS[cameraColorMap[r.camera_id]??0]}
-                            ${r.start_date===dateStr ? 'rounded-l-full' : '-ml-1 pl-0'}
-                            ${r.end_date===dateStr   ? 'rounded-r-full' : '-mr-1 pr-0'}`}>
-                          {r.start_date===dateStr && <span className="truncate">{r.camera?.name?.split(' ')[0]||''}</span>}
-                        </div>
-                      ))}
-                      {dayRentals.length > 2 && <div className="text-[9px] text-gray-400 pl-0.5">+{dayRentals.length-2}</div>}
-                    </div>
+                    {!isOther && (
+                      <div className="space-y-0.5">
+                        {dayRentals.slice(0,3).map(r => {
+                          const color = rentalColorMap[r.id] || RENTAL_COLORS[0]
+                          const camShort = r.camera?.name?.replace('Ricoh ','').replace('Canon ','Canon ') || '—'
+                          const custShort = r.customer?.name?.split(' ')[0] || '—'
+                          const isStart = r.start_date === cellDs
+                          const isEnd = r.end_date === cellDs
+                          const loc = isStart ? r.pickup_location : isEnd ? r.return_location : null
+                          return (
+                            <div key={r.id}
+                              style={{ backgroundColor: color.bg, borderLeft: `3px solid ${color.bar}` }}
+                              className="rounded-r-md px-1 py-0.5 leading-tight overflow-hidden"
+                              title={`${r.camera?.name} · ${r.customer?.name}`}>
+                              <p className="text-[9px] font-semibold truncate" style={{ color: color.text }}>{camShort}</p>
+                              <p className="text-[8px] truncate" style={{ color: color.text, opacity: 0.8 }}>
+                                {custShort}{loc ? ` · ${loc}` : ''}
+                              </p>
+                            </div>
+                          )
+                        })}
+                        {dayRentals.length > 3 && <p className="text-[8px] text-gray-400 pl-1">+{dayRentals.length-3}</p>}
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
           )}
 
-          {/* Legend */}
-          {Object.keys(cameraColorMap).length > 0 && (
-            <div className="px-4 py-2.5 border-t border-gray-100 flex flex-wrap gap-2">
-              {activeRentals.filter((r,i,arr)=>arr.findIndex(x=>x.camera_id===r.camera_id)===i).map(r=>(
-                <div key={r.camera_id} className="flex items-center gap-1">
-                  <div className={`w-2.5 h-2.5 rounded-sm ${CAL_COLORS[cameraColorMap[r.camera_id]??0]}`} />
-                  <span className="text-[10px] text-gray-500">{r.camera?.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Selected day summary */}
+          {/* Selected day indicator */}
           {selectedDay && (
-            <div className="border-t border-gray-100 px-4 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-gray-700">
-                  {parseInt(selectedDay.split('-')[2])} {MONTHS_TH[parseInt(selectedDay.split('-')[1])-1]}
-                  <span className="ml-1.5 text-brand-600">({rentalsOnDate(selectedDay).length} รายการ)</span>
-                </p>
-                <button onClick={() => setSelectedDay(null)} className="text-xs text-gray-400 hover:text-gray-600">ล้าง</button>
-              </div>
-              {rentalsOnDate(selectedDay).length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-2">ว่างทุกตัว</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {rentalsOnDate(selectedDay).map(r => (
-                    <div key={r.id} className="flex items-center gap-2 text-xs">
-                      <div className={`w-2 h-2 rounded-sm flex-shrink-0 ${CAL_COLORS[cameraColorMap[r.camera_id]??0]}`} />
-                      <span className="font-medium text-gray-900 truncate">{r.camera?.name}</span>
-                      <span className="text-gray-400 truncate">{r.customer?.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between">
+              <p className="text-xs font-medium text-blue-600">
+                {parseInt(selectedDay.split('-')[2])} {MONTHS_TH[parseInt(selectedDay.split('-')[1])-1]}
+                <span className="ml-1.5 text-blue-400">({rentalsOnDate(selectedDay).length} รายการ)</span>
+              </p>
+              <button onClick={() => setSelectedDay(null)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">ล้าง</button>
             </div>
           )}
         </div>
