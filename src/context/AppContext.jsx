@@ -55,9 +55,18 @@ export function AppProvider({ children }) {
     const today = new Date().toISOString().split('T')[0]
     const startOfMonth = today.slice(0, 7) + '-01'
     const monthExpenses = expenses.filter(e => e.date >= startOfMonth)
+    // นับรายได้แบบ real-time ตามสถานะ:
+    // returned → total_price เต็ม
+    // active   → deposit + (total_price - deposit) = total_price ทั้งหมด (ส่งกล้องแล้ว รับเงินส่วนที่เหลือแล้ว)
+    // booked   → deposit ที่ได้รับมัดจำแล้ว (ถ้ามี)
     const monthRevenue = rentals
-      .filter(r => r.status === 'returned' && r.start_date >= startOfMonth)
-      .reduce((sum, r) => sum + Number(r.total_price), 0)
+      .filter(r => r.status !== 'cancelled' && r.start_date >= startOfMonth)
+      .reduce((sum, r) => {
+        if (r.status === 'returned') return sum + Number(r.total_price || 0)
+        if (r.status === 'active')   return sum + Number(r.total_price || 0)
+        if (r.status === 'booked')   return sum + Number(r.deposit || 0)
+        return sum
+      }, 0)
     const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
     // category breakdown this month
     const expByCategory = {}
