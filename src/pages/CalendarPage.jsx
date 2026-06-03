@@ -5,21 +5,24 @@ const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มี
 const DAYS_TH = ['อา','จ','อ','พ','พฤ','ศ','ส']
 const DAYS_FULL = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์']
 
-const CAM_COLORS = [
-  { bar:'#007AFF', bg:'#e8f2ff', text:'#004fa3' },
-  { bar:'#34C759', bg:'#e8f8ee', text:'#1a6e3c' },
-  { bar:'#AF52DE', bg:'#f3e8ff', text:'#6b21a8' },
-  { bar:'#FF9500', bg:'#fff3e0', text:'#a05000' },
-  { bar:'#FF2D55', bg:'#ffe8ed', text:'#9b1c2e' },
-  { bar:'#00C7BE', bg:'#e0faf9', text:'#0a6b67' },
-  { bar:'#5856D6', bg:'#eeecff', text:'#3730a3' },
-  { bar:'#FF6B35', bg:'#fff0eb', text:'#9a3400' },
+// Color per rental (not per camera)
+const RENTAL_COLORS = [
+  { bar:'#007AFF', bg:'#ddeeff', text:'#004fa3' },
+  { bar:'#34C759', bg:'#d4f5df', text:'#1a6e3c' },
+  { bar:'#AF52DE', bg:'#ecdeff', text:'#6b21a8' },
+  { bar:'#FF9500', bg:'#ffeacc', text:'#a05000' },
+  { bar:'#FF2D55', bg:'#ffd6de', text:'#9b1c2e' },
+  { bar:'#00C7BE', bg:'#ccf5f3', text:'#0a6b67' },
+  { bar:'#5856D6', bg:'#e4e3ff', text:'#3730a3' },
+  { bar:'#FF6B35', bg:'#ffe4d6', text:'#9a3400' },
+  { bar:'#30B0C7', bg:'#ccf0f8', text:'#0a5a6e' },
+  { bar:'#8E8E93', bg:'#e8e8ea', text:'#3a3a3c' },
 ]
 
 const STATUS_STYLE = {
   booked:   { label:'จองแล้ว',   bg:'#f0f0f5', text:'#555' },
-  active:   { label:'กำลังเช่า', bg:'#e8f2ff', text:'#004fa3' },
-  returned: { label:'คืนแล้ว',   bg:'#e8f8ee', text:'#1a6e3c' },
+  active:   { label:'กำลังเช่า', bg:'#ddeeff', text:'#004fa3' },
+  returned: { label:'คืนแล้ว',   bg:'#d4f5df', text:'#1a6e3c' },
 }
 
 const mkDs = (y, m, d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
@@ -48,11 +51,14 @@ export default function CalendarPage() {
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const prevDays = new Date(year, month, 0).getDate()
 
-  const cameraColorMap = useMemo(() => {
+  // Assign color per rental (consistent across all days)
+  const rentalColorMap = useMemo(() => {
     const map = {}; let idx = 0
-    allRentals.forEach(r => {
-      if (r.camera_id && !(r.camera_id in map)) {
-        map[r.camera_id] = CAM_COLORS[idx % CAM_COLORS.length]
+    // Sort by start_date so colors are consistent
+    const sorted = [...allRentals].sort((a, b) => a.start_date?.localeCompare(b.start_date))
+    sorted.forEach(r => {
+      if (r.id && !(r.id in map)) {
+        map[r.id] = RENTAL_COLORS[idx % RENTAL_COLORS.length]
         idx++
       }
     })
@@ -62,6 +68,7 @@ export default function CalendarPage() {
   const getRentalsOnDate = (dateStr) =>
     rentals.filter(r => r.start_date <= dateStr && r.end_date >= dateStr)
 
+  // Build calendar cells
   const cells = []
   for (let i = 0; i < firstDay; i++) cells.push({ day: prevDays - firstDay + 1 + i, type: 'prev' })
   for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: 'cur' })
@@ -72,11 +79,11 @@ export default function CalendarPage() {
     if (!selectedDs) return []
     return getRentalsOnDate(selectedDs).map(r => ({
       ...r,
-      color: cameraColorMap[r.camera_id] || CAM_COLORS[0],
+      color: rentalColorMap[r.id] || RENTAL_COLORS[0],
       isPickup: r.start_date === selectedDs,
       isReturn: r.end_date === selectedDs,
     }))
-  }, [selectedDs, rentals, cameraColorMap])
+  }, [selectedDs, rentals, rentalColorMap])
 
   const selectedDate = selectedDs ? new Date(selectedDs + 'T00:00:00') : null
   const selectedDayLabel = selectedDate
@@ -156,7 +163,7 @@ export default function CalendarPage() {
                 <div
                   key={`${cell.type}-${cell.day}-${i}`}
                   onClick={() => cell.type === 'cur' && setSelectedDs(cellDs)}
-                  className={`border-b border-r border-gray-100 min-h-[68px] sm:min-h-[76px] p-1 relative
+                  className={`border-b border-r border-gray-100 min-h-[90px] sm:min-h-[100px] p-1 relative
                     ${cell.type === 'cur' ? 'cursor-pointer' : 'cursor-default'}
                     ${isSelected && !isOtherMonth ? 'bg-blue-50/60' : isOtherMonth ? 'bg-gray-50/20' : 'hover:bg-gray-50'}`}
                 >
@@ -179,47 +186,44 @@ export default function CalendarPage() {
                     </span>
                   </div>
 
-                  {/* Event bars */}
-                  {!isOtherMonth && active.length > 0 && (
-                    <div className="space-y-0.5 px-0.5">
+                  {/* Event rows — show up to 3 */}
+                  {!isOtherMonth && (
+                    <div className="space-y-0.5">
                       {active.slice(0, 3).map(r => {
-                        const color = cameraColorMap[r.camera_id] || CAM_COLORS[0]
+                        const color = rentalColorMap[r.id] || RENTAL_COLORS[0]
+                        const isStart = r.start_date === cellDs
+                        const isEnd = r.end_date === cellDs
+                        const loc = isStart ? r.pickup_location : isEnd ? r.return_location : null
+                        const camShort = r.camera?.name?.replace('Ricoh ', '').replace('Canon ', 'Canon ') || '—'
+                        const custShort = r.customer?.name?.split(' ')[0] || '—'
+
                         return (
                           <div
                             key={r.id}
-                            style={{ backgroundColor: color.bar }}
-                            className="h-1 sm:h-1.5 rounded-full opacity-75"
-                            title={`${r.camera?.name} · ${r.customer?.name}`}
-                          />
+                            title={`${r.camera?.name} · ${r.customer?.name}${loc ? ' · ' + loc : ''}`}
+                            style={{
+                              backgroundColor: color.bg,
+                              borderLeft: `3px solid ${color.bar}`,
+                            }}
+                            className="rounded-r-md px-1.5 py-0.5 text-left leading-tight overflow-hidden"
+                          >
+                            <p className="text-[10px] font-semibold truncate" style={{ color: color.text }}>
+                              {camShort}
+                            </p>
+                            <p className="text-[9px] truncate" style={{ color: color.text, opacity: 0.8 }}>
+                              {custShort}{loc ? ` · ${loc}` : ''}
+                            </p>
+                          </div>
                         )
                       })}
                       {active.length > 3 && (
-                        <div className="flex justify-center">
-                          <span className="text-[9px] text-gray-400">+{active.length - 3}</span>
-                        </div>
+                        <p className="text-[9px] text-gray-400 pl-1">+{active.length - 3} รายการ</p>
                       )}
                     </div>
                   )}
                 </div>
               )
             })}
-          </div>
-        )}
-
-        {/* Legend */}
-        {Object.keys(cameraColorMap).length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap gap-3">
-            {allRentals
-              .filter((r, i, arr) => arr.findIndex(x => x.camera_id === r.camera_id) === i && cameraColorMap[r.camera_id])
-              .map(r => {
-                const color = cameraColorMap[r.camera_id]
-                return (
-                  <div key={r.camera_id} className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color.bar }} />
-                    <span className="text-xs text-gray-500">{r.camera?.name}</span>
-                  </div>
-                )
-              })}
           </div>
         )}
       </div>
@@ -255,8 +259,12 @@ export default function CalendarPage() {
                 : r.isPickup ? 'รับวันนี้'
                 : r.isReturn ? 'คืนวันนี้'
                 : status.label
-              const badgeBg = r.isPickup ? '#e8f8ee' : r.isReturn ? '#fff3e0' : status.bg
-              const badgeText = r.isPickup ? '#1a6e3c' : r.isReturn ? '#a05000' : status.text
+              const badgeBg = r.isPickup && !r.isReturn ? '#d4f5df'
+                : r.isReturn && !r.isPickup ? '#ffeacc'
+                : status.bg
+              const badgeText = r.isPickup && !r.isReturn ? '#1a6e3c'
+                : r.isReturn && !r.isPickup ? '#a05000'
+                : status.text
 
               return (
                 <div key={r.id} className="flex items-stretch gap-3 px-4 py-3.5">
@@ -268,16 +276,10 @@ export default function CalendarPage() {
 
                   {/* Camera image */}
                   {r.camera?.image_url ? (
-                    <img
-                      src={r.camera.image_url}
-                      className="w-10 h-10 rounded-xl object-cover flex-shrink-0 self-start mt-0.5"
-                      alt=""
-                    />
+                    <img src={r.camera.image_url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0 self-start mt-0.5" alt="" />
                   ) : (
-                    <div
-                      className="w-10 h-10 rounded-xl flex-shrink-0 self-start mt-0.5 flex items-center justify-center"
-                      style={{ backgroundColor: r.color.bg }}
-                    >
+                    <div className="w-10 h-10 rounded-xl flex-shrink-0 self-start mt-0.5 flex items-center justify-center"
+                      style={{ backgroundColor: r.color.bg }}>
                       <svg className="w-5 h-5" style={{ color: r.color.bar }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
@@ -289,10 +291,8 @@ export default function CalendarPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-gray-900 truncate">{r.camera?.name || '—'}</p>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                        style={{ backgroundColor: badgeBg, color: badgeText }}
-                      >
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                        style={{ backgroundColor: badgeBg, color: badgeText }}>
                         {badgeLabel}
                       </span>
                     </div>
@@ -305,38 +305,37 @@ export default function CalendarPage() {
                       {r.customer?.phone && <span className="text-gray-400 flex-shrink-0">· {r.customer.phone}</span>}
                     </p>
 
-                    <div className="flex flex-wrap items-center gap-x-3 mt-1">
-                      {pickupTime && (
-                        <p className="text-xs text-gray-400 flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                          </svg>
-                          รับ {pickupTime}
-                        </p>
-                      )}
-                      {returnTime && (
-                        <p className="text-xs text-gray-400 flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                          </svg>
-                          คืน {returnTime}
-                        </p>
-                      )}
-                    </div>
+                    {/* Pickup info */}
+                    {r.isPickup && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                        </svg>
+                        รับ{pickupTime ? ` ${pickupTime}` : ''}{r.pickup_location ? ` · ${r.pickup_location}` : ''}
+                      </p>
+                    )}
 
-                    {(r.pickup_location || r.return_location) && (
+                    {/* Return info */}
+                    {r.isReturn && (
+                      <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                        </svg>
+                        คืน{returnTime ? ` ${returnTime}` : ''}{r.return_location ? ` · ${r.return_location}` : ''}
+                      </p>
+                    )}
+
+                    {/* Middle day — show both locations */}
+                    {!r.isPickup && !r.isReturn && (r.pickup_location || r.return_location) && (
                       <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 truncate">
                         <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                         </svg>
                         <span className="truncate">{r.pickup_location || r.return_location}</span>
                       </p>
                     )}
 
-                    <p className="text-xs text-gray-300 mt-1">
-                      {fmtDate(r.start_date)} → {fmtDate(r.end_date)}
-                    </p>
+                    <p className="text-xs text-gray-300 mt-1">{fmtDate(r.start_date)} → {fmtDate(r.end_date)}</p>
                   </div>
                 </div>
               )
