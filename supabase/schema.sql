@@ -17,6 +17,7 @@ create table if not exists cameras (
   serial_number   text,
   price_per_day   numeric(10,2) not null default 0,
   insurance       numeric(10,2) not null default 0,
+  deposit         numeric(10,2) not null default 0,
   status          text not null default 'available'
                     check (status in ('available','rented','returned','maintenance')),
   image_url       text,
@@ -34,6 +35,7 @@ create table if not exists customers (
   phone       text,
   line_id     text,
   id_card     text,
+  address     text,
   notes       text,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -58,6 +60,7 @@ create table if not exists rentals (
   delivery_fee     numeric(10,2) not null default 0,
   discount         numeric(10,2) not null default 0,
   total_price      numeric(10,2) not null default 0,
+  due_on_pickup    numeric(10,2) not null default 0,
   status           text not null default 'booked'
                      check (status in ('booked','active','returned','cancelled')),
   notes            text,
@@ -72,9 +75,8 @@ create table if not exists expenses (
   id          uuid primary key default uuid_generate_v4(),
   date        date not null,
   category    text not null,
-  description text not null,
+  note        text not null,
   amount      numeric(10,2) not null default 0,
-  notes       text,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );

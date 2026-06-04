@@ -132,7 +132,7 @@ export default function CalendarPage() {
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-gray-100">
           {DAYS_TH.map((d, i) => (
-            <div key={d} className={`py-2 text-center text-xs font-medium tracking-wide
+            <div key={d} className={`py-3 text-center text-xs sm:text-sm font-semibold tracking-wide
               ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
               {d}
             </div>
@@ -163,15 +163,15 @@ export default function CalendarPage() {
                 <div
                   key={`${cell.type}-${cell.day}-${i}`}
                   onClick={() => cell.type === 'cur' && setSelectedDs(cellDs)}
-                  className={`border-b border-r border-gray-100 min-h-[90px] sm:min-h-[100px] p-1 relative
+                  className={`border-b border-r border-gray-100 min-h-[80px] sm:min-h-[100px] p-1 sm:p-1.5 relative
                     ${cell.type === 'cur' ? 'cursor-pointer' : 'cursor-default'}
                     ${isSelected && !isOtherMonth ? 'bg-blue-50/60' : isOtherMonth ? 'bg-gray-50/20' : 'hover:bg-gray-50'}`}
                 >
                   {/* Date number */}
                   <div className="flex justify-center mb-1">
-                    <span className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-xs sm:text-sm font-medium
+                    <span className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-sm sm:text-base font-semibold
                       ${isToday
-                        ? 'bg-blue-500 text-white font-semibold'
+                        ? 'bg-blue-500 text-white'
                         : isOtherMonth
                           ? 'text-gray-300'
                           : colIndex === 0
@@ -179,14 +179,14 @@ export default function CalendarPage() {
                             : colIndex === 6
                               ? 'text-blue-400'
                               : isSelected
-                                ? 'text-blue-600 font-semibold'
+                                ? 'text-blue-600 font-bold'
                                 : 'text-gray-700'}`}
                     >
                       {cell.day}
                     </span>
                   </div>
 
-                  {/* Event rows — show up to 3 */}
+                  {/* Event rows — show up to 2 on mobile, 3 on desktop */}
                   {!isOtherMonth && (
                     <div className="space-y-0.5">
                       {active.slice(0, 3).map(r => {
@@ -194,7 +194,7 @@ export default function CalendarPage() {
                         const isStart = r.start_date === cellDs
                         const isEnd = r.end_date === cellDs
                         const loc = isStart ? r.pickup_location : isEnd ? r.return_location : null
-                        const camShort = r.camera?.name?.replace('Ricoh ', '').replace('Canon ', 'Canon ') || '—'
+                        const camShort = r.camera?.name?.replace('Ricoh ', '').replace('Canon ', '') || '—'
                         const custShort = r.customer?.name?.split(' ')[0] || '—'
 
                         return (
@@ -205,19 +205,19 @@ export default function CalendarPage() {
                               backgroundColor: color.bg,
                               borderLeft: `3px solid ${color.bar}`,
                             }}
-                            className="rounded-r-md px-1.5 py-0.5 text-left leading-tight overflow-hidden"
+                            className="rounded-r-md px-1 sm:px-1.5 py-0.5 text-left leading-tight overflow-hidden"
                           >
-                            <p className="text-[10px] font-semibold truncate" style={{ color: color.text }}>
+                            <p className="text-[11px] sm:text-xs font-semibold truncate" style={{ color: color.text }}>
                               {camShort}
                             </p>
-                            <p className="text-[9px] truncate" style={{ color: color.text, opacity: 0.8 }}>
+                            <p className="text-[10px] sm:text-[11px] truncate hidden sm:block" style={{ color: color.text, opacity: 0.8 }}>
                               {custShort}{loc ? ` · ${loc}` : ''}
                             </p>
                           </div>
                         )
                       })}
                       {active.length > 3 && (
-                        <p className="text-[9px] text-gray-400 pl-1">+{active.length - 3} รายการ</p>
+                        <p className="text-[10px] sm:text-xs text-gray-400 pl-1">+{active.length - 3}</p>
                       )}
                     </div>
                   )}

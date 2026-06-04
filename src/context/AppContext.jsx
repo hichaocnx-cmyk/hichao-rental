@@ -30,6 +30,7 @@ export function AppProvider({ children }) {
   const reloadCameras = useCallback(async () => { setCameras(await getCameras()) }, [])
   const reloadCustomers = useCallback(async () => { setCustomers(await getCustomers()) }, [])
   const reloadRentals = useCallback(async () => { setRentals(await getRentals()) }, [])
+  const reloadExpenses = useCallback(async () => { setExpenses(await getExpenses()) }, [])
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -166,7 +167,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       cameras, customers, rentals, expenses, loading, stats,
       notifications, unreadCount, readIds, markRead, markAllRead,
-      reload: loadAll, reloadCameras, reloadCustomers, reloadRentals,
+      reload: loadAll, reloadCameras, reloadCustomers, reloadRentals, reloadExpenses,
     }}>
       {children}
     </AppContext.Provider>

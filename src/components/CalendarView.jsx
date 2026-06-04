@@ -62,7 +62,7 @@ export default function CalendarView() {
         </div>
         <div className="grid grid-cols-7 border-b border-gray-100">
           {DAYS_TH.map((d, i) => (
-            <div key={d} className={`py-2.5 text-center text-xs font-semibold ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-500'}`}>{d}</div>
+            <div key={d} className={`py-3 text-center text-xs sm:text-sm font-semibold ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-500'}`}>{d}</div>
           ))}
         </div>
         {loading ? (
@@ -70,7 +70,7 @@ export default function CalendarView() {
         ) : (
           <div className="grid grid-cols-7">
             {cells.map((d, i) => {
-              if (!d) return <div key={`e-${i}`} className="min-h-[80px] border-b border-r border-gray-50" />
+              if (!d) return <div key={`e-${i}`} className="min-h-[72px] sm:min-h-[90px] border-b border-r border-gray-50" />
               const ds = dateStr(year, month, d)
               const { active } = getDayInfo(d)
               const isToday = ds === todayStr
@@ -78,20 +78,20 @@ export default function CalendarView() {
               const isWeekend = i % 7 === 0 || i % 7 === 6
               return (
                 <div key={d} onClick={() => setSelected(isSelected ? null : d)}
-                  className={`min-h-[80px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition-colors
+                  className={`min-h-[72px] sm:min-h-[90px] border-b border-r border-gray-100 p-1 sm:p-1.5 cursor-pointer transition-colors
                     ${isSelected ? 'bg-brand-50 ring-1 ring-inset ring-brand-300' : isWeekend ? 'bg-gray-50/50 hover:bg-gray-100/70' : 'hover:bg-gray-50'}`}>
-                  <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium mb-1
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-sm sm:text-base font-semibold mb-1
                     ${isToday ? 'bg-brand-500 text-white' : isSelected ? 'text-brand-700 font-bold' : isWeekend ? 'text-gray-500' : 'text-gray-700'}`}>
                     {d}
                   </div>
                   <div className="space-y-0.5">
                     {active.slice(0, 3).map(r => (
-                      <div key={r.id} className={`h-5 rounded-sm flex items-center px-1.5 text-white text-xs font-medium overflow-hidden ${COLORS[r.colorIdx]} ${r.isStart ? 'rounded-l-full' : '-ml-1.5 pl-0'} ${r.isEnd ? 'rounded-r-full' : '-mr-1.5 pr-0'}`}
+                      <div key={r.id} className={`h-5 sm:h-6 rounded-sm flex items-center px-1 sm:px-1.5 text-white text-xs font-medium overflow-hidden ${COLORS[r.colorIdx]} ${r.isStart ? 'rounded-l-full' : '-ml-1 sm:-ml-1.5 pl-0'} ${r.isEnd ? 'rounded-r-full' : '-mr-1 sm:-mr-1.5 pr-0'}`}
                         title={`${r.camera?.name} — ${r.customer?.name}`}>
-                        {r.isStart && <span className="truncate leading-none">{r.camera?.name?.split(' ')[0] || ''}</span>}
+                        {r.isStart && <span className="truncate leading-none text-[10px] sm:text-xs">{r.camera?.name?.split(' ')[0] || ''}</span>}
                       </div>
                     ))}
-                    {active.length > 3 && <div className="text-xs text-gray-400 pl-0.5">+{active.length - 3}</div>}
+                    {active.length > 3 && <div className="text-[10px] sm:text-xs text-gray-400 pl-0.5">+{active.length - 3}</div>}
                   </div>
                 </div>
               )
