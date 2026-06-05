@@ -196,6 +196,14 @@ export default function RentalsPage() {
     } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
+  const handleToggleInsuranceReturn = async (rental) => {
+    const next = !rental.insurance_returned
+    try {
+      await updateRental(rental.id, { insurance_returned: next })
+      await reload()
+    } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
+  }
+
   const handleSendDailySummary = async () => {
     setSummaryLoading(true); setSummarySent(false)
     try {
@@ -554,7 +562,26 @@ export default function RentalsPage() {
                             <div><p className="text-xs text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium">฿{Number(r.price_per_day).toLocaleString()}</p></div>
                             <div><p className="text-xs text-gray-400 mb-0.5">ราคาเช่ารวม</p><p className="font-medium">฿{Number(r.total_price).toLocaleString()}</p></div>
                             <div><p className="text-xs text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-green-700">-฿{Number(r.deposit).toLocaleString()}</p></div>
-                            {Number(r.insurance)>0 && <div><p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p><p className="font-medium text-orange-600">+฿{Number(r.insurance).toLocaleString()}</p></div>}
+                            {Number(r.insurance)>0 && (
+                              <div>
+                                <p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p>
+                                {r.status === 'returned' ? (
+                                  <button
+                                    onClick={() => handleToggleInsuranceReturn(r)}
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                      r.insurance_returned
+                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                    }`}
+                                  >
+                                    {r.insurance_returned ? '✅ คืนประกันแล้ว' : '🔒 รอคืน'}
+                                    <span className="font-semibold">฿{Number(r.insurance).toLocaleString()}</span>
+                                  </button>
+                                ) : (
+                                  <p className="font-medium text-orange-600">+฿{Number(r.insurance).toLocaleString()}</p>
+                                )}
+                              </div>
+                            )}
                             {Number(r.delivery_fee)>0 && <div><p className="text-xs text-gray-400 mb-0.5">ค่าส่ง</p><p className="font-medium text-blue-600">+฿{Number(r.delivery_fee).toLocaleString()}</p></div>}
                             <div className="col-span-2 bg-brand-50 rounded-lg p-2.5">
                               <p className="text-xs text-gray-400 mb-0.5">จ่ายวันรับกล้อง</p>
