@@ -56,19 +56,20 @@ export function AppProvider({ children }) {
     const today = new Date().toISOString().split('T')[0]
     const startOfMonth = today.slice(0, 7) + '-01'
     const monthExpenses = expenses.filter(e => e.date >= startOfMonth)
-    // นับรายได้แบบ real-time ตามสถานะ:
-    // booked   → deposit เท่านั้น (ยังไม่ส่งกล้อง)
-    // active   → total_price + insurance + delivery_fee (ส่งกล้องแล้ว รับเงินครบรวมค่าประกัน)
-    // returned → total_price + delivery_fee (คืนค่าประกันให้ลูกค้าแล้ว)
-    const monthRevenue = rentals
-      .filter(r => r.status !== 'cancelled' && r.start_date >= startOfMonth)
-      .reduce((sum, r) => {
-        if (r.status === 'returned') return sum + Number(r.total_price || 0) + Number(r.delivery_fee || 0)
-        if (r.status === 'active')   return sum + Number(r.total_price || 0) + Number(r.insurance || 0) + Number(r.delivery_fee || 0)
-        if (r.status === 'booked')   return sum + Number(r.deposit || 0)
-        return sum
-      }, 0)
-    const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
+    // รายได้แยกตามสถานะ
+    const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && r.start_date >= startOfMonth)
+    const revenueBreakdown = {
+      returned: thisMonthRentals.filter(r => r.status === 'returned')
+        .reduce((s, r) => s + Number(r.total_price || 0) + Number(r.delivery_fee || 0), 0),
+      activeRental: thisMonthRentals.filter(r => r.status === 'active')
+        .reduce((s, r) => s + Number(r.total_price || 0), 0),
+      heldInsurance: thisMonthRentals.filter(r => r.status === 'active')
+        .reduce((s, r) => s + Number(r.insurance || 0), 0),
+      deposits: thisMonthRentals.filter(r => r.status === 'booked')
+        .reduce((s, r) => s + Number(r.deposit || 0), 0),
+    }
+    const monthRevenue = revenueBreakdown.returned + revenueBreakdown.activeRental + revenueBreakdown.heldInsurance + revenueBreakdown.deposits
+        const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
     // category breakdown this month
     const expByCategory = {}
     monthExpenses.forEach(e => { expByCategory[e.category] = (expByCategory[e.category] || 0) + Number(e.amount) })
@@ -78,6 +79,7 @@ export function AppProvider({ children }) {
       rentedCameras: cameras.filter(c => c.status === 'rented').length,
       todayRentals: rentals.filter(r => r.status === 'active' && r.start_date <= today && r.end_date >= today).length,
       monthRevenue,
+      revenueBreakdown,
       monthExpenseTotal,
       monthProfit: monthRevenue - monthExpenseTotal,
       expByCategory: Object.entries(expByCategory).sort((a, b) => b[1] - a[1]).slice(0, 5),
