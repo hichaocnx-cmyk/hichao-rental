@@ -57,14 +57,14 @@ export function AppProvider({ children }) {
     const startOfMonth = today.slice(0, 7) + '-01'
     const monthExpenses = expenses.filter(e => e.date >= startOfMonth)
     // นับรายได้แบบ real-time ตามสถานะ:
-    // returned → total_price เต็ม
-    // active   → deposit + (total_price - deposit) = total_price ทั้งหมด (ส่งกล้องแล้ว รับเงินส่วนที่เหลือแล้ว)
-    // booked   → deposit ที่ได้รับมัดจำแล้ว (ถ้ามี)
+    // booked   → deposit เท่านั้น (ยังไม่ส่งกล้อง)
+    // active   → total_price + insurance + delivery_fee (ส่งกล้องแล้ว รับเงินครบรวมค่าประกัน)
+    // returned → total_price + delivery_fee (คืนค่าประกันให้ลูกค้าแล้ว)
     const monthRevenue = rentals
       .filter(r => r.status !== 'cancelled' && r.start_date >= startOfMonth)
       .reduce((sum, r) => {
-        if (r.status === 'returned') return sum + Number(r.total_price || 0)
-        if (r.status === 'active')   return sum + Number(r.total_price || 0)
+        if (r.status === 'returned') return sum + Number(r.total_price || 0) + Number(r.delivery_fee || 0)
+        if (r.status === 'active')   return sum + Number(r.total_price || 0) + Number(r.insurance || 0) + Number(r.delivery_fee || 0)
         if (r.status === 'booked')   return sum + Number(r.deposit || 0)
         return sum
       }, 0)
