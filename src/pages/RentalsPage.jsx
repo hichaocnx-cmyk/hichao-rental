@@ -186,7 +186,9 @@ export default function RentalsPage() {
   const handleReturn = async (rental) => {
     if (!confirm(`ยืนยันรับกล้อง "${rental.camera?.name}" คืนแล้ว?`)) return
     try {
-      await updateRental(rental.id, { status: 'returned' })
+      const returnUpdate = { status: 'returned' }
+      if (Number(rental.insurance) > 0) returnUpdate.insurance_returned = true
+      await updateRental(rental.id, returnUpdate)
       await updateCamera(rental.camera_id, { status: 'available' })
       await reload()
       setActiveTab('returned')
@@ -196,13 +198,6 @@ export default function RentalsPage() {
     } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
-  const handleToggleInsuranceReturn = async (rental) => {
-    const next = !rental.insurance_returned
-    try {
-      await updateRental(rental.id, { insurance_returned: next })
-      await reload()
-    } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
-  }
 
   const handleSendDailySummary = async () => {
     setSummaryLoading(true); setSummarySent(false)
@@ -566,17 +561,9 @@ export default function RentalsPage() {
                               <div>
                                 <p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p>
                                 {r.status === 'returned' ? (
-                                  <button
-                                    onClick={() => handleToggleInsuranceReturn(r)}
-                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                      r.insurance_returned
-                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                                    }`}
-                                  >
-                                    {r.insurance_returned ? '✅ คืนประกันแล้ว' : '🔒 รอคืน'}
-                                    <span className="font-semibold">฿{Number(r.insurance).toLocaleString()}</span>
-                                  </button>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    ✅ คืนแล้ว ฿{Number(r.insurance).toLocaleString()}
+                                  </span>
                                 ) : (
                                   <p className="font-medium text-orange-600">+฿{Number(r.insurance).toLocaleString()}</p>
                                 )}
