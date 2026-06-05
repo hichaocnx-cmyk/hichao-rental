@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
@@ -16,8 +16,20 @@ const THIS_YEAR = TODAY.getFullYear()
 const THIS_MON  = `${THIS_YEAR}-${String(TODAY.getMonth()+1).padStart(2,'0')}`
 
 // ── Export Excel via SheetJS CDN ─────────────────────────────────
-async function exportExcel(rentals, expenses, mode, selectedYear, selectedMonth) {
-  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs')
+async function loadXLSX() {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('โหลด library นานเกินไป — กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต')), 10000)
+  )
+  return Promise.race([
+    import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'),
+    timeout,
+  ])
+}
+
+async function exportExcel(rentals, expenses, mode, selectedYear, selectedMonth, onStatus) {
+  onStatus('loading')
+  const XLSX = await loadXLSX()
+  onStatus('generating')
   const wb   = XLSX.utils.book_new()
 
   const filterRentals  = r => mode === 'monthly' ? r.start_date?.startsWith(selectedMonth) : r.start_date?.startsWith(String(selectedYear))
@@ -90,7 +102,8 @@ export default function ReportPage() {
   const [tab, setTab]               = useState('monthly')  // 'monthly' | 'yearly'
   const [selectedMonth, setSelectedMonth] = useState(THIS_MON)
   const [selectedYear,  setSelectedYear]  = useState(THIS_YEAR)
-  const [exporting, setExporting]   = useState(false)
+  const [exportStatus, setExportStatus] = useState('idle') // idle | loading | generating | done | error
+  const [exportError,  setExportError]  = useState(null)
 
   // ── Available options ─────────────────────────────────────────
   const availableMonths = useMemo(() => {
@@ -162,12 +175,18 @@ export default function ReportPage() {
   const yearExpTotal  = yearData.reduce((s,d)=>s+d.expTotal,0)
   const yearProfit    = yearRevTotal - yearExpTotal
 
-  const handleExport = async () => {
-    setExporting(true)
-    try { await exportExcel(rentals, expenses, tab, selectedYear, selectedMonth) }
-    catch(e) { alert('Export ไม่สำเร็จ: ' + e.message) }
-    finally { setExporting(false) }
-  }
+  const handleExport = useCallback(async () => {
+    setExportError(null)
+    setExportStatus('idle')
+    try {
+      await exportExcel(rentals, expenses, tab, selectedYear, selectedMonth, setExportStatus)
+      setExportStatus('done')
+      setTimeout(() => setExportStatus('idle'), 3000)
+    } catch (e) {
+      setExportStatus('error')
+      setExportError(e.message || 'Export ไม่สำเร็จ')
+    }
+  }, [rentals, expenses, tab, selectedYear, selectedMonth])
 
   const statCls = (v) => v >= 0 ? 'text-green-600' : 'text-red-600'
 
@@ -186,13 +205,32 @@ export default function ReportPage() {
           <h2 className="text-xl font-semibold text-gray-900">รายงาน</h2>
           <p className="text-gray-500 text-sm mt-0.5">สรุปรายได้ รายจ่าย และกำไรของร้าน</p>
         </div>
-        <button onClick={handleExport} disabled={exporting}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-colors">
-          {exporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> :
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-          }
-          Export Excel
-        </button>
+        <div className="flex flex-col items-end gap-1.5">
+          <button onClick={handleExport} disabled={exportStatus === 'loading' || exportStatus === 'generating'}
+            className={`flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 ${
+              exportStatus === 'done' ? 'bg-emerald-500 hover:bg-emerald-600' :
+              exportStatus === 'error' ? 'bg-red-500 hover:bg-red-600' :
+              'bg-green-600 hover:bg-green-700'}`}>
+            {(exportStatus === 'loading' || exportStatus === 'generating') ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : exportStatus === 'done' ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+            )}
+            {exportStatus === 'loading' ? 'กำลังโหลด library...' :
+             exportStatus === 'generating' ? 'กำลังสร้างไฟล์...' :
+             exportStatus === 'done' ? 'ดาวน์โหลดแล้ว!' :
+             'Export Excel'}
+          </button>
+          {exportStatus === 'error' && exportError && (
+            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 max-w-xs">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+              <span>{exportError}</span>
+              <button onClick={() => setExportStatus('idle')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabs + filter */}
