@@ -259,7 +259,6 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold text-gray-800">รายได้เดือนนี้ — {currentMonthLabel()}</h3>
             <p className="text-xs text-gray-400 mt-0.5">แยกตามสถานะการเช่า</p>
           </div>
-          <p className="text-base font-bold text-gray-900">{fmtMoney(revTotal)}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
           <div className="px-5 py-4 flex items-center gap-3">
