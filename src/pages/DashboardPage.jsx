@@ -182,24 +182,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900">ภาพรวม</h2>
-        <p className="text-gray-500 text-sm mt-0.5">ข้อมูลสรุปของ HICHAO.CNX Camera Rental</p>
-      </div>
-
-      {/* Top stat cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-        {topCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
-            <div className={`p-2 sm:p-2.5 rounded-lg ${card.color} flex-shrink-0`}>{card.icon}</div>
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">{card.value}</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-700 mt-0.5">{card.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">{card.sub}</p>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* ── รายได้เดือนนี้ แยกสัดส่วน ── */}
       <div>
@@ -367,6 +349,26 @@ export default function DashboardPage() {
               <DonutChart data={stats.expByCategory || []} total={stats.monthExpenseTotal} colors={EXP_COLORS} />
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── ภาพรวม (สรุปล่างสุด) ── */}
+      <div>
+        <div className="mb-3">
+          <h3 className="text-base font-semibold text-gray-800">ภาพรวม</h3>
+          <p className="text-xs text-gray-400 mt-0.5">ข้อมูลสรุปของ HICHAO.CNX Camera Rental</p>
+        </div>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+          {topCards.map((card) => (
+            <div key={card.label} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 flex items-start gap-3 sm:gap-4">
+              <div className={`p-2 sm:p-2.5 rounded-lg ${card.color} flex-shrink-0`}>{card.icon}</div>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{card.value}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-700 mt-0.5">{card.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">{card.sub}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
