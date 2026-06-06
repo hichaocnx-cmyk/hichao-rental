@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
 import RentalModal from '../components/RentalModal'
 import InvoiceModal from '../components/InvoiceModal'
+import { RentalsSkeleton } from '../components/Skeleton'
 
 // ── Calendar constants ──────────────────────────────────────────
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
@@ -297,7 +298,11 @@ export default function RentalsPage() {
       </div>
       {/* Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12"><div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" /></div>
+        <div className="grid grid-cols-7 gap-1 py-4">
+          {[...Array(35)].map((_, i) => (
+            <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-7">
           {cells.map((cell, i) => {
@@ -499,13 +504,24 @@ export default function RentalsPage() {
 
           {/* ── Loading ───────────────────────────────────────── */}
           {loading ? (
-            <div className="bg-white rounded-2xl border border-gray-100 flex justify-center py-14">
-              <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-            </div>
+            <RentalsSkeleton />
           ) : filteredRentals.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 text-center py-14">
-              <CamIcon className="w-9 h-9 text-gray-200 mx-auto mb-2" />
-              <p className="text-gray-400 text-sm">{selectedDay ? 'ไม่มีรายการในวันที่เลือก' : 'ไม่พบรายการเช่า'}</p>
+            <div className="bg-white rounded-2xl border border-gray-100 flex flex-col items-center justify-center py-20 px-6 text-center">
+              <div className="w-20 h-20 bg-brand-50 rounded-3xl flex items-center justify-center mb-4">
+                <svg className="w-10 h-10 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                </svg>
+              </div>
+              <p className="text-gray-800 font-semibold text-base">
+                {selectedDay ? 'ไม่มีรายการในวันนี้' : 'ยังไม่มีรายการเช่า'}
+              </p>
+              <p className="text-gray-400 text-sm mt-1 max-w-xs">
+                {selectedDay ? 'เลือกวันอื่นหรือกด + เพื่อเพิ่มการเช่าใหม่' : 'กด + เพื่อเพิ่มการเช่าแรก'}
+              </p>
+              <button onClick={() => setRentalModal('new')}
+                className="mt-5 px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-brand-100">
+                + เพิ่มการเช่าใหม่
+              </button>
             </div>
 
           ) : (
@@ -837,17 +853,6 @@ export default function RentalsPage() {
       {invoiceRental && (
         <InvoiceModal rental={invoiceRental} onClose={() => setInvoiceRental(null)} />
       )}
-
-      {/* ── FAB (mobile only) ────────────────────────────────── */}
-      <button
-        onClick={() => setRentalModal('new')}
-        className="lg:hidden fixed bottom-24 right-4 z-40 w-14 h-14 bg-brand-500 hover:bg-brand-600 active:scale-95 text-white rounded-full shadow-lg shadow-brand-200 flex items-center justify-center transition-all duration-150"
-        aria-label="เพิ่มการเช่าใหม่"
-      >
-        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
 
     </div>
   )

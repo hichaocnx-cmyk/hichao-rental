@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useNavigate } from 'react-router-dom'
 import { sendLineNotify } from '../lib/lineNotify'
+import { DashboardSkeleton } from '../components/Skeleton'
 
 // ── Donut Chart ────────────────────────────────────────────────────
 function DonutChart({ data, total, colors }) {
@@ -159,6 +160,8 @@ export default function DashboardPage() {
 
   const bd       = stats.revenueBreakdown || {}
   const revTotal = stats.monthRevenue || 0
+
+  if (loading) return <DashboardSkeleton />
 
   return (
     <div className="space-y-4">

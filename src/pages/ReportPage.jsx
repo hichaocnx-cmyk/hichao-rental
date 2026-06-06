@@ -1,481 +1,370 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { ReportSkeleton } from '../components/Skeleton'
 
-const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
-  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+// ── Helpers ────────────────────────────────────────────────────
+const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-const fmtMoney = v => `฿${Number(v || 0).toLocaleString()}`
-const fmtDate  = iso => {
-  if (!iso) return '—'
-  const [y, m, d] = iso.split('-')
-  return `${parseInt(d)} ${MONTHS_TH[parseInt(m)-1]} ${parseInt(y) + 543}`
+function fmtMoney(v) {
+  if (v >= 1_000_000) return `฿${(v/1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `฿${(v/1_000).toFixed(1)}k`
+  return `฿${Number(v).toLocaleString()}`
 }
 
-const TODAY     = new Date()
-const THIS_YEAR = TODAY.getFullYear()
-const THIS_MON  = `${THIS_YEAR}-${String(TODAY.getMonth()+1).padStart(2,'0')}`
-
-// ── Export Excel via SheetJS CDN ─────────────────────────────────
-async function loadXLSX() {
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('โหลด library นานเกินไป — กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต')), 10000)
-  )
-  return Promise.race([
-    import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'),
-    timeout,
-  ])
+function getLastNMonths(n) {
+  const result = []
+  const now = new Date()
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    result.push({
+      year:  d.getFullYear(),
+      month: d.getMonth(),
+      label: MONTHS_TH[d.getMonth()],
+      prefix: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+    })
+  }
+  return result
 }
 
-async function exportExcel(rentals, expenses, mode, selectedYear, selectedMonth, onStatus) {
-  onStatus('loading')
-  const XLSX = await loadXLSX()
-  onStatus('generating')
-  const wb   = XLSX.utils.book_new()
+// ── Bar Chart ──────────────────────────────────────────────────
+function BarChart({ data, maxVal }) {
+  const [tooltip, setTooltip] = useState(null)
+  const chartH = 180
+  const barW = 32
+  const gap = 14
+  const totalW = data.length * (barW + gap) - gap
+  const padL = 44, padB = 28, padT = 20
 
-  const filterRentals  = r => mode === 'monthly' ? r.start_date?.startsWith(selectedMonth) : r.start_date?.startsWith(String(selectedYear))
-  const filterExpenses = e => mode === 'monthly' ? e.date?.startsWith(selectedMonth)       : e.date?.startsWith(String(selectedYear))
-
-  const filtR = rentals.filter(filterRentals)
-  const filtE = expenses.filter(filterExpenses)
-
-  // Sheet 1: สรุป
-  const retR       = filtR.filter(r=>r.status==='returned')
-  const totalGross = retR.reduce((s,r)=>s+Number(r.total_price)+Number(r.discount||0),0)
-  const totalDisc  = retR.reduce((s,r)=>s+Number(r.discount||0),0)
-  const totalRev   = retR.reduce((s,r)=>s+Number(r.total_price),0)
-  const totalExp   = filtE.reduce((s,e)=>s+Number(e.amount),0)
-  const summaryData = [
-    ['รายงาน HICHAO.CNX Camera Rental'],
-    [mode === 'monthly' ? `เดือน: ${MONTHS_TH[parseInt(selectedMonth.split('-')[1])-1]} ${selectedMonth.split('-')[0]}` : `ปี: ${selectedYear}`],
-    [],
-    ['หัวข้อ', 'ยอด (฿)'],
-    ['รายได้รวม (ก่อนส่วนลด)', totalGross],
-    ['ส่วนลดรวม', totalDisc],
-    ['รายได้สุทธิ (หลังส่วนลด)', totalRev],
-    ['รายจ่ายรวม', totalExp],
-    ['กำไรสุทธิ', totalRev - totalExp],
-    [],
-    ['จำนวนรายการเช่า', filtR.length],
-    ['จำนวนรายการคืนแล้ว', retR.length],
-  ]
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'สรุป')
-
-  // Sheet 2: รายการเช่า
-  const rentalRows = [['วันรับ','วันคืน','กล้อง','ลูกค้า','เบอร์โทร','สถานะ','ราคาเช่า (ก่อนลด)','ส่วนลด','ราคาสุทธิ','มัดจำ','ประกัน','ค่าส่ง','จ่ายวันรับ','หมายเหตุ']]
-  filtR.forEach(r => {
-    const disc  = Number(r.discount||0)
-    const gross = Number(r.total_price)+disc
-    rentalRows.push([
-      r.start_date, r.end_date,
-      r.camera?.name||'—', r.customer?.name||'—', r.customer?.phone||'—',
-      r.status, gross, disc, Number(r.total_price),
-      Number(r.deposit), Number(r.insurance||0),
-      Number(r.delivery_fee||0), Number(r.due_on_pickup||0), r.notes||''
-    ])
-  })
-  const wsRentals = XLSX.utils.aoa_to_sheet(rentalRows)
-  XLSX.utils.book_append_sheet(wb, wsRentals, 'รายการเช่า')
-
-  // Sheet 3: รายจ่าย
-  const expRows = [['วันที่','หมวดหมู่','จำนวนเงิน (฿)','หมายเหตุ']]
-  filtE.forEach(e => expRows.push([e.date, e.category, Number(e.amount), e.note||'']))
-  const wsExp = XLSX.utils.aoa_to_sheet(expRows)
-  XLSX.utils.book_append_sheet(wb, wsExp, 'รายจ่าย')
-
-  const label = mode === 'monthly' ? selectedMonth : selectedYear
-  XLSX.writeFile(wb, `HICHAO_Report_${label}.xlsx`)
-}
-
-// ── Mini bar chart component ──────────────────────────────────────
-function MiniBar({ value, max, color = '#6366f1' }) {
-  const pct = max > 0 ? (value / max) * 100 : 0
   return (
-    <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full">
-      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+    <div className="relative overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${totalW + padL + 16} ${chartH + padB + padT}`}
+        className="w-full min-w-[320px]"
+        style={{ height: chartH + padB + padT }}
+      >
+        <defs>
+          <filter id="ttShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.08" />
+          </filter>
+        </defs>
+
+        {/* Y grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+          const y = padT + chartH - frac * chartH
+          return (
+            <g key={frac}>
+              <line x1={padL} y1={y} x2={totalW + padL} y2={y}
+                stroke="#f3f4f6" strokeWidth={1} />
+              <text x={padL - 6} y={y + 4} textAnchor="end"
+                fontSize={9} fill="#d1d5db">
+                {fmtMoney(maxVal * frac)}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* Bars */}
+        {data.map((d, i) => {
+          const x = padL + i * (barW + gap)
+          const barH = maxVal > 0 ? (d.revenue / maxVal) * chartH : 0
+          const expH = maxVal > 0 ? Math.min((d.expenses / maxVal) * chartH, barH) : 0
+          const y = padT + chartH - barH
+          const isHovered = tooltip?.i === i
+          const isCurrent = i === data.length - 1
+
+          return (
+            <g key={i}
+              onMouseEnter={() => setTooltip({ i, ...d })}
+              onMouseLeave={() => setTooltip(null)}
+              style={{ cursor: 'pointer' }}>
+              {/* Revenue bar */}
+              <rect x={x} y={y} width={barW} height={Math.max(barH, 0)}
+                rx={6} fill={isCurrent ? '#FF6B9D' : isHovered ? '#ffaac9' : '#ffd6e7'}
+                style={{ transition: 'fill 0.15s' }}
+              />
+              {/* Expense overlay */}
+              {expH > 0 && (
+                <rect x={x} y={padT + chartH - expH} width={barW} height={expH}
+                  rx={6} fill={isCurrent ? '#fb923c' : '#fed7aa'}
+                  style={{ transition: 'fill 0.15s' }}
+                />
+              )}
+              {/* X label */}
+              <text x={x + barW / 2} y={padT + chartH + 16}
+                textAnchor="middle" fontSize={10}
+                fill={isCurrent ? '#FF6B9D' : '#9ca3af'}
+                fontWeight={isCurrent ? '600' : '400'}>
+                {d.label}
+              </text>
+              {/* Value above bar */}
+              {barH > 14 && (
+                <text x={x + barW / 2} y={y - 4}
+                  textAnchor="middle" fontSize={9}
+                  fill={isCurrent ? '#FF6B9D' : '#d1d5db'}>
+                  {fmtMoney(d.revenue)}
+                </text>
+              )}
+            </g>
+          )
+        })}
+
+        {/* Tooltip */}
+        {tooltip && (() => {
+          const i = tooltip.i
+          const x = padL + i * (barW + gap)
+          const ttW = 124, ttH = 58
+          const ttX = Math.max(padL, Math.min(x + barW / 2 - ttW / 2, totalW + padL - ttW))
+          const ttY = padT
+          return (
+            <g pointerEvents="none">
+              <rect x={ttX} y={ttY} width={ttW} height={ttH} rx={8}
+                fill="white" stroke="#e5e7eb" strokeWidth={1} filter="url(#ttShadow)" />
+              <text x={ttX + 10} y={ttY + 18} fontSize={11} fill="#374151" fontWeight="600">
+                {tooltip.label} {tooltip.year}
+              </text>
+              <text x={ttX + 10} y={ttY + 33} fontSize={10} fill="#FF6B9D">
+                รายรับ {fmtMoney(tooltip.revenue)}
+              </text>
+              <text x={ttX + 10} y={ttY + 48} fontSize={10} fill="#fb923c">
+                รายจ่าย {fmtMoney(tooltip.expenses)}
+              </text>
+            </g>
+          )
+        })()}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-1 px-1">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-brand-300" />
+          <span className="text-xs text-gray-400">รายรับ</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-orange-300" />
+          <span className="text-xs text-gray-400">รายจ่าย</span>
+        </div>
+      </div>
     </div>
   )
 }
 
+// ── Main Page ──────────────────────────────────────────────────
 export default function ReportPage() {
-  const { rentals, expenses, loading } = useApp()
-  const [tab, setTab]               = useState('monthly')  // 'monthly' | 'yearly'
-  const [selectedMonth, setSelectedMonth] = useState(THIS_MON)
-  const [selectedYear,  setSelectedYear]  = useState(THIS_YEAR)
-  const [exportStatus, setExportStatus] = useState('idle') // idle | loading | generating | done | error
-  const [exportError,  setExportError]  = useState(null)
+  const { rentals, expenses, cameras, loading } = useApp()
+  const [period, setPeriod] = useState(6)
 
-  // ── Available options ─────────────────────────────────────────
-  const availableMonths = useMemo(() => {
-    const s = new Set([...rentals.map(r=>r.start_date?.slice(0,7)), ...expenses.map(e=>e.date?.slice(0,7))].filter(Boolean))
-    if (!s.has(THIS_MON)) s.add(THIS_MON)
-    return [...s].sort((a,b)=>b.localeCompare(a))
-  }, [rentals, expenses])
+  const months = useMemo(() => getLastNMonths(period), [period])
 
-  const availableYears = useMemo(() => {
-    const s = new Set([...rentals.map(r=>r.start_date?.slice(0,4)), ...expenses.map(e=>e.date?.slice(0,4))].filter(Boolean))
-    if (!s.has(String(THIS_YEAR))) s.add(String(THIS_YEAR))
-    return [...s].sort((a,b)=>b.localeCompare(a))
-  }, [rentals, expenses])
-
-  // ── Monthly data ──────────────────────────────────────────────
-  const monthData = useMemo(() => {
-    const filtR    = rentals.filter(r => r.start_date?.startsWith(selectedMonth))
-    const filtE    = expenses.filter(e => e.date?.startsWith(selectedMonth))
-    const retR     = filtR.filter(r=>r.status==='returned')
-    const revenue  = retR.reduce((s,r)=>s+Number(r.total_price),0)
-    const retDisc  = retR.reduce((s,r)=>s+Number(r.discount||0),0)
-    const discount = filtR.reduce((s,r)=>s+Number(r.discount||0),0)
-    const gross    = revenue + retDisc
-    const expTotal = filtE.reduce((s,e)=>s+Number(e.amount),0)
-
-    const camMap = {}
-    filtR.forEach(r => {
-      const name = r.camera?.name || '—'
-      if (!camMap[name]) camMap[name] = { count: 0, revenue: 0 }
-      camMap[name].count++
-      if (r.status === 'returned') camMap[name].revenue += Number(r.total_price)
+  const monthlyData = useMemo(() => {
+    return months.map(m => {
+      const mRentals = rentals.filter(r =>
+        r.status !== 'cancelled' && (r.start_date || '').startsWith(m.prefix)
+      )
+      const mExpenses = expenses.filter(e => (e.date || '').startsWith(m.prefix))
+      const revenue = mRentals.reduce((s, r) =>
+        s + Number(r.total_price || 0) + Number(r.delivery_fee || 0), 0)
+      const exp = mExpenses.reduce((s, e) => s + Number(e.amount || 0), 0)
+      return { ...m, revenue, expenses: exp, profit: revenue - exp, count: mRentals.length }
     })
-    const topCameras = Object.entries(camMap).sort((a,b)=>b[1].count-a[1].count).slice(0,5)
+  }, [months, rentals, expenses])
 
-    const custMap = {}
-    filtR.forEach(r => {
-      const name = r.customer?.name || '—'
-      if (!custMap[name]) custMap[name] = { count: 0, revenue: 0 }
-      custMap[name].count++
-      if (r.status === 'returned') custMap[name].revenue += Number(r.total_price)
+  const maxVal = Math.max(...monthlyData.map(d => Math.max(d.revenue, d.expenses)), 1)
+  const totalRevenue  = monthlyData.reduce((s, d) => s + d.revenue, 0)
+  const totalExpenses = monthlyData.reduce((s, d) => s + d.expenses, 0)
+  const totalProfit   = totalRevenue - totalExpenses
+  const totalCount    = monthlyData.reduce((s, d) => s + d.count, 0)
+  const currentMonth  = monthlyData[monthlyData.length - 1]
+
+  const cameraRankings = useMemo(() => {
+    const map = {}
+    rentals.forEach(r => {
+      if (!r.camera_id) return
+      if (!map[r.camera_id]) map[r.camera_id] = { count: 0, revenue: 0, camera: r.camera }
+      map[r.camera_id].count += 1
+      map[r.camera_id].revenue += Number(r.total_price || 0)
     })
-    const topCustomers = Object.entries(custMap).sort((a,b)=>b[1].count-a[1].count).slice(0,5)
+    return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5)
+  }, [rentals])
 
-    const expCat = {}
-    filtE.forEach(e => { expCat[e.category] = (expCat[e.category]||0) + Number(e.amount) })
-    const expByCategory = Object.entries(expCat).sort((a,b)=>b[1]-a[1])
+  const expCategories = useMemo(() => {
+    const map = {}
+    const prefixes = months.map(m => m.prefix)
+    expenses
+      .filter(e => prefixes.some(p => (e.date || '').startsWith(p)))
+      .forEach(e => { map[e.category] = (map[e.category] || 0) + Number(e.amount || 0) })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  }, [expenses, months])
 
-    return { filtR, filtE, gross, discount, retDisc, revenue, expTotal, profit: revenue - expTotal, topCameras, topCustomers, expByCategory }
-  }, [rentals, expenses, selectedMonth])
-
-  // ── Yearly data ───────────────────────────────────────────────
-  const yearData = useMemo(() => {
-    const yr = String(selectedYear)
-    const months = Array.from({length:12},(_,i)=>i)
-    return months.map(i => {
-      const m = `${yr}-${String(i+1).padStart(2,'0')}`
-      const filtR = rentals.filter(r=>r.start_date?.startsWith(m))
-      const filtE = expenses.filter(e=>e.date?.startsWith(m))
-      const retR     = filtR.filter(r=>r.status==='returned')
-      const revenue  = retR.reduce((s,r)=>s+Number(r.total_price),0)
-      const discount = filtR.reduce((s,r)=>s+Number(r.discount||0),0)
-      const expTotal = filtE.reduce((s,e)=>s+Number(e.amount),0)
-      return { month: m, label: MONTHS_TH[i].slice(0,3), revenue, discount, expTotal, profit: revenue-expTotal, rentalCount: filtR.length }
-    })
-  }, [rentals, expenses, selectedYear])
-
-  const maxYearVal = Math.max(...yearData.map(d=>Math.max(d.revenue,d.expTotal)),1)
-  const yearRevTotal  = yearData.reduce((s,d)=>s+d.revenue,0)
-  const yearDiscTotal = yearData.reduce((s,d)=>s+d.discount,0)
-  const yearExpTotal  = yearData.reduce((s,d)=>s+d.expTotal,0)
-  const yearProfit    = yearRevTotal - yearExpTotal
-
-  const handleExport = useCallback(async () => {
-    setExportError(null)
-    setExportStatus('idle')
-    try {
-      await exportExcel(rentals, expenses, tab, selectedYear, selectedMonth, setExportStatus)
-      setExportStatus('done')
-      setTimeout(() => setExportStatus('idle'), 3000)
-    } catch (e) {
-      setExportStatus('error')
-      setExportError(e.message || 'Export ไม่สำเร็จ')
-    }
-  }, [rentals, expenses, tab, selectedYear, selectedMonth])
-
-  const statCls = (v) => v >= 0 ? 'text-green-600' : 'text-red-600'
-
-  if (loading) return (
-    <div className="flex justify-center items-center h-64">
-      <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <ReportSkeleton />
 
   return (
     <div className="space-y-5">
 
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">รายงาน</h2>
-          <p className="text-gray-500 text-sm mt-0.5">สรุปรายได้ รายจ่าย และกำไรของร้าน</p>
+          <p className="text-xs text-gray-400 mt-0.5">ข้อมูลรายรับ-รายจ่ายและสถิติ</p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <button onClick={handleExport} disabled={exportStatus === 'loading' || exportStatus === 'generating'}
-            className={`flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 ${
-              exportStatus === 'done' ? 'bg-emerald-500 hover:bg-emerald-600' :
-              exportStatus === 'error' ? 'bg-red-500 hover:bg-red-600' :
-              'bg-green-600 hover:bg-green-700'}`}>
-            {(exportStatus === 'loading' || exportStatus === 'generating') ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : exportStatus === 'done' ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            )}
-            {exportStatus === 'loading' ? 'กำลังโหลด library...' :
-             exportStatus === 'generating' ? 'กำลังสร้างไฟล์...' :
-             exportStatus === 'done' ? 'ดาวน์โหลดแล้ว!' :
-             'Export Excel'}
-          </button>
-          {exportStatus === 'error' && exportError && (
-            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 max-w-xs">
-              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
-              <span>{exportError}</span>
-              <button onClick={() => setExportStatus('idle')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs + filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex rounded-xl border border-gray-200 overflow-hidden bg-white">
-          {['monthly','yearly'].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-2 text-sm font-medium transition-colors ${tab===t ? 'bg-brand-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-              {t === 'monthly' ? 'รายเดือน' : 'รายปี'}
+        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+          {[3, 6].map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                period === p ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              }`}>
+              {p} เดือน
             </button>
           ))}
         </div>
-        {tab === 'monthly' ? (
-          <select value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
-            {availableMonths.map(m => (
-              <option key={m} value={m}>{MONTHS_TH[parseInt(m.split('-')[1])-1]} {m.split('-')[0]}</option>
-            ))}
-          </select>
+      </div>
+
+      {/* ── Stats strip ────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {[
+          {
+            label: 'รายรับรวม', value: fmtMoney(totalRevenue),
+            sub: `${totalCount} รายการ`, iconBg: 'bg-brand-50', iconColor: 'text-brand-500',
+            icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75" />,
+          },
+          {
+            label: 'รายจ่ายรวม', value: fmtMoney(totalExpenses),
+            sub: `${expCategories.length} หมวดหมู่`, iconBg: 'bg-orange-50', iconColor: 'text-orange-400',
+            icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6 9 12.75l4.286-4.286a11.948 11.948 0 0 1 4.306 6.43l.776 2.898m0 0 3.182-5.511m-3.182 5.51-5.511-3.181" />,
+          },
+          {
+            label: 'กำไรสุทธิ',
+            value: `${totalProfit < 0 ? '−' : ''}${fmtMoney(Math.abs(totalProfit))}`,
+            valueColor: totalProfit >= 0 ? 'text-emerald-600' : 'text-red-500',
+            sub: totalRevenue > 0 ? `margin ${Math.round((totalProfit/totalRevenue)*100)}%` : '—',
+            iconBg: totalProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50',
+            iconColor: totalProfit >= 0 ? 'text-emerald-500' : 'text-red-400',
+            icon: totalProfit >= 0
+              ? <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+              : <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6 9 12.75l4.286-4.286a11.948 11.948 0 0 1 4.306 6.43l.776 2.898m0 0 3.182-5.511m-3.182 5.51-5.511-3.181" />,
+          },
+          {
+            label: 'เดือนนี้', value: fmtMoney(currentMonth.revenue),
+            sub: `${currentMonth.count} รายการ`, iconBg: 'bg-sky-50', iconColor: 'text-sky-400',
+            icon: <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />,
+          },
+        ].map((s, i) => (
+          <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-gray-400 font-medium">{s.label}</p>
+              <div className={`w-8 h-8 ${s.iconBg} rounded-xl flex items-center justify-center`}>
+                <svg className={`w-4 h-4 ${s.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {s.icon}
+                </svg>
+              </div>
+            </div>
+            <p className={`text-xl font-bold ${s.valueColor || 'text-gray-900'}`}>{s.value}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Bar Chart ──────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800">รายรับ-รายจ่าย รายเดือน</h3>
+          <p className="text-xs text-gray-400 mt-0.5">ย้อนหลัง {period} เดือน</p>
+        </div>
+        {totalRevenue === 0 && totalExpenses === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-3">
+              <svg className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+              </svg>
+            </div>
+            <p className="text-gray-500 font-medium text-sm">ยังไม่มีข้อมูล</p>
+            <p className="text-gray-400 text-xs mt-1">เริ่มบันทึกการเช่าและรายจ่ายเพื่อดูกราฟ</p>
+          </div>
         ) : (
-          <select value={selectedYear} onChange={e=>setSelectedYear(Number(e.target.value))}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
-            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          <BarChart data={monthlyData} maxVal={maxVal} />
         )}
       </div>
 
-      {/* ══ MONTHLY VIEW ══ */}
-      {tab === 'monthly' && (
-        <div className="space-y-4">
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { label:'รายได้สุทธิ', sub: monthData.retDisc>0?`ก่อนลด ${fmtMoney(monthData.gross)}`:null, value: fmtMoney(monthData.revenue), color:'text-gray-900', bg:'bg-purple-50 text-purple-600',
-                icon:<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" /></svg> },
-              { label:'ส่วนลดรวม', sub: null, value: fmtMoney(monthData.discount), color:'text-purple-600', bg:'bg-violet-50 text-violet-500',
-                icon:<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0c1.1.128 1.907 1.077 1.907 2.185ZM9.75 9h.008v.008H9.75V9Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm4.125 4.5h.008v.008h-.008V13.5Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg> },
-              { label:'รายจ่ายรวม', sub: null, value: fmtMoney(monthData.expTotal), color:'text-red-600', bg:'bg-red-50 text-red-500',
-                icon:<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6 9 12.75l4.286-4.286a11.948 11.948 0 0 1 4.306 6.43l.776 2.898m0 0 3.182-5.511m-3.182 5.51-5.511-3.181" /></svg> },
-              { label:'กำไรสุทธิ', sub: null, value: (monthData.profit<0?'−':'')+fmtMoney(Math.abs(monthData.profit)), color: statCls(monthData.profit), bg: monthData.profit>=0?'bg-green-50 text-green-500':'bg-red-50 text-red-500',
-                icon:<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg> },
-            ].map(c => (
-              <div key={c.label} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${c.bg} flex-shrink-0`}>{c.icon}</div>
-                <div className="min-w-0">
-                  <p className="text-xs text-gray-500">{c.label}</p>
-                  <p className={`text-lg font-bold ${c.color} truncate`}>{c.value}</p>
-                  {c.sub && <p className="text-[11px] text-gray-400 mt-0.5">{c.sub}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* ── Bottom two columns ─────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-          {/* Tables */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-
-            {/* Top cameras */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">กล้องที่ถูกเช่าบ่อย</p>
-              {monthData.topCameras.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">ไม่มีข้อมูล</p> : (
-                <div className="space-y-3">
-                  {monthData.topCameras.map(([name, d],i) => (
-                    <div key={name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-700 truncate flex-1">{name}</span>
-                        <span className="text-gray-500 flex-shrink-0 ml-2">{d.count} ครั้ง</span>
-                      </div>
-                      <MiniBar value={d.count} max={monthData.topCameras[0]?.[1].count||1} color="#6366f1" />
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Top cameras */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">กล้องที่ถูกเช่ามากสุด</h3>
+          {cameraRankings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <svg className="w-8 h-8 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+              </svg>
+              <p className="text-gray-400 text-sm">ยังไม่มีข้อมูล</p>
             </div>
-
-            {/* Top customers */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">ลูกค้าที่เช่าบ่อย</p>
-              {monthData.topCustomers.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">ไม่มีข้อมูล</p> : (
-                <div className="space-y-3">
-                  {monthData.topCustomers.map(([name, d],i) => (
-                    <div key={name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-700 truncate flex-1">{name}</span>
-                        <span className="text-gray-500 flex-shrink-0 ml-2">{d.count} ครั้ง</span>
+          ) : (
+            <div className="space-y-3">
+              {cameraRankings.map((item, i) => {
+                const pct = Math.round((item.count / cameraRankings[0].count) * 100)
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm w-6 text-center">{medal}</span>
+                        <p className="text-sm text-gray-800 font-medium">{item.camera?.name || '—'}</p>
                       </div>
-                      <MiniBar value={d.count} max={monthData.topCustomers[0]?.[1].count||1} color="#10b981" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Expense breakdown */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">รายจ่ายตามหมวด</p>
-              {monthData.expByCategory.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">ไม่มีรายจ่าย</p> : (
-                <div className="space-y-3">
-                  {monthData.expByCategory.map(([cat, val]) => (
-                    <div key={cat}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-700 truncate flex-1">{cat}</span>
-                        <span className="text-gray-500 flex-shrink-0 ml-2">฿{val.toLocaleString()}</span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-xs font-bold text-gray-700">{item.count} ครั้ง</span>
+                        <span className="text-xs text-brand-500 ml-2">{fmtMoney(item.revenue)}</span>
                       </div>
-                      <MiniBar value={val} max={monthData.expByCategory[0]?.[1]||1} color="#f59e0b" />
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Rental list table */}
-          {monthData.filtR.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <p className="text-sm font-semibold text-gray-700">รายการเช่าทั้งหมด ({monthData.filtR.length} รายการ)</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-xs text-gray-500">
-                    <tr>
-                      {['วันรับ','วันคืน','กล้อง','ลูกค้า','สถานะ','ราคา (ก่อนลด)','ส่วนลด','ราคาสุทธิ','จ่ายวันรับ'].map(h => (
-                        <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {monthData.filtR.map(r => {
-                      const disc  = Number(r.discount||0)
-                      const gross = Number(r.total_price) + disc
-                      return (
-                      <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 text-xs">{fmtDate(r.start_date)}</td>
-                        <td className="px-4 py-2.5 text-xs">{fmtDate(r.end_date)}</td>
-                        <td className="px-4 py-2.5 text-xs font-medium text-gray-800">{r.camera?.name||'—'}</td>
-                        <td className="px-4 py-2.5 text-xs">{r.customer?.name||'—'}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            r.status==='returned'?'bg-green-100 text-green-700':
-                            r.status==='active'?'bg-orange-100 text-orange-700':
-                            r.status==='booked'?'bg-yellow-100 text-yellow-700':
-                            'bg-gray-100 text-gray-500'}`}>
-                            {r.status==='returned'?'คืนแล้ว':r.status==='active'?'กำลังเช่า':r.status==='booked'?'จองแล้ว':'ยกเลิก'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-gray-500">฿{gross.toLocaleString()}</td>
-                        <td className="px-4 py-2.5 text-xs">
-                          {disc > 0 ? <span className="text-purple-600 font-medium">−฿{disc.toLocaleString()}</span> : <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs font-medium">฿{Number(r.total_price).toLocaleString()}</td>
-                        <td className="px-4 py-2.5 text-xs font-bold text-brand-600">฿{Number(r.due_on_pickup||0).toLocaleString()}</td>
-                      </tr>
-                    )})}
-                  </tbody>
-                </table>
-              </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-brand-400 transition-all duration-500"
+                        style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
-      )}
 
-      {/* ══ YEARLY VIEW ══ */}
-      {tab === 'yearly' && (
-        <div className="space-y-4">
-          {/* Year summary */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { label:'รายได้สุทธิทั้งปี', sub: yearDiscTotal>0?`ก่อนลด ${fmtMoney(yearRevTotal+yearDiscTotal)}`:null, value: fmtMoney(yearRevTotal), color:'text-gray-900' },
-              { label:'ส่วนลดรวมทั้งปี', sub: null, value: fmtMoney(yearDiscTotal), color:'text-purple-600' },
-              { label:'รายจ่ายรวมทั้งปี', sub: null, value: fmtMoney(yearExpTotal), color:'text-red-600' },
-              { label:'กำไรสุทธิทั้งปี', sub: null, value: (yearProfit<0?'−':'')+fmtMoney(Math.abs(yearProfit)), color: statCls(yearProfit) },
-            ].map(c => (
-              <div key={c.label} className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-                <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
-                {c.sub && <p className="text-[11px] text-gray-400 mt-0.5">{c.sub}</p>}
-              </div>
-            ))}
-          </div>
-
-          {/* Monthly bar chart (12 months) */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">รายได้ vs รายจ่าย รายเดือน</p>
-            <div className="flex items-end gap-1.5 h-40">
-              {yearData.map((d, i) => (
-                <div key={d.month} className="flex-1 flex flex-col items-center gap-1 group cursor-default">
-                  <div className="w-full flex gap-0.5 items-end h-32">
-                    <div className="flex-1 rounded-t transition-all duration-300 hover:opacity-80"
-                      style={{ height: `${maxYearVal>0?(d.revenue/maxYearVal)*100:0}%`, background:'#6366f1', minHeight: d.revenue>0?'4px':0 }}
-                      title={`รายได้: ฿${d.revenue.toLocaleString()}`} />
-                    <div className="flex-1 rounded-t transition-all duration-300 hover:opacity-80"
-                      style={{ height: `${maxYearVal>0?(d.expTotal/maxYearVal)*100:0}%`, background:'#f87171', minHeight: d.expTotal>0?'4px':0 }}
-                      title={`รายจ่าย: ฿${d.expTotal.toLocaleString()}`} />
+        {/* Expense breakdown */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">รายจ่ายแยกหมวดหมู่</h3>
+          {expCategories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <svg className="w-8 h-8 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75" />
+              </svg>
+              <p className="text-gray-400 text-sm">ยังไม่มีรายจ่ายในช่วงนี้</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {expCategories.map(([cat, amt], i) => {
+                const pct = totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0
+                const COLORS = ['#FF6B9D','#fb923c','#facc15','#34d399','#60a5fa']
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ background: COLORS[i % COLORS.length] }} />
+                        <p className="text-sm text-gray-700">{cat || 'อื่นๆ'}</p>
+                      </div>
+                      <div className="flex-shrink-0 ml-2">
+                        <span className="text-xs font-bold text-gray-700">{fmtMoney(amt)}</span>
+                        <span className="text-xs text-gray-400 ml-1.5">{pct}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: COLORS[i % COLORS.length] }} />
+                    </div>
                   </div>
-                  <span className="text-[10px] text-gray-400">{d.label}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
-            {/* Legend */}
-            <div className="flex gap-4 mt-2 justify-center">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500"><span className="w-3 h-3 rounded-sm bg-indigo-500" />รายได้</div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500"><span className="w-3 h-3 rounded-sm bg-red-400" />รายจ่าย</div>
-            </div>
-          </div>
-
-          {/* Monthly table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500">
-                  <tr>
-                    {['เดือน','รายการเช่า','รายได้','รายจ่าย','กำไรสุทธิ'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {yearData.map(d => (
-                    <tr key={d.month} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800">{MONTHS_TH[parseInt(d.month.split('-')[1])-1]}</td>
-                      <td className="px-4 py-3 text-gray-600">{d.rentalCount} รายการ</td>
-                      <td className="px-4 py-3 font-medium text-purple-700">{fmtMoney(d.revenue)}</td>
-                      <td className="px-4 py-3 font-medium text-red-600">{fmtMoney(d.expTotal)}</td>
-                      <td className={`px-4 py-3 font-bold ${statCls(d.profit)}`}>
-                        {d.profit < 0 ? '−' : ''}{fmtMoney(Math.abs(d.profit))}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Total row */}
-                  <tr className="bg-gray-50 font-semibold">
-                    <td className="px-4 py-3 text-gray-900">รวมทั้งปี</td>
-                    <td className="px-4 py-3 text-gray-700">{yearData.reduce((s,d)=>s+d.rentalCount,0)} รายการ</td>
-                    <td className="px-4 py-3 text-purple-700">{fmtMoney(yearRevTotal)}</td>
-                    <td className="px-4 py-3 text-red-600">{fmtMoney(yearExpTotal)}</td>
-                    <td className={`px-4 py-3 font-bold text-base ${statCls(yearProfit)}`}>
-                      {yearProfit<0?'−':''}{fmtMoney(Math.abs(yearProfit))}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
+
     </div>
   )
 }

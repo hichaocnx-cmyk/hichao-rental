@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { deleteCustomer } from '../lib/customers'
 import { useApp } from '../context/AppContext'
 import CustomerModal from '../components/CustomerModal'
+import { CustomersSkeleton } from '../components/Skeleton'
 
 const AVATAR_COLORS = [
   'bg-brand-100 text-brand-600',
@@ -90,19 +91,28 @@ export default function CustomersPage() {
 
       {/* ── Cards ─────────────────────────────────────────────── */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <CustomersSkeleton />
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 text-center py-16">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+        <div className="bg-white rounded-2xl border border-gray-100 flex flex-col items-center justify-center py-20 px-6 text-center">
+          <div className="w-20 h-20 bg-brand-50 rounded-3xl flex items-center justify-center mb-4">
+            <svg className="w-10 h-10 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
             </svg>
           </div>
-          <p className="text-gray-400 text-sm">ไม่พบลูกค้า</p>
-          <button onClick={() => setModal({ open: true, customer: null })}
-            className="mt-3 text-xs text-brand-500 hover:underline">+ เพิ่มลูกค้าใหม่</button>
+          <p className="text-gray-800 font-semibold text-base">
+            {search ? 'ไม่พบลูกค้าที่ค้นหา' : 'ยังไม่มีลูกค้าในระบบ'}
+          </p>
+          <p className="text-gray-400 text-sm mt-1 max-w-xs">
+            {search
+              ? 'ลองค้นหาด้วยชื่อ เบอร์โทร หรือ LINE ID อื่น'
+              : 'เพิ่มลูกค้าคนแรกเพื่อเริ่มบันทึกการเช่า'}
+          </p>
+          {!search && (
+            <button onClick={() => setModal({ open: true, customer: null })}
+              className="mt-5 px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-brand-100">
+              + เพิ่มลูกค้าใหม่
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
