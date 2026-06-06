@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { useNavigate } from 'react-router-dom'
 import { sendLineNotify } from '../lib/lineNotify'
 import { DashboardSkeleton } from '../components/Skeleton'
+import { useToast } from '../context/ToastContext'
 
 // ── Donut Chart ────────────────────────────────────────────────────
 function DonutChart({ data, total, colors }) {
@@ -110,6 +111,7 @@ const currentMonthLabel = () => {
 export default function DashboardPage() {
   const { stats, rentals, loading } = useApp()
   const navigate = useNavigate()
+  const toast = useToast()
   const [lineSending, setLineSending] = useState(false)
   const [lineSent, setLineSent]       = useState(false)
 
@@ -153,8 +155,9 @@ export default function DashboardPage() {
       msg += `\nรวม ${pickups.length + returns.length} รายการ`
       await sendLineNotify(msg)
       setLineSent(true)
+      toast.success('ส่งสรุปคิวไป LINE แล้ว')
       setTimeout(() => setLineSent(false), 4000)
-    } catch (e) { alert('ส่ง LINE ไม่สำเร็จ: ' + e.message) }
+    } catch (e) { toast.error('ส่ง LINE ไม่สำเร็จ: ' + e.message) }
     finally { setLineSending(false) }
   }
 

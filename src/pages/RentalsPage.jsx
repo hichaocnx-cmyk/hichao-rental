@@ -6,6 +6,7 @@ import { sendLineNotify } from '../lib/lineNotify'
 import RentalModal from '../components/RentalModal'
 import InvoiceModal from '../components/InvoiceModal'
 import { RentalsSkeleton } from '../components/Skeleton'
+import { useToast, useConfirm } from '../context/ToastContext'
 
 // ── Calendar constants ──────────────────────────────────────────
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
@@ -62,6 +63,8 @@ function CamIcon({ className = 'w-5 h-5' }) {
 
 export default function RentalsPage() {
   const { rentals, loading, reload, notifications, unreadCount, readIds, markRead, markAllRead } = useApp()
+  const toast = useToast()
+  const confirm = useConfirm()
 
   // Calendar state
   const [current, setCurrent]     = useState(new Date())
@@ -179,17 +182,30 @@ export default function RentalsPage() {
 
   // ── Actions ───────────────────────────────────────────────────
   const handleDeliver = async (rental) => {
-    if (!confirm(`ยืนยันส่งกล้อง "${rental.camera?.name}" ให้ลูกค้าแล้ว?`)) return
+    const ok = await confirm({
+      title: `ยืนยันส่งกล้อง`,
+      message: `${rental.camera?.name} ให้ ${rental.customer?.name || 'ลูกค้า'} แล้ว?`,
+      confirmLabel: 'ยืนยันส่งกล้อง',
+      cancelLabel: 'ยกเลิก',
+    })
+    if (!ok) return
     try {
       await updateRental(rental.id, { status: 'active' })
       await updateCamera(rental.camera_id, { status: 'rented' })
       await reload()
+      toast.success(`ส่งกล้อง ${rental.camera?.name} ให้ลูกค้าแล้ว`)
       sendLineNotify(`[HICHAO.CNX] 🟠 ส่งกล้องแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}\n🗓 คืนวันที่ ${rental.end_date}`).catch(console.warn)
-    } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
+    } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
   const handleReturn = async (rental) => {
-    if (!confirm(`ยืนยันรับกล้อง "${rental.camera?.name}" คืนแล้ว?`)) return
+    const ok = await confirm({
+      title: 'ยืนยันรับกล้องคืน',
+      message: `${rental.camera?.name} จาก ${rental.customer?.name || 'ลูกค้า'} แล้ว?`,
+      confirmLabel: 'ยืนยันรับคืน',
+      cancelLabel: 'ยกเลิก',
+    })
+    if (!ok) return
     try {
       const returnUpdate = { status: 'returned' }
       if (Number(rental.insurance) > 0) returnUpdate.insurance_returned = true
@@ -197,8 +213,9 @@ export default function RentalsPage() {
       await updateCamera(rental.camera_id, { status: 'available' })
       await reload()
       setActiveTab('returned')
+      toast.success(`รับ ${rental.camera?.name} คืนเรียบร้อย`)
       sendLineNotify(`[HICHAO.CNX] ✅ รับกล้องคืนแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}`).catch(console.warn)
-    } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
+    } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
   const handleSendDailySummary = async () => {
@@ -227,17 +244,31 @@ export default function RentalsPage() {
       msg += `\nรวม ${pickups.length + returns.length} รายการ`
       await sendLineNotify(msg)
       setSummarySent(true)
+      toast.success('ส่งสรุปคิววันนี้ไป LINE แล้ว')
       setTimeout(() => setSummarySent(false), 4000)
-    } catch (e) { alert('ส่งไม่สำเร็จ: ' + e.message) }
+    } catch (e) { toast.error('ส่งไม่สำเร็จ: ' + e.message) }
     finally { setSummaryLoading(false) }
   }
 
   const handleDelete = async (rental) => {
-    if (!confirm('ลบรายการนี้?')) return
+    const ok = await confirm({
+      title: 'ลบรายการเช่า?',
+      message: 'ไม่สามารถกู้คืนได้หลังจากลบแล้ว',
+      confirmLabel: 'ลบเลย',
+      cancelLabel: 'ยกเลิก',
+      variant: 'danger',
+      icon: (
+        <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+        </svg>
+      ),
+    })
+    if (!ok) return
     try {
       if ((rental.status === 'active' || rental.status === 'booked') && rental.camera_id) await updateCamera(rental.camera_id, { status: 'available' })
       await deleteRental(rental.id); await reload()
-    } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
+      toast.success('ลบรายการเช่าแล้ว')
+    } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
   const handleSendLine = async (n) => {
@@ -247,7 +278,8 @@ export default function RentalsPage() {
       const loc  = n.rental?.return_location ? `\n📍 สถานที่คืน: ${n.rental.return_location}` : ''
       await sendLineNotify(`[HICHAO.CNX]\n📷 ${n.title}\n${n.body}${time}${loc}\n🗓 วันคืน: ${n.date}`)
       setLineSent(s => ({ ...s, [n.id]: true })); markRead(n.id)
-    } catch (e) { alert('ส่ง LINE ไม่สำเร็จ: ' + e.message) }
+      toast.info('ส่ง LINE แล้ว')
+    } catch (e) { toast.error('ส่ง LINE ไม่สำเร็จ: ' + e.message) }
     finally { setLineSending(s => ({ ...s, [n.id]: false })) }
   }
 
@@ -263,7 +295,8 @@ export default function RentalsPage() {
       }).join('\n')
       await sendLineNotify(`[HICHAO.CNX] แจ้งเตือนด่วน ${urgent.length} รายการ\n${lines}`)
       urgent.forEach(n => { setLineSent(s => ({ ...s, [n.id]: true })); markRead(n.id) })
-    } catch (e) { alert('ส่ง LINE ไม่สำเร็จ: ' + e.message) }
+      toast.success(`ส่ง LINE ${urgent.length} รายการแล้ว`)
+    } catch (e) { toast.error('ส่ง LINE ไม่สำเร็จ: ' + e.message) }
     finally { setLineSending(s => ({ ...s, all: false })) }
   }
 

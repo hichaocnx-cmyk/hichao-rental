@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
+import { useToast } from '../context/ToastContext'
 
 const TYPE_CONFIG = {
   overdue:      { label: 'เกินกำหนด',      cls: 'bg-red-100 text-red-700',      dot: 'bg-red-500',    border: 'border-red-200'    },
@@ -11,6 +12,7 @@ const TYPE_CONFIG = {
 
 export default function NotificationsPage() {
   const { notifications, unreadCount, readIds, markRead, markAllRead } = useApp()
+  const toast = useToast()
   const [filter, setFilter] = useState('all')
   const [sending, setSending] = useState({})
   const [sent, setSent] = useState({})
@@ -31,8 +33,9 @@ export default function NotificationsPage() {
       await sendLineNotify(msg)
       setSent(s => ({ ...s, [n.id]: true }))
       markRead(n.id)
+      toast.success('ส่ง LINE แล้ว')
     } catch (e) {
-      alert('ส่ง LINE ไม่สำเร็จ: ' + e.message)
+      toast.error('ส่ง LINE ไม่สำเร็จ: ' + e.message)
     } finally {
       setSending(s => ({ ...s, [n.id]: false }))
     }
@@ -40,7 +43,7 @@ export default function NotificationsPage() {
 
   const handleSendAll = async () => {
     const urgent = notifications.filter(n => n.urgent)
-    if (urgent.length === 0) return alert('ไม่มีรายการเร่งด่วน')
+    if (urgent.length === 0) { toast.warning('ไม่มีรายการเร่งด่วน'); return }
     setSending(s => ({ ...s, all: true }))
     try {
       const lines = urgent.map(n => {
@@ -50,8 +53,9 @@ export default function NotificationsPage() {
       }).join('\n')
       await sendLineNotify(`[HICHAO.CNX] แจ้งเตือนด่วน ${urgent.length} รายการ\n${lines}`)
       urgent.forEach(n => { setSent(s => ({ ...s, [n.id]: true })); markRead(n.id) })
+      toast.success(`ส่ง LINE ${urgent.length} รายการแล้ว`)
     } catch (e) {
-      alert('ส่ง LINE ไม่สำเร็จ: ' + e.message)
+      toast.error('ส่ง LINE ไม่สำเร็จ: ' + e.message)
     } finally {
       setSending(s => ({ ...s, all: false }))
     }

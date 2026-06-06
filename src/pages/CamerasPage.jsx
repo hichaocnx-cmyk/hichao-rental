@@ -3,6 +3,7 @@ import { deleteCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import CameraModal from '../components/CameraModal'
 import { CamerasSkeleton } from '../components/Skeleton'
+import { useToast, useConfirm } from '../context/ToastContext'
 
 const STATUS_CFG = {
   available:   { label: 'ว่าง',        cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', card: 'border-emerald-100' },
@@ -29,6 +30,8 @@ function CamPlaceholder() {
 
 export default function CamerasPage() {
   const { cameras, loading, reloadCameras } = useApp()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [search, setSearch]           = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [modal, setModal]             = useState({ open: false, camera: null })
@@ -42,14 +45,26 @@ export default function CamerasPage() {
   })
 
   const handleDelete = async (camera) => {
-    if (!confirm(`ลบกล้อง "${camera.name}" ?`)) return
+    const ok = await confirm({
+      title: `ลบกล้อง "${camera.name}"?`,
+      message: 'ไม่สามารถกู้คืนได้หลังจากลบแล้ว',
+      confirmLabel: 'ลบเลย',
+      variant: 'danger',
+      icon: (
+        <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+        </svg>
+      ),
+    })
+    if (!ok) return
     setDeleting(camera.id)
     try {
       await deleteCamera(camera.id, camera.image_url)
       await reloadCameras()
       if (selected?.id === camera.id) setSelected(null)
+      toast.success(`ลบ ${camera.name} แล้ว`)
     } catch (e) {
-      alert('ลบไม่สำเร็จ: ' + e.message)
+      toast.error('ลบไม่สำเร็จ: ' + e.message)
     } finally {
       setDeleting(null)
     }

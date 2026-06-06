@@ -3,6 +3,7 @@ import { deleteCustomer } from '../lib/customers'
 import { useApp } from '../context/AppContext'
 import CustomerModal from '../components/CustomerModal'
 import { CustomersSkeleton } from '../components/Skeleton'
+import { useToast, useConfirm } from '../context/ToastContext'
 
 const AVATAR_COLORS = [
   'bg-brand-100 text-brand-600',
@@ -21,6 +22,8 @@ function getAvatarColor(name = '') {
 
 export default function CustomersPage() {
   const { customers, rentals, loading, reloadCustomers } = useApp()
+  const toast = useToast()
+  const confirm = useConfirm()
   const [search, setSearch] = useState('')
   const [modal, setModal]   = useState({ open: false, customer: null })
   const [selected, setSelected] = useState(null)
@@ -50,12 +53,24 @@ export default function CustomersPage() {
     })
 
   const handleDelete = async (c) => {
-    if (!confirm(`ลบลูกค้า "${c.name}" ?`)) return
+    const ok = await confirm({
+      title: `ลบลูกค้า "${c.name}"?`,
+      message: 'ประวัติการเช่าของลูกค้ายังคงอยู่ในระบบ',
+      confirmLabel: 'ลบเลย',
+      variant: 'danger',
+      icon: (
+        <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+        </svg>
+      ),
+    })
+    if (!ok) return
     try {
       await deleteCustomer(c.id)
       await reloadCustomers()
       if (selected?.id === c.id) setSelected(null)
-    } catch (e) { alert('ลบไม่สำเร็จ: ' + e.message) }
+      toast.success(`ลบ ${c.name} แล้ว`)
+    } catch (e) { toast.error('ลบไม่สำเร็จ: ' + e.message) }
   }
 
   const totalCustomers = customers.length

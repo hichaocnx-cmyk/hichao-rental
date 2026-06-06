@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { getExpenses, createExpense, updateExpense, deleteExpense } from '../lib/expenses'
+import { useToast, useConfirm } from '../context/ToastContext'
 
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 
@@ -17,6 +18,8 @@ const BAR_COLORS = [
 ]
 
 export default function ExpensesPage() {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [expenses, setExpenses]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [form, setForm]             = useState(EMPTY)
@@ -103,8 +106,12 @@ export default function ExpensesPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('ลบรายการนี้?')) return
-    try { await deleteExpense(id); await load() } catch(e) { alert('เกิดข้อผิดพลาด') }
+    const ok = await confirm({ title: 'ลบรายการรายจ่าย?', confirmLabel: 'ลบเลย', variant: 'danger' })
+    if (!ok) return
+    try {
+      await deleteExpense(id); await load()
+      toast.success('ลบรายการแล้ว')
+    } catch(e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
   const inputCls = "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
