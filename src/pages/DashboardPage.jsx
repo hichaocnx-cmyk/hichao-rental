@@ -168,7 +168,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-lg">🌸</span>
-            <h2 className="text-base font-bold text-gray-900">{getGreeting()}, คุณอาร์ม</h2>
+            <h2 className="text-base font-bold text-gray-900">{getGreeting()}, คุณนิจ เจ้าของร้าน</h2>
           </div>
           <p className="text-xs text-gray-400">{dayLabel}</p>
         </div>
