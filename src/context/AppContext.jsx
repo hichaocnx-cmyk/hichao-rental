@@ -58,20 +58,19 @@ export function AppProvider({ children }) {
     const monthExpenses = expenses.filter(e => e.date >= startOfMonth)
     // รายได้แยกตามสถานะ
     const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && r.start_date >= startOfMonth)
+    const returned     = thisMonthRentals.filter(r => r.status === 'returned')
+    const active       = thisMonthRentals.filter(r => r.status === 'active')
+    const booked       = thisMonthRentals.filter(r => r.status === 'booked')
     const revenueBreakdown = {
-      returned: thisMonthRentals.filter(r => r.status === 'returned')
-        .reduce((s, r) => s + Number(r.total_price || 0) + Number(r.delivery_fee || 0), 0),
-      activeRental: thisMonthRentals.filter(r => r.status === 'active')
-        .reduce((s, r) => s + Number(r.total_price || 0), 0),
-      heldInsurance: thisMonthRentals.filter(r => r.status === 'active')
-        .reduce((s, r) => s + Number(r.insurance || 0), 0),
-      deposits: thisMonthRentals.filter(r => r.status === 'booked')
-        .reduce((s, r) => s + Number(r.deposit || 0), 0),
+      rentalIncome:  returned.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
+                   + active.reduce((s,r) => s + Number(r.total_price||0), 0),
+      heldInsurance: active.reduce((s,r) => s + Number(r.insurance||0), 0),
+      deposits:      booked.reduce((s,r) => s + Number(r.deposit||0), 0),
     }
     const monthRevenue = revenueBreakdown.returned + revenueBreakdown.activeRental + revenueBreakdown.heldInsurance + revenueBreakdown.deposits
     const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
     // กำไรสุทธิไม่รวมประกัน เพราะประกันรับมาแล้วคืนให้ลูกค้าวันคืนกล้อง
-    const monthProfitBase = revenueBreakdown.returned + revenueBreakdown.activeRental + revenueBreakdown.deposits
+    const monthProfitBase = revenueBreakdown.rentalIncome + revenueBreakdown.deposits
     // category breakdown this month
     const expByCategory = {}
     monthExpenses.forEach(e => { expByCategory[e.category] = (expByCategory[e.category] || 0) + Number(e.amount) })

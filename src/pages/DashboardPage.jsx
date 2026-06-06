@@ -210,21 +210,16 @@ export default function DashboardPage() {
           </div>
           <p className="text-lg font-bold text-gray-900">{fmtMoney(revTotal)}</p>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 border-l-4" style={{borderLeftColor:'#27500A'}}>
-            <p className="text-xs text-gray-500 mb-1">คืนกล้องแล้ว</p>
-            <p className="text-lg font-bold text-gray-900">{fmtMoney(bd.returned ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-1">รายได้จริง ✅</p>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div className="bg-white rounded-xl border border-gray-200 p-4 border-l-4" style={{borderLeftColor:'#185FA5'}}>
-            <p className="text-xs text-gray-500 mb-1">กำลังเช่าอยู่</p>
-            <p className="text-lg font-bold text-gray-900">{fmtMoney(bd.activeRental ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-1">ค่าเช่ากล้องล้วนๆ</p>
+            <p className="text-xs text-gray-500 mb-1">รายได้ค่าเช่า</p>
+            <p className="text-lg font-bold text-gray-900">{fmtMoney(bd.rentalIncome ?? 0)}</p>
+            <p className="text-xs text-gray-400 mt-1">คืนแล้ว + กำลังเช่า ✅</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 border-l-4" style={{borderLeftColor:'#854F0B'}}>
             <p className="text-xs text-gray-500 mb-1">ประกันถือไว้</p>
             <p className="text-lg font-bold text-gray-900">{fmtMoney(bd.heldInsurance ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-1">คืนเมื่อรับกล้อง 🔒</p>
+            <p className="text-xs text-gray-400 mt-1">คืนให้ลูกค้าวันรับกล้อง 🔒</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 border-l-4" style={{borderLeftColor:'#534AB7'}}>
             <p className="text-xs text-gray-500 mb-1">มัดจำจองแล้ว</p>
@@ -235,12 +230,12 @@ export default function DashboardPage() {
         {revTotal > 0 && (
           <div className="mt-3 bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
-              {[{v:bd.returned??0,c:'#3B6D11'},{v:bd.activeRental??0,c:'#185FA5'},{v:bd.heldInsurance??0,c:'#854F0B'},{v:bd.deposits??0,c:'#534AB7'}].filter(s=>s.v>0).map((s,i)=>(
+              {[{v:bd.rentalIncome??0,c:'#185FA5'},{v:bd.heldInsurance??0,c:'#854F0B'},{v:bd.deposits??0,c:'#534AB7'}].filter(s=>s.v>0).map((s,i)=>(
                 <div key={i} style={{width:`${(s.v/revTotal)*100}%`,background:s.c,borderRadius:2}} />
               ))}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-              {[{label:'คืนแล้ว',v:bd.returned??0,c:'#3B6D11'},{label:'กำลังเช่า',v:bd.activeRental??0,c:'#185FA5'},{label:'ประกัน',v:bd.heldInsurance??0,c:'#854F0B'},{label:'มัดจำ',v:bd.deposits??0,c:'#534AB7'}].filter(s=>s.v>0).map(s=>(
+              {[{label:'รายได้ค่าเช่า',v:bd.rentalIncome??0,c:'#185FA5'},{label:'ประกัน',v:bd.heldInsurance??0,c:'#854F0B'},{label:'มัดจำ',v:bd.deposits??0,c:'#534AB7'}].filter(s=>s.v>0).map(s=>(
                 <span key={s.label} className="flex items-center gap-1.5 text-xs text-gray-500">
                   <span style={{width:8,height:8,borderRadius:2,background:s.c,display:'inline-block',flexShrink:0}} />
                   {s.label} {Math.round((s.v/revTotal)*100)}%
