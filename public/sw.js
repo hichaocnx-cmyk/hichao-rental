@@ -1,14 +1,12 @@
-const CACHE_NAME = 'hichao-v2'
+const CACHE_NAME = 'hichao-v3'
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
 ]
 
-// ── Install: cache static shell ───────────────────────────────
+// ── Install: cache only true static assets (images, manifest) ─
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
@@ -17,7 +15,7 @@ self.addEventListener('install', e => {
   )
 })
 
-// ── Activate: remove old caches ───────────────────────────────
+// ── Activate: remove all old caches ───────────────────────────
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -26,14 +24,14 @@ self.addEventListener('activate', e => {
   )
 })
 
-// ── Fetch: network-first for API, cache-first for assets ─────
+// ── Fetch ─────────────────────────────────────────────────────
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
 
   // Supabase API — always network, no cache
   if (url.hostname.includes('supabase.co')) return
 
-  // Navigation requests — serve index.html (SPA fallback)
+  // Navigation requests — network-first, fallback to index.html (SPA)
   if (e.request.mode === 'navigate') {
     e.respondWith(
       fetch(e.request).catch(() => caches.match('/index.html'))
@@ -41,7 +39,10 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  // Static assets — cache-first
+  // JS/CSS bundles — always network (content-hashed, never cache)
+  if (url.pathname.startsWith('/assets/')) return
+
+  // Images & manifest — cache-first
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached
