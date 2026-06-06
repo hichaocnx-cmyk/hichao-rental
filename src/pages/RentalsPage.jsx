@@ -838,6 +838,17 @@ export default function RentalsPage() {
         <InvoiceModal rental={invoiceRental} onClose={() => setInvoiceRental(null)} />
       )}
 
+      {/* ── FAB (mobile only) ────────────────────────────────── */}
+      <button
+        onClick={() => setRentalModal('new')}
+        className="lg:hidden fixed bottom-24 right-4 z-40 w-14 h-14 bg-brand-500 hover:bg-brand-600 active:scale-95 text-white rounded-full shadow-lg shadow-brand-200 flex items-center justify-center transition-all duration-150"
+        aria-label="เพิ่มการเช่าใหม่"
+      >
+        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+
     </div>
   )
 }

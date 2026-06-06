@@ -1,32 +1,76 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { deleteCustomer } from '../lib/customers'
 import { useApp } from '../context/AppContext'
 import CustomerModal from '../components/CustomerModal'
 
-export default function CustomersPage() {
-  const { customers, loading, reloadCustomers } = useApp()
-  const [search, setSearch] = useState('')
-  const [modal, setModal] = useState({ open: false, customer: null })
+const AVATAR_COLORS = [
+  'bg-brand-100 text-brand-600',
+  'bg-sky-100 text-sky-600',
+  'bg-emerald-100 text-emerald-600',
+  'bg-violet-100 text-violet-600',
+  'bg-amber-100 text-amber-600',
+  'bg-rose-100 text-rose-600',
+]
 
-  const filtered = customers.filter(c =>
-    `${c.name} ${c.phone || ''} ${c.line_id || ''}`.toLowerCase().includes(search.toLowerCase())
-  )
+function getAvatarColor(name = '') {
+  let sum = 0
+  for (const ch of name) sum += ch.charCodeAt(0)
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length]
+}
+
+export default function CustomersPage() {
+  const { customers, rentals, loading, reloadCustomers } = useApp()
+  const [search, setSearch] = useState('')
+  const [modal, setModal]   = useState({ open: false, customer: null })
+  const [selected, setSelected] = useState(null)
+
+  // Compute per-customer stats from rentals
+  const customerStats = useMemo(() => {
+    const map = {}
+    rentals.forEach(r => {
+      if (!r.customer_id) return
+      if (!map[r.customer_id]) map[r.customer_id] = { count: 0, total: 0, last: null }
+      map[r.customer_id].count += 1
+      map[r.customer_id].total += Number(r.total_price || 0)
+      if (!map[r.customer_id].last || r.start_date > map[r.customer_id].last) {
+        map[r.customer_id].last = r.start_date
+      }
+    })
+    return map
+  }, [rentals])
+
+  const filtered = customers
+    .filter(c => `${c.name} ${c.phone || ''} ${c.line_id || ''}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      // เรียงตามจำนวนครั้งเช่า (มากสุดก่อน)
+      const ca = customerStats[a.id]?.count || 0
+      const cb = customerStats[b.id]?.count || 0
+      return cb - ca
+    })
 
   const handleDelete = async (c) => {
     if (!confirm(`ลบลูกค้า "${c.name}" ?`)) return
-    try { await deleteCustomer(c.id); await reloadCustomers() }
-    catch (e) { alert('ลบไม่สำเร็จ: ' + e.message) }
+    try {
+      await deleteCustomer(c.id)
+      await reloadCustomers()
+      if (selected?.id === c.id) setSelected(null)
+    } catch (e) { alert('ลบไม่สำเร็จ: ' + e.message) }
   }
 
+  const totalCustomers = customers.length
+  const repeatCustomers = customers.filter(c => (customerStats[c.id]?.count || 0) > 1).length
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-4">
+
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">ลูกค้า</h2>
-          <p className="text-gray-500 text-sm mt-0.5">จัดการข้อมูลลูกค้าทั้งหมด</p>
+          <p className="text-xs text-gray-400 mt-0.5">{totalCustomers} คน · กลับมาเช่าซ้ำ {repeatCustomers} คน</p>
         </div>
         <button onClick={() => setModal({ open: true, customer: null })}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors">
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-brand-100">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
@@ -34,84 +78,181 @@ export default function CustomersPage() {
         </button>
       </div>
 
-      <div className="relative mb-5">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      {/* ── Search ────────────────────────────────────────────── */}
+      <div className="relative">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
         </svg>
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="ค้นหาชื่อ, เบอร์, LINE..."
-          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent" />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <svg className="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      {/* ── Cards ─────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 text-center py-16">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
             </svg>
-            <p className="text-gray-400 text-sm">ไม่พบลูกค้า</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เบอร์โทร</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">LINE ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เลขบัตร</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map(c => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-brand-700 text-xs font-bold">{c.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{c.name}</p>
-                          {c.address && <p className="text-xs text-gray-400 truncate max-w-[200px]">{c.address}</p>}
-                        </div>
+          <p className="text-gray-400 text-sm">ไม่พบลูกค้า</p>
+          <button onClick={() => setModal({ open: true, customer: null })}
+            className="mt-3 text-xs text-brand-500 hover:underline">+ เพิ่มลูกค้าใหม่</button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="divide-y divide-gray-50">
+            {filtered.map(c => {
+              const stats = customerStats[c.id] || { count: 0, total: 0, last: null }
+              const avatarColor = getAvatarColor(c.name)
+              const isSelected = selected?.id === c.id
+              return (
+                <div key={c.id}
+                  onClick={() => setSelected(isSelected ? null : c)}
+                  className={`flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-colors
+                    ${isSelected ? 'bg-brand-50/40' : 'hover:bg-gray-50/60'}`}>
+
+                  {/* Avatar */}
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${avatarColor} font-bold text-sm`}>
+                    {c.name.slice(0, 2).toUpperCase()}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">{c.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      {c.phone && <span className="text-xs text-gray-400">{c.phone}</span>}
+                      {c.line_id && <span className="text-xs text-gray-400">LINE: {c.line_id}</span>}
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {stats.count > 0 ? (
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-900">{stats.count} ครั้ง</p>
+                        <p className="text-[11px] text-brand-500 font-medium">฿{stats.total.toLocaleString()}</p>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{c.phone || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.line_id || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.id_card ? `${c.id_card.slice(0,3)}...${c.id_card.slice(-2)}` : '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setModal({ open: true, customer: c })}
-                          className="p-1.5 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                          </svg>
-                        </button>
-                        <button onClick={() => handleDelete(c)}
-                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                          </svg>
-                        </button>
+                    ) : (
+                      <p className="text-xs text-gray-300">ยังไม่เคยเช่า</p>
+                    )}
+                    <svg className={`w-4 h-4 text-gray-300 transition-transform ${isSelected ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Expanded detail */}
+            {selected && (() => {
+              const c = selected
+              const stats = customerStats[c.id] || { count: 0, total: 0, last: null }
+              const customerRentals = rentals
+                .filter(r => r.customer_id === c.id)
+                .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
+              return (
+                <div className="bg-gray-50/60 px-4 pt-4 pb-5 border-t border-brand-100">
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
+                      <p className="text-lg font-bold text-gray-900">{stats.count}</p>
+                      <p className="text-[10px] text-gray-400">ครั้งที่เช่า</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
+                      <p className="text-base font-bold text-brand-500">฿{stats.total.toLocaleString()}</p>
+                      <p className="text-[10px] text-gray-400">ยอดรวม</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
+                      <p className="text-sm font-bold text-gray-700">{stats.last ? stats.last.slice(5).replace('-', '/') : '—'}</p>
+                      <p className="text-[10px] text-gray-400">ล่าสุด</p>
+                    </div>
+                  </div>
+
+                  {/* Contact info */}
+                  <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+                    {c.phone && (
+                      <div className="bg-white rounded-xl px-3 py-2 border border-gray-100">
+                        <p className="text-[10px] text-gray-400 mb-0.5">เบอร์โทร</p>
+                        <p className="font-medium text-gray-800">{c.phone}</p>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                    {c.line_id && (
+                      <div className="bg-white rounded-xl px-3 py-2 border border-gray-100">
+                        <p className="text-[10px] text-gray-400 mb-0.5">LINE ID</p>
+                        <p className="font-medium text-gray-800">{c.line_id}</p>
+                      </div>
+                    )}
+                    {c.id_card && (
+                      <div className="bg-white rounded-xl px-3 py-2 border border-gray-100">
+                        <p className="text-[10px] text-gray-400 mb-0.5">เลขบัตร</p>
+                        <p className="font-medium text-gray-800">{c.id_card.slice(0,3)}•••{c.id_card.slice(-2)}</p>
+                      </div>
+                    )}
+                    {c.address && (
+                      <div className="bg-white rounded-xl px-3 py-2 border border-gray-100 col-span-2">
+                        <p className="text-[10px] text-gray-400 mb-0.5">ที่อยู่</p>
+                        <p className="font-medium text-gray-800 text-xs">{c.address}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent rentals */}
+                  {customerRentals.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-gray-500 mb-2">ประวัติการเช่า</p>
+                      <div className="space-y-1.5">
+                        {customerRentals.slice(0, 3).map(r => (
+                          <div key={r.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-gray-100">
+                            <div>
+                              <p className="text-xs font-medium text-gray-800">{r.camera?.name || '—'}</p>
+                              <p className="text-[10px] text-gray-400">{r.start_date} → {r.end_date}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-bold text-brand-500">฿{Number(r.total_price).toLocaleString()}</p>
+                              <p className={`text-[10px] font-medium ${
+                                r.status === 'returned' ? 'text-emerald-500' :
+                                r.status === 'active' ? 'text-orange-500' : 'text-yellow-500'
+                              }`}>
+                                {r.status === 'returned' ? 'คืนแล้ว' : r.status === 'active' ? 'กำลังเช่า' : 'จองแล้ว'}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {customerRentals.length > 3 && (
+                          <p className="text-[10px] text-gray-400 text-center">+ อีก {customerRentals.length - 3} รายการ</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <button onClick={e => { e.stopPropagation(); setModal({ open: true, customer: c }) }}
+                      className="flex-1 py-2 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-xl border border-brand-100 transition-colors">
+                      แก้ไขข้อมูล
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); handleDelete(c) }}
+                      className="flex-1 py-2 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 transition-colors">
+                      ลบลูกค้า
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
-        )}
-        {!loading && filtered.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
+
+          <div className="px-4 py-2.5 border-t border-gray-50 text-xs text-gray-300">
             {filtered.length} จาก {customers.length} รายการ
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {modal.open && (
         <CustomerModal customer={modal.customer}
