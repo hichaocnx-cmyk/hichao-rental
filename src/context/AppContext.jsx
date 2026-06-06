@@ -69,7 +69,9 @@ export function AppProvider({ children }) {
         .reduce((s, r) => s + Number(r.deposit || 0), 0),
     }
     const monthRevenue = revenueBreakdown.returned + revenueBreakdown.activeRental + revenueBreakdown.heldInsurance + revenueBreakdown.deposits
-        const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
+    const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
+    // กำไรสุทธิไม่รวมประกัน เพราะประกันรับมาแล้วคืนให้ลูกค้าวันคืนกล้อง
+    const monthProfitBase = revenueBreakdown.returned + revenueBreakdown.activeRental + revenueBreakdown.deposits
     // category breakdown this month
     const expByCategory = {}
     monthExpenses.forEach(e => { expByCategory[e.category] = (expByCategory[e.category] || 0) + Number(e.amount) })
@@ -81,7 +83,7 @@ export function AppProvider({ children }) {
       monthRevenue,
       revenueBreakdown,
       monthExpenseTotal,
-      monthProfit: monthRevenue - monthExpenseTotal,
+      monthProfit: monthProfitBase - monthExpenseTotal,
       expByCategory: Object.entries(expByCategory).sort((a, b) => b[1] - a[1]).slice(0, 5),
     }
   }, [cameras, rentals, expenses])
