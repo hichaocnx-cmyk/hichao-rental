@@ -228,77 +228,94 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     finally { setSaving(false) }
   }
 
-  const inputCls = "w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+  const inputCls = "w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent bg-white"
+  const labelCls = "block text-xs font-medium text-gray-500 mb-1"
+
+  const SectionHead = ({ n, label }) => (
+    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+      <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">{n}</span>
+      {label}
+    </h4>
+  )
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4">
-      <div className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[95vh] sm:max-h-[92vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h3 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center sm:p-4">
+      {/* Sheet wrapper — flex column so header+footer stay fixed, content scrolls */}
+      <div className="bg-white w-full sm:max-w-xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '92dvh' }}>
+
+        {/* ── Drag handle (mobile) ── */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        {/* ── Header (sticky) ── */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 flex-shrink-0">
+          <h3 className="text-base font-semibold text-gray-900">
             {isEdit ? 'แก้ไขรายการเช่า' : 'สร้างรายการเช่า'}
           </h3>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+          <button type="button" onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-4 sm:px-6 py-5 space-y-5">
-          {error && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+        {/* ── Scrollable form body ── */}
+        <form id="rental-form" onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-5">
 
-          {/* ── 1. เลือกกล้อง + จำนวนวัน ── */}
+          {error && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>
+          )}
+
+          {/* ── 1. กล้อง ── */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">1</span>
-              เลือกกล้อง
-            </h4>
+            <SectionHead n="1" label="เลือกกล้อง" />
             <div className="space-y-3">
-              {/* Dropdown กล้อง (ไม่แสดงราคา/วัน) */}
               <select name="camera_id" value={form.camera_id} onChange={set} required className={inputCls}>
-                <option value="">-- เลือกกล้อง --</option>
+                <option value="">— เลือกกล้อง —</option>
                 {cameras.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
-              {/* จำนวนวันเช่า */}
+              {/* Day picker — 5×2 grid */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">จำนวนวันเช่า</label>
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                <label className={labelCls}>จำนวนวันเช่า</label>
+                <div className="grid grid-cols-5 gap-1.5">
                   {[1,2,3,4,5,6,7,8,9,10].map(d => {
-                    const price      = getCameraPrice(selectedCamera?.name, d)
-                    const isSelected = form.days === String(d)
+                    const price       = getCameraPrice(selectedCamera?.name, d)
+                    const isSelected  = form.days === String(d)
                     const unavailable = price === null && getCameraKey(selectedCamera?.name) !== null
                     return (
-                      <button
-                        key={d}
-                        type="button"
-                        disabled={unavailable}
+                      <button key={d} type="button" disabled={unavailable}
                         onClick={() => setForm(f => ({ ...f, days: String(d) }))}
-                        className={`py-2.5 rounded-lg border text-xs font-medium transition-colors flex flex-col items-center gap-0.5
+                        className={`py-2 rounded-xl border text-xs font-medium transition-colors flex flex-col items-center gap-0.5
                           ${unavailable
                             ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
                             : isSelected
-                              ? 'bg-brand-500 border-brand-500 text-white'
-                              : 'bg-white border-gray-200 text-gray-600 hover:border-brand-400 hover:text-brand-600'}`}
+                              ? 'bg-brand-500 border-brand-500 text-white shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-600 hover:border-brand-400'}`}
                       >
-                        <span>{d} วัน</span>
-                        {price != null && (
-                          <span className={`text-[10px] ${isSelected ? 'text-brand-100' : 'text-gray-400'}`}>
-                            ฿{price.toLocaleString()}
-                          </span>
-                        )}
+                        <span className="font-semibold">{d}</span>
+                        <span className={`text-[9px] leading-none ${isSelected ? 'text-brand-100' : 'text-gray-400'}`}>
+                          {price != null ? `฿${price >= 1000 ? (price/1000).toFixed(1)+'k' : price}` : 'วัน'}
+                        </span>
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* แสดงราคาที่เลือก */}
+              {/* Price badge */}
               {rentalPrice > 0 && (
-                <div className="flex items-center gap-2 text-sm text-brand-700 bg-brand-50 border border-brand-100 rounded-lg px-3 py-2">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                  <span>{selectedCamera?.name} · {days} วัน: <strong>฿{rentalPrice.toLocaleString()}</strong></span>
+                <div className="flex items-center gap-2 text-sm text-brand-700 bg-brand-50 border border-brand-100 rounded-xl px-3 py-2">
+                  <svg className="w-4 h-4 flex-shrink-0 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  <span className="text-xs">{selectedCamera?.name} · {days} วัน: <strong className="text-brand-600">฿{rentalPrice.toLocaleString()}</strong></span>
                 </div>
               )}
             </div>
@@ -306,55 +323,51 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
           {/* ── 2. ลูกค้า ── */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">2</span>
-              ข้อมูลลูกค้า
-            </h4>
+            <SectionHead n="2" label="ข้อมูลลูกค้า" />
             {isEdit ? (
               <select name="customer_id" value={form.customer_id} onChange={set} className={inputCls}>
-                <option value="">-- เลือกลูกค้า --</option>
+                <option value="">— เลือกลูกค้า —</option>
                 {customers.map(c => (
                   <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
                 ))}
               </select>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
-                  <input name="name" value={newCustomer.name} onChange={setNC} placeholder="ชื่อ นามสกุล" className={inputCls} />
+                  <label className={labelCls}>ชื่อ-นามสกุล <span className="text-red-400">*</span></label>
+                  <input name="name" value={newCustomer.name} onChange={setNC}
+                    placeholder="ชื่อ นามสกุล" className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">เบอร์โทร</label>
-                  <input name="phone" value={newCustomer.phone} onChange={setNC} placeholder="0812345678" className={inputCls} />
+                  <label className={labelCls}>เบอร์โทร</label>
+                  <input name="phone" value={newCustomer.phone} onChange={setNC} type="tel"
+                    placeholder="0812345678" inputMode="tel" className={inputCls} />
                 </div>
               </div>
             )}
           </section>
 
-          {/* ── 3. วันที่และเวลา ── */}
+          {/* ── 3. วันที่ ── */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">3</span>
-              วันที่และเวลา
-            </h4>
-            <div className="space-y-3">
+            <SectionHead n="3" label="วันที่และเวลา" />
+            <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">วันรับกล้อง <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>วันรับ <span className="text-red-400">*</span></label>
                   <input type="date" name="start_date" value={form.start_date} onChange={set} required className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">เวลารับกล้อง</label>
+                  <label className={labelCls}>เวลารับ</label>
                   <input type="time" name="pickup_time" value={form.pickup_time} onChange={set} className={inputCls} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">วันคืนกล้อง <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>วันคืน <span className="text-red-400">*</span></label>
                   <input type="date" name="end_date" value={form.end_date} onChange={set} min={form.start_date} required className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">เวลาคืนกล้อง</label>
+                  <label className={labelCls}>เวลาคืน</label>
                   <input type="time" name="return_time" value={form.return_time} onChange={set} className={inputCls} />
                 </div>
               </div>
@@ -363,78 +376,73 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
           {/* ── 4. สถานที่ ── */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">4</span>
-              สถานที่
-            </h4>
-            <div className="grid grid-cols-1 gap-3">
+            <SectionHead n="4" label="สถานที่" />
+            <div className="space-y-2">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">สถานที่รับกล้อง</label>
-                <input name="pickup_location" value={form.pickup_location} onChange={set} placeholder="เช่น ร้าน HICHAO.CNX / ส่งถึงที่" className={inputCls} />
+                <label className={labelCls}>สถานที่รับกล้อง</label>
+                <input name="pickup_location" value={form.pickup_location} onChange={set}
+                  placeholder="ร้าน HICHAO.CNX / ส่งถึงที่" className={inputCls} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">สถานที่คืนกล้อง</label>
-                <input name="return_location" value={form.return_location} onChange={set} placeholder="เช่น ร้าน HICHAO.CNX / รับถึงที่" className={inputCls} />
+                <label className={labelCls}>สถานที่คืนกล้อง</label>
+                <input name="return_location" value={form.return_location} onChange={set}
+                  placeholder="ร้าน HICHAO.CNX / รับถึงที่" className={inputCls} />
               </div>
             </div>
           </section>
 
           {/* ── 5. ราคา ── */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span className="w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs">5</span>
-              ราคา
-            </h4>
-            <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
+            <SectionHead n="5" label="ราคา" />
+            <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ค่าจองมัดจำ (฿)</label>
-                <input type="number" name="deposit" value={form.deposit} onChange={set} min="0" placeholder="" className={inputCls} />
+                <label className={labelCls}>มัดจำ (฿)</label>
+                <input type="number" name="deposit" value={form.deposit} onChange={set}
+                  min="0" inputMode="numeric" placeholder="0" className={inputCls} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ค่าส่ง (฿)</label>
-                <input type="number" name="delivery_fee" value={form.delivery_fee} onChange={set} min="0" placeholder="" className={inputCls} />
+                <label className={labelCls}>ค่าส่ง (฿)</label>
+                <input type="number" name="delivery_fee" value={form.delivery_fee} onChange={set}
+                  min="0" inputMode="numeric" placeholder="0" className={inputCls} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ส่วนลด (฿)</label>
-                <input type="number" name="discount" value={form.discount} onChange={set} min="0" placeholder="" className={inputCls} />
+                <label className={labelCls}>ส่วนลด (฿)</label>
+                <input type="number" name="discount" value={form.discount} onChange={set}
+                  min="0" inputMode="numeric" placeholder="0" className={inputCls} />
               </div>
             </div>
 
             {/* สรุปยอด */}
             {rentalPrice > 0 && (
-              <div className="mt-3 bg-brand-50 rounded-xl p-4 space-y-2 text-sm border border-brand-100">
-                <p className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-2">สรุปยอด</p>
-                <div className="flex justify-between text-gray-600">
+              <div className="mt-3 bg-brand-50 rounded-xl p-3.5 space-y-1.5 border border-brand-100">
+                <p className="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-2">สรุปยอด</p>
+                <div className="flex justify-between text-xs text-gray-500">
                   <span>ราคาเช่า ({days} วัน)</span>
                   <span className="font-medium text-gray-800">฿{rentalPrice.toLocaleString()}</span>
                 </div>
                 {discountAmt > 0 && (
-                  <div className="flex justify-between text-green-700">
-                    <span>ส่วนลด</span>
-                    <span>− ฿{discountAmt.toLocaleString()}</span>
+                  <div className="flex justify-between text-xs text-emerald-600">
+                    <span>ส่วนลด</span><span>−฿{discountAmt.toLocaleString()}</span>
                   </div>
                 )}
                 {depositAmt > 0 && (
-                  <div className="flex justify-between text-green-700">
-                    <span>หัก: ค่าจองมัดจำ</span>
-                    <span>− ฿{depositAmt.toLocaleString()}</span>
+                  <div className="flex justify-between text-xs text-emerald-600">
+                    <span>หักมัดจำ</span><span>−฿{depositAmt.toLocaleString()}</span>
                   </div>
                 )}
                 {insuranceAmt > 0 && (
-                  <div className="flex justify-between text-orange-600">
-                    <span>บวก: ค่าประกัน</span>
-                    <span>+ ฿{insuranceAmt.toLocaleString()}</span>
+                  <div className="flex justify-between text-xs text-orange-500">
+                    <span>ค่าประกัน</span><span>+฿{insuranceAmt.toLocaleString()}</span>
                   </div>
                 )}
                 {deliveryFee > 0 && (
-                  <div className="flex justify-between text-blue-600">
-                    <span>บวก: ค่าส่ง</span>
-                    <span>+ ฿{deliveryFee.toLocaleString()}</span>
+                  <div className="flex justify-between text-xs text-blue-500">
+                    <span>ค่าส่ง</span><span>+฿{deliveryFee.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center border-t-2 border-brand-300 pt-3 mt-1">
-                  <p className="font-bold text-gray-900">จ่ายวันรับกล้อง</p>
-                  <span className="text-2xl font-bold text-brand-600">฿{dueOnPickup.toLocaleString()}</span>
+                <div className="flex justify-between items-center border-t border-brand-200 pt-2 mt-1">
+                  <p className="text-sm font-semibold text-gray-900">จ่ายวันรับกล้อง</p>
+                  <span className="text-xl font-bold text-brand-600">฿{dueOnPickup.toLocaleString()}</span>
                 </div>
               </div>
             )}
@@ -442,22 +450,30 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
           {/* ── หมายเหตุ ── */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">หมายเหตุ</label>
-            <textarea name="notes" value={form.notes} onChange={set} rows={2} placeholder="หมายเหตุเพิ่มเติม..." className={`${inputCls} resize-none`} />
+            <label className={labelCls}>หมายเหตุ</label>
+            <textarea name="notes" value={form.notes} onChange={set} rows={2}
+              placeholder="หมายเหตุเพิ่มเติม..."
+              className={`${inputCls} resize-none`} />
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-4 sm:pb-1">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">ยกเลิก</button>
-            <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2">
-              {saving
-                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />บันทึก...</>
-                : isEdit ? 'บันทึกการแก้ไข' : 'สร้างรายการเช่า'
-              }
-            </button>
-          </div>
+          {/* bottom spacer so last input isn't hidden behind footer */}
+          <div className="h-2" />
         </form>
+
+        {/* ── Footer buttons (fixed at bottom) ── */}
+        <div className="flex gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 flex-shrink-0 bg-white">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors">
+            ยกเลิก
+          </button>
+          <button form="rental-form" type="submit" disabled={saving}
+            className="flex-1 py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm shadow-brand-100">
+            {saving
+              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />บันทึก...</>
+              : isEdit ? 'บันทึกการแก้ไข' : 'สร้างรายการเช่า'
+            }
+          </button>
+        </div>
       </div>
     </div>
   )
