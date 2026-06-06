@@ -60,8 +60,9 @@ create table if not exists rentals (
   delivery_fee     numeric(10,2) not null default 0,
   discount         numeric(10,2) not null default 0,
   total_price      numeric(10,2) not null default 0,
-  due_on_pickup    numeric(10,2) not null default 0,
-  status           text not null default 'booked'
+  due_on_pickup        numeric(10,2) not null default 0,
+  insurance_returned   boolean not null default false,
+  status               text not null default 'booked'
                      check (status in ('booked','active','returned','cancelled')),
   notes            text,
   created_at       timestamptz not null default now(),

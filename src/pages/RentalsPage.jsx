@@ -186,7 +186,9 @@ export default function RentalsPage() {
   const handleReturn = async (rental) => {
     if (!confirm(`ยืนยันรับกล้อง "${rental.camera?.name}" คืนแล้ว?`)) return
     try {
-      await updateRental(rental.id, { status: 'returned' })
+      const returnUpdate = { status: 'returned' }
+      if (Number(rental.insurance) > 0) returnUpdate.insurance_returned = true
+      await updateRental(rental.id, returnUpdate)
       await updateCamera(rental.camera_id, { status: 'available' })
       await reload()
       setActiveTab('returned')
@@ -195,6 +197,7 @@ export default function RentalsPage() {
       ).catch(console.warn)
     } catch (e) { alert('เกิดข้อผิดพลาด: ' + e.message) }
   }
+
 
   const handleSendDailySummary = async () => {
     setSummaryLoading(true); setSummarySent(false)
@@ -554,7 +557,18 @@ export default function RentalsPage() {
                             <div><p className="text-xs text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium">฿{Number(r.price_per_day).toLocaleString()}</p></div>
                             <div><p className="text-xs text-gray-400 mb-0.5">ราคาเช่ารวม</p><p className="font-medium">฿{Number(r.total_price).toLocaleString()}</p></div>
                             <div><p className="text-xs text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-green-700">-฿{Number(r.deposit).toLocaleString()}</p></div>
-                            {Number(r.insurance)>0 && <div><p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p><p className="font-medium text-orange-600">+฿{Number(r.insurance).toLocaleString()}</p></div>}
+                            {Number(r.insurance)>0 && (
+                              <div>
+                                <p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p>
+                                {r.status === 'returned' ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    ✅ คืนแล้ว ฿{Number(r.insurance).toLocaleString()}
+                                  </span>
+                                ) : (
+                                  <p className="font-medium text-orange-600">+฿{Number(r.insurance).toLocaleString()}</p>
+                                )}
+                              </div>
+                            )}
                             {Number(r.delivery_fee)>0 && <div><p className="text-xs text-gray-400 mb-0.5">ค่าส่ง</p><p className="font-medium text-blue-600">+฿{Number(r.delivery_fee).toLocaleString()}</p></div>}
                             <div className="col-span-2 bg-brand-50 rounded-lg p-2.5">
                               <p className="text-xs text-gray-400 mb-0.5">จ่ายวันรับกล้อง</p>
