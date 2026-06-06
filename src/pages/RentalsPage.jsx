@@ -51,6 +51,120 @@ const fmtDateFull = iso => {
   return `${parseInt(d)} ${MONTHS_TH[parseInt(m)-1]} ${parseInt(y)+543}`
 }
 
+// ── Rental Status Timeline ──────────────────────────────────────
+function RentalTimeline({ r }) {
+  const s = r.status
+  const calcDaysLocal = () => Math.max(1, Math.ceil((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1)
+
+  // step: { label, sub, detail, done, active }
+  const steps = [
+    {
+      id: 'booked',
+      label: 'จอง',
+      sub: fmtDate(r.start_date),
+      done: true,
+      active: false,
+    },
+    {
+      id: 'pickup',
+      label: 'ส่งกล้อง',
+      sub: r.pickup_time ? r.pickup_time.slice(0, 5) : fmtDate(r.start_date),
+      detail: r.pickup_location,
+      done: s === 'active' || s === 'returned',
+      active: s === 'booked',
+    },
+    {
+      id: 'using',
+      label: 'ใช้งาน',
+      sub: `${calcDaysLocal()} วัน`,
+      done: s === 'returned',
+      active: s === 'active',
+    },
+    {
+      id: 'return',
+      label: 'คืนกล้อง',
+      sub: r.return_time ? r.return_time.slice(0, 5) : fmtDate(r.end_date),
+      detail: r.return_location,
+      done: s === 'returned',
+      active: false,
+    },
+  ]
+
+  // line between step i and i+1 is complete when step i+1 is done
+  const lineComplete = (i) => steps[i + 1]?.done
+
+  return (
+    <div className="px-4 pt-4 pb-2">
+      <p className="text-[10px] text-gray-400 font-medium mb-3 uppercase tracking-wider">สถานะการเช่า</p>
+      <div className="relative flex items-start">
+        {/* Connecting lines */}
+        {steps.map((_, i) =>
+          i < steps.length - 1 ? (
+            <div
+              key={`line-${i}`}
+              className={`absolute top-[17px] h-0.5 transition-colors duration-500 ${lineComplete(i) ? 'bg-emerald-400' : 'bg-gray-100'}`}
+              style={{
+                left: `calc(${(i + 0.5) / steps.length * 100}% + 4px)`,
+                right: `calc(${(steps.length - i - 1.5) / steps.length * 100}% + 4px)`,
+              }}
+            />
+          ) : null
+        )}
+
+        {/* Nodes */}
+        {steps.map((step) => {
+          const isDone   = step.done
+          const isActive = step.active && !step.done
+          const isPend   = !isDone && !isActive
+
+          const dotCls = isDone
+            ? 'bg-emerald-500 border-emerald-500'
+            : isActive
+              ? 'bg-brand-500 border-brand-500'
+              : 'bg-white border-gray-200'
+
+          const labelCls = isDone
+            ? 'text-emerald-600'
+            : isActive
+              ? 'text-brand-500 font-bold'
+              : 'text-gray-400'
+
+          const subCls = isDone
+            ? 'text-emerald-400'
+            : isActive
+              ? 'text-brand-400'
+              : 'text-gray-300'
+
+          return (
+            <div key={step.id} className="flex flex-col items-center z-10 flex-1 gap-0">
+              {/* Dot */}
+              <div className={`w-[34px] h-[34px] rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dotCls} ${isActive ? 'shadow-md shadow-brand-100' : ''}`}>
+                {isDone ? (
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : isActive ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-white" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-gray-200" />
+                )}
+              </div>
+              {/* Label */}
+              <p className={`text-[11px] font-semibold mt-1.5 leading-none ${labelCls}`}>{step.label}</p>
+              {/* Sub */}
+              <p className={`text-[10px] mt-0.5 leading-none ${subCls}`}>{step.sub}</p>
+              {/* Detail */}
+              {step.detail && (
+                <p className="text-[9px] text-gray-300 mt-0.5 text-center px-0.5 leading-tight line-clamp-1 max-w-[60px]">{step.detail}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Camera placeholder ──────────────────────────────────────────
 function CamIcon({ className = 'w-5 h-5' }) {
   return (
@@ -657,7 +771,9 @@ export default function RentalsPage() {
 
                       {/* Expandable detail */}
                       {isExpanded && (
-                        <div className="border-t border-gray-50 bg-gray-50/50 px-4 pt-3 pb-4">
+                        <div className="border-t border-gray-50 bg-gray-50/50">
+                          <RentalTimeline r={r} />
+                          <div className="px-4 pt-1 pb-4">
                           <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                             <div><p className="text-[10px] text-gray-400 mb-0.5">จำนวนวัน</p><p className="font-medium text-gray-800">{days} วัน</p></div>
                             <div><p className="text-[10px] text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium text-gray-800">฿{Number(r.price_per_day).toLocaleString()}</p></div>
@@ -682,6 +798,7 @@ export default function RentalsPage() {
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                             ลบรายการนี้
                           </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -726,7 +843,8 @@ export default function RentalsPage() {
                         {/* Expanded */}
                         {expanded === r.id && (
                           <div className="bg-gray-50/60 border-t border-gray-100">
-                            <div className="px-4 pt-3 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                            <RentalTimeline r={r} />
+                            <div className="px-4 pt-1 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm border-t border-gray-100">
                               <div><p className="text-xs text-gray-400 mb-0.5">จำนวนวัน</p><p className="font-medium">{calcDays(r)} วัน</p></div>
                               <div><p className="text-xs text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium">฿{Number(r.price_per_day).toLocaleString()}</p></div>
                               <div><p className="text-xs text-gray-400 mb-0.5">ราคาเช่ารวม</p><p className="font-medium">฿{Number(r.total_price).toLocaleString()}</p></div>
