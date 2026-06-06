@@ -63,15 +63,15 @@ export function AppProvider({ children }) {
     const booked       = thisMonthRentals.filter(r => r.status === 'booked')
     const revenueBreakdown = {
       rentalIncome:  returned.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
-                   + active.reduce((s,r) => s + Number(r.total_price||0), 0)
+                   + active.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
                    + booked.reduce((s,r) => s + Number(r.deposit||0), 0),
       heldInsurance: active.reduce((s,r) => s + Number(r.insurance||0), 0),
       deposits:      booked.reduce((s,r) => s + Number(r.deposit||0), 0),
     }
-    const monthRevenue = revenueBreakdown.returned + revenueBreakdown.activeRental + revenueBreakdown.heldInsurance + revenueBreakdown.deposits
+    const monthRevenue = revenueBreakdown.rentalIncome + revenueBreakdown.heldInsurance
     const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
     // กำไรสุทธิไม่รวมประกัน เพราะประกันรับมาแล้วคืนให้ลูกค้าวันคืนกล้อง
-    const monthProfitBase = revenueBreakdown.rentalIncome + revenueBreakdown.deposits
+    const monthProfitBase = revenueBreakdown.rentalIncome
     // category breakdown this month
     const expByCategory = {}
     monthExpenses.forEach(e => { expByCategory[e.category] = (expByCategory[e.category] || 0) + Number(e.amount) })
