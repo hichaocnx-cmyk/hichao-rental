@@ -214,7 +214,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 border-l-4" style={{borderLeftColor:'#185FA5'}}>
             <p className="text-xs text-gray-500 mb-1">รายได้ค่าเช่า</p>
             <p className="text-lg font-bold text-gray-900">{fmtMoney(bd.rentalIncome ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-1">คืนแล้ว + กำลังเช่า ✅</p>
+            <p className="text-xs text-gray-400 mt-1">คืนแล้ว + กำลังเช่า + มัดจำ ✅</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 border-l-4" style={{borderLeftColor:'#854F0B'}}>
             <p className="text-xs text-gray-500 mb-1">ประกันถือไว้</p>

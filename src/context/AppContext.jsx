@@ -63,7 +63,8 @@ export function AppProvider({ children }) {
     const booked       = thisMonthRentals.filter(r => r.status === 'booked')
     const revenueBreakdown = {
       rentalIncome:  returned.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
-                   + active.reduce((s,r) => s + Number(r.total_price||0), 0),
+                   + active.reduce((s,r) => s + Number(r.total_price||0), 0)
+                   + booked.reduce((s,r) => s + Number(r.deposit||0), 0),
       heldInsurance: active.reduce((s,r) => s + Number(r.insurance||0), 0),
       deposits:      booked.reduce((s,r) => s + Number(r.deposit||0), 0),
     }
