@@ -208,7 +208,7 @@ export default function CamerasPage() {
                   ${isSelected ? 'border-brand-400 shadow-md shadow-brand-100' : `${cfg.card} hover:border-gray-200 hover:shadow-sm`}`}>
 
                 {/* Camera image */}
-                <div className="relative aspect-[16/10] bg-gray-50 flex items-center justify-center overflow-hidden">
+                <div className="relative h-24 bg-gray-50 flex items-center justify-center overflow-hidden">
                   {camera.image_url
                     ? <LazyImg src={camera.image_url} alt={camera.name} className="w-full h-full object-cover" />
                     : <div className="flex flex-col items-center gap-1">
