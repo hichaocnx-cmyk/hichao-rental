@@ -176,15 +176,18 @@ export default function ReportPage() {
   const currentMonth  = monthlyData[monthlyData.length - 1]
 
   const cameraRankings = useMemo(() => {
+    const prefixes = new Set(months.map(m => m.prefix))
     const map = {}
-    rentals.forEach(r => {
-      if (!r.camera_id) return
-      if (!map[r.camera_id]) map[r.camera_id] = { count: 0, revenue: 0, camera: r.camera }
-      map[r.camera_id].count += 1
-      map[r.camera_id].revenue += Number(r.total_price || 0)
-    })
+    rentals
+      .filter(r => r.status !== 'cancelled' && prefixes.has((r.start_date || '').slice(0, 7)))
+      .forEach(r => {
+        if (!r.camera_id) return
+        if (!map[r.camera_id]) map[r.camera_id] = { count: 0, revenue: 0, camera: r.camera }
+        map[r.camera_id].count += 1
+        map[r.camera_id].revenue += Number(r.total_price || 0)
+      })
     return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5)
-  }, [rentals])
+  }, [rentals, months])
 
   const expCategories = useMemo(() => {
     const map = {}
@@ -331,7 +334,7 @@ export default function ReportPage() {
           {expCategories.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <svg className="w-8 h-8 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125 1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75" />
               </svg>
               <p className="text-gray-400 text-sm">ยังไม่มีรายจ่ายในช่วงนี้</p>
             </div>
