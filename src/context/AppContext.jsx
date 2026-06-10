@@ -63,14 +63,14 @@ export function AppProvider({ children }) {
     const booked       = thisMonthRentals.filter(r => r.status === 'booked')
     const revenueBreakdown = {
       rentalIncome:  returned.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
-                   + active.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
-                   + booked.reduce((s,r) => s + Number(r.deposit||0), 0),
+                    + active.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
+                    + booked.reduce((s,r) => s + Number(r.deposit||0), 0),
       heldInsurance: active.reduce((s,r) => s + Number(r.insurance||0), 0),
       deposits:      booked.reduce((s,r) => s + Number(r.deposit||0), 0),
     }
     const monthRevenue = revenueBreakdown.rentalIncome + revenueBreakdown.heldInsurance
     const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
-    // กำไรสุทธิไม่รวมประกัน เพราะประกันรับมาแล้วคืนให้ลูกค้าวันคืนกล้อง
+    // กำไรสุทธิไม่รวมประกันรับมาแล้วคืนให้ลูกค้༲วันคืนกล้อง
     const monthProfitBase = revenueBreakdown.rentalIncome
     // category breakdown this month
     const expByCategory = {}
@@ -140,7 +140,7 @@ export function AppProvider({ children }) {
       }
     })
 
-    // เรียง urgent ก่อน
+    // เคียง urgent ก่อน
     return items.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.date.localeCompare(b.date))
   }, [rentals])
 
