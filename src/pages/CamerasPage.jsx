@@ -5,6 +5,29 @@ import CameraModal from '../components/CameraModal'
 import { CamerasSkeleton } from '../components/Skeleton'
 import { useToast, useConfirm } from '../context/ToastContext'
 
+// แปลง Supabase storage URL → image transform URL (thumbnail)
+function getThumbUrl(url, width = 400) {
+  if (!url) return null
+  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+    + `?width=${width}&quality=75&resize=cover`
+}
+
+// รูปโหลด lazy + fade-in เมื่อโหลดเสร็จ
+function LazyImg({ src, alt, className }) {
+  const [loaded, setLoaded] = useState(false)
+  const thumb = getThumbUrl(src)
+  return (
+    <img
+      src={thumb || src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onLoad={() => setLoaded(true)}
+      className={`${className} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+    />
+  )
+}
+
 const STATUS_CFG = {
   available:   { label: 'ว่าง',        cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', card: 'border-emerald-100' },
   rented:      { label: 'กำลังถูกเช่า', cls: 'bg-orange-100 text-orange-700',  dot: 'bg-orange-400',  card: 'border-orange-100' },
@@ -36,9 +59,8 @@ export default function CamerasPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [modal, setModal]             = useState({ open: false, camera: null })
   const [deleting, setDeleting]       = useState(null)
-  const [selected, setSelected]       = useState(null) // camera detail sheet
+  const [selected, setSelected]       = useState(null)
 
-  // เมื่อ cameras อัปเดตจาก reload → sync selected ให้ใช้ข้อมูลใหม่
   useEffect(() => {
     if (!selected) return
     const fresh = cameras.find(c => c.id === selected.id)
@@ -77,7 +99,6 @@ export default function CamerasPage() {
     }
   }
 
-  // summary counts
   const counts = cameras.reduce((acc, c) => {
     acc[c.status] = (acc[c.status] || 0) + 1
     return acc
@@ -180,14 +201,13 @@ export default function CamerasPage() {
                   ${isSelected ? 'border-brand-400 shadow-md shadow-brand-100' : `${cfg.card} hover:border-gray-200 hover:shadow-sm`}`}>
 
                 {/* Camera image */}
-                <div className="relative aspect-[4/3] bg-gray-50 flex items-center justify-center overflow-hidden">
+                <div className="relative aspect-[16/10] bg-gray-50 flex items-center justify-center overflow-hidden">
                   {camera.image_url
-                    ? <img src={camera.image_url} alt={camera.name} className="w-full h-full object-cover" />
+                    ? <LazyImg src={camera.image_url} alt={camera.name} className="w-full h-full object-cover" />
                     : <div className="flex flex-col items-center gap-1">
                         <CamPlaceholder />
                       </div>
                   }
-                  {/* Status badge overlay */}
                   <div className="absolute top-2 left-2">
                     <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
@@ -231,16 +251,15 @@ export default function CamerasPage() {
         </div>
       )}
 
-      {/* ── Detail bottom sheet (mobile) / side panel ─────────── */}
+      {/* ── Detail bottom sheet ────────────────────────────────── */}
       {selected && (
         <>
-          {/* Overlay mobile */}
           <div className="lg:hidden fixed inset-0 bg-black/30 z-40" onClick={() => setSelected(null)} />
           <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl p-5 pb-8">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
             <div className="flex items-start gap-4 mb-4">
               {selected.image_url
-                ? <img src={selected.image_url} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" alt="" />
+                ? <LazyImg src={selected.image_url} alt={selected.name} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" />
                 : <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center flex-shrink-0"><CamPlaceholder /></div>
               }
               <div className="flex-1 min-w-0">
