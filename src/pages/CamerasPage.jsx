@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { deleteCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import CameraModal from '../components/CameraModal'
@@ -37,6 +37,13 @@ export default function CamerasPage() {
   const [modal, setModal]             = useState({ open: false, camera: null })
   const [deleting, setDeleting]       = useState(null)
   const [selected, setSelected]       = useState(null) // camera detail sheet
+
+  // เมื่อ cameras อัปเดตจาก reload → sync selected ให้ใช้ข้อมูลใหม่
+  useEffect(() => {
+    if (!selected) return
+    const fresh = cameras.find(c => c.id === selected.id)
+    if (fresh) setSelected(fresh)
+  }, [cameras])
 
   const filtered = cameras.filter(c => {
     const matchSearch = `${c.name} ${c.brand} ${c.model}`.toLowerCase().includes(search.toLowerCase())
