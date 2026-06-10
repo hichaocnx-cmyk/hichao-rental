@@ -59,8 +59,9 @@ export default function CamerasPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [modal, setModal]             = useState({ open: false, camera: null })
   const [deleting, setDeleting]       = useState(null)
-  const [selected, setSelected]       = useState(null)
+  const [selected, setSelected]       = useState(null) // camera detail sheet
 
+  // เมื่อ cameras อัปเดตจาก reload → sync selected ให้ใช้ข้อมูลใหม่
   useEffect(() => {
     if (!selected) return
     const fresh = cameras.find(c => c.id === selected.id)
@@ -99,6 +100,7 @@ export default function CamerasPage() {
     }
   }
 
+  // summary counts
   const counts = cameras.reduce((acc, c) => {
     acc[c.status] = (acc[c.status] || 0) + 1
     return acc
@@ -123,16 +125,21 @@ export default function CamerasPage() {
       </div>
 
       {/* ── Summary strip ─────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="flex gap-2">
         {[
-          { label: 'ทั้งหมด',   value: cameras.length,           color: 'text-gray-700',    bg: 'bg-white' },
-          { label: 'ว่าง',      value: counts.available || 0,    color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'ถูกเช่า',   value: counts.rented || 0,       color: 'text-orange-500',  bg: 'bg-orange-50' },
-          { label: 'ซ่อม',      value: counts.maintenance || 0,  color: 'text-red-500',     bg: 'bg-red-50' },
+          { label: 'ทั้งหมด', value: cameras.length,          color: 'text-gray-600',    bg: 'bg-white',        dot: 'bg-gray-400',
+            icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" /></svg> },
+          { label: 'ว่าง',     value: counts.available || 0,   color: 'text-emerald-600', bg: 'bg-emerald-50',   dot: 'bg-emerald-500',
+            icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> },
+          { label: 'ถูกเช่า',  value: counts.rented || 0,      color: 'text-orange-500',  bg: 'bg-orange-50',    dot: 'bg-orange-400',
+            icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg> },
+          { label: 'ซ่อม',     value: counts.maintenance || 0, color: 'text-red-500',     bg: 'bg-red-50',       dot: 'bg-red-400',
+            icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" /></svg> },
         ].map(s => (
-          <div key={s.label} className={`${s.bg} rounded-2xl border border-gray-100 px-3 py-2.5 text-center`}>
-            <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-[10px] text-gray-400">{s.label}</p>
+          <div key={s.label} title={s.label}
+            className={`${s.bg} rounded-xl border border-gray-100 px-2.5 py-1.5 flex items-center gap-1.5`}>
+            <span className={s.color}>{s.icon}</span>
+            <span className={`text-sm font-bold ${s.color}`}>{s.value}</span>
           </div>
         ))}
       </div>
@@ -208,6 +215,7 @@ export default function CamerasPage() {
                         <CamPlaceholder />
                       </div>
                   }
+                  {/* Status badge overlay */}
                   <div className="absolute top-2 left-2">
                     <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
@@ -251,9 +259,10 @@ export default function CamerasPage() {
         </div>
       )}
 
-      {/* ── Detail bottom sheet ────────────────────────────────── */}
+      {/* ── Detail bottom sheet (mobile) / side panel ─────────── */}
       {selected && (
         <>
+          {/* Overlay mobile */}
           <div className="lg:hidden fixed inset-0 bg-black/30 z-40" onClick={() => setSelected(null)} />
           <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl p-5 pb-8">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
@@ -263,53 +272,4 @@ export default function CamerasPage() {
                 : <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center flex-shrink-0"><CamPlaceholder /></div>
               }
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-base leading-tight">{selected.name}</p>
-                {selected.brand && <p className="text-xs text-gray-400 mt-0.5">{selected.brand}{selected.model ? ` · ${selected.model}` : ''}</p>}
-                <span className={`inline-flex items-center gap-1 mt-2 text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_CFG[selected.status]?.cls}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CFG[selected.status]?.dot}`} />
-                  {STATUS_CFG[selected.status]?.label}
-                </span>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-xs text-gray-400">ราคา/วัน</p>
-                <p className="text-base font-bold text-brand-500 mt-0.5">฿{Number(selected.price_per_day).toLocaleString()}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-xs text-gray-400">มัดจำ</p>
-                <p className="text-base font-bold text-gray-700 mt-0.5">฿{Number(selected.deposit).toLocaleString()}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-xs text-gray-400">ประกัน</p>
-                <p className="text-base font-bold text-gray-700 mt-0.5">฿{Number(selected.insurance || 0).toLocaleString()}</p>
-              </div>
-            </div>
-            {selected.notes && (
-              <div className="bg-gray-50 rounded-xl p-3 mb-4">
-                <p className="text-xs text-gray-400 mb-1">หมายเหตุ</p>
-                <p className="text-sm text-gray-700">{selected.notes}</p>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button onClick={() => { setModal({ open: true, camera: selected }); setSelected(null) }}
-                className="flex-1 py-2.5 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-xl transition-colors border border-brand-100">
-                แก้ไขข้อมูล
-              </button>
-              <button onClick={() => handleDelete(selected)}
-                className="flex-1 py-2.5 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100">
-                ลบกล้อง
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {modal.open && (
-        <CameraModal camera={modal.camera}
-          onClose={() => setModal({ open: false, camera: null })}
-          onSaved={() => { setModal({ open: false, camera: null }); reloadCameras() }} />
-      )}
-    </div>
-  )
-}
+                <p cla
