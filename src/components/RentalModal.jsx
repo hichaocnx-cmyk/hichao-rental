@@ -45,7 +45,7 @@ const calcDaysFromDates = (start, end) => {
   const s = new Date(start + 'T00:00:00')
   const e = new Date(end   + 'T00:00:00')
   const d = Math.round((e - s) / 86400000) + 1
-  return d >= 1 && d <= 10 ? d : 1
+  return d >= 1 ? d : 1
 }
 
 export default function RentalModal({ rental = null, onClose, onSaved }) {
@@ -55,7 +55,6 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
   const [cameras, setCameras] = useState([])
   const [customers, setCustomers] = useState([])
-  const [customerMode] = useState('new')
   const [form, setForm] = useState({
     camera_id:        rental?.camera_id        || '',
     customer_id:      rental?.customer_id      || '',
@@ -89,7 +88,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     ]).catch(console.error)
   }, [])
 
-  // เมื่อ start_date หรือ days เปลี่ยน → คำนวณ end_date (เฉพาะตอนสร้างใหม่)
+  // ตอนสร้างใหม่: start_date หรือ days เปลี่ยน → คำนวณ end_date
   useEffect(() => {
     if (!isEdit && form.start_date && form.days) {
       const n = parseInt(form.days) - 1
@@ -97,6 +96,14 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       setForm(f => ({ ...f, end_date: newEnd }))
     }
   }, [form.start_date, form.days])
+
+  // ตอนแก้ไข: end_date เปลี่ยนโดยตรง → sync form.days ให้ถูกต้อง (เพื่อคำนวณราคาถูก)
+  useEffect(() => {
+    if (isEdit && form.start_date && form.end_date) {
+      const d = calcDaysFromDates(form.start_date, form.end_date)
+      setForm(f => f.days === String(d) ? f : { ...f, days: String(d) })
+    }
+  }, [form.start_date, form.end_date])
 
   const set = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   const setNC = e => setNewCustomer(f => ({ ...f, [e.target.name]: e.target.value }))
