@@ -272,4 +272,53 @@ export default function CamerasPage() {
                 : <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center flex-shrink-0"><CamPlaceholder /></div>
               }
               <div className="flex-1 min-w-0">
-                <p cla
+                <p className="font-bold text-gray-900 text-base leading-tight">{selected.name}</p>
+                {selected.brand && <p className="text-xs text-gray-400 mt-0.5">{selected.brand}{selected.model ? ` · ${selected.model}` : ''}</p>}
+                <span className={`inline-flex items-center gap-1 mt-2 text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_CFG[selected.status]?.cls}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CFG[selected.status]?.dot}`} />
+                  {STATUS_CFG[selected.status]?.label}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400">ราคา/วัน</p>
+                <p className="text-base font-bold text-brand-500 mt-0.5">฿{Number(selected.price_per_day).toLocaleString()}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400">มัดจำ</p>
+                <p className="text-base font-bold text-gray-700 mt-0.5">฿{Number(selected.deposit).toLocaleString()}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400">ประกัน</p>
+                <p className="text-base font-bold text-gray-700 mt-0.5">฿{Number(selected.insurance || 0).toLocaleString()}</p>
+              </div>
+            </div>
+            {selected.notes && (
+              <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                <p className="text-xs text-gray-400 mb-1">หมายเหตุ</p>
+                <p className="text-sm text-gray-700">{selected.notes}</p>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => { setModal({ open: true, camera: selected }); setSelected(null) }}
+                className="flex-1 py-2.5 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-xl transition-colors border border-brand-100">
+                แก้ไขข้อมูล
+              </button>
+              <button onClick={() => handleDelete(selected)}
+                className="flex-1 py-2.5 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100">
+                ลบกล้อง
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {modal.open && (
+        <CameraModal camera={modal.camera}
+          onClose={() => setModal({ open: false, camera: null })}
+          onSaved={() => { setModal({ open: false, camera: null }); reloadCameras() }} />
+      )}
+    </div>
+  )
+}
