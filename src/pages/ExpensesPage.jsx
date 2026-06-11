@@ -29,6 +29,7 @@ export default function ExpensesPage() {
   const [error, setError]           = useState('')
   const [filterMonth, setFilterMonth] = useState(() => TODAY.slice(0, 7))
   const [search, setSearch]         = useState('')
+  const [newCategory, setNewCategory] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -84,20 +85,33 @@ export default function ExpensesPage() {
     return [...set].sort((a, b) => b.localeCompare(a))
   }, [expenses])
 
+  // existing categories for dropdown
+  const categories = useMemo(() =>
+    [...new Set(expenses.map(e => e.category))].sort((a, b) => a.localeCompare(b, 'th')),
+  [expenses])
+
+  const norm = s => s.replace(/\s+/g, '').toLowerCase()
+  const similarCategory = useMemo(() => {
+    const v = newCategory.trim()
+    if (!v) return null
+    return categories.find(c => norm(c).includes(norm(v)) || norm(v).includes(norm(c))) || null
+  }, [newCategory, categories])
+
   // ── Actions ────────────────────────────────────────────────────
-  const openNew = () => { setForm(EMPTY); setEditId(null); setError(''); setShowForm(true) }
+  const openNew = () => { setForm(EMPTY); setEditId(null); setError(''); setNewCategory(''); setShowForm(true) }
   const openEdit = exp => {
     setForm({ date: exp.date, amount: String(exp.amount), category: exp.category, note: exp.note || '' })
-    setEditId(exp.id); setError(''); setShowForm(true)
+    setEditId(exp.id); setError(''); setNewCategory(''); setShowForm(true)
   }
   const closeForm = () => { setShowForm(false); setEditId(null) }
 
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setSaving(true)
     try {
-      if (!form.category.trim()) throw new Error('กรุณาใส่หมวดหมู่')
+      const category = form.category === '__new__' ? newCategory.trim() : form.category.trim()
+      if (!category) throw new Error('กรุณาเลือกหรือใส่หมวดหมู่')
       if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0) throw new Error('กรุณาใส่จำนวนเงินที่ถูกต้อง')
-      const payload = { date: form.date, amount: Number(form.amount), category: form.category.trim(), note: form.note.trim() || null }
+      const payload = { date: form.date, amount: Number(form.amount), category, note: form.note.trim() || null }
       if (editId) await updateExpense(editId, payload)
       else await createExpense(payload)
       await load(); closeForm()
@@ -322,15 +336,28 @@ export default function ExpensesPage() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">หมวดหมู่ <span className="text-red-500">*</span></label>
-                <input name="category" value={form.category} onChange={set}
-                  placeholder="เช่น ค่าซ่อมกล้อง, ค่าการตลาด, ค่าน้ำไฟ..."
-                  list="category-suggestions" required className={inputCls} />
-                <datalist id="category-suggestions">
-                  {[...new Set(expenses.map(e => e.category))].map(c => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-                <p className="text-xs text-gray-400 mt-1">พิมพ์เองได้เลย หรือเลือกจากที่เคยใช้</p>
+                <select name="category" value={form.category} onChange={set} required className={inputCls}>
+                  <option value="" disabled>— เลือกหมวดหมู่ —</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__new__">+ เพิ่มหมวดใหม่...</option>
+                </select>
+                {form.category === '__new__' && (
+                  <div className="mt-2">
+                    <input value={newCategory} onChange={e => setNewCategory(e.target.value)}
+                      placeholder="ชื่อหมวดใหม่ เช่น ค่าซ่อมกล้อง, ค่าการตลาด..."
+                      autoFocus required className={inputCls} />
+                    {similarCategory && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ⚠️ คล้ายหมวดเดิม "{similarCategory}" —{' '}
+                        <button type="button" className="underline font-medium"
+                          onClick={() => { setForm(f => ({ ...f, category: similarCategory })); setNewCategory('') }}>
+                          ใช้หมวดเดิมแทน
+                        </button>
+                      </p>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 mt-1">เลือกจากหมวดที่เคยใช้ เพื่อให้รายงานสรุปไม่แตกหมวดซ้ำ</p>
               </div>
 
               <div>
