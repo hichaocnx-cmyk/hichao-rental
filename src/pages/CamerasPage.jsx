@@ -208,10 +208,10 @@ export default function CamerasPage() {
                   ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}>
 
                 {/* Thumbnail */}
-                <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
                   {camera.image_url
-                    ? <LazyImg src={camera.image_url} alt={camera.name} className="w-full h-full object-cover" />
-                    : <CamPlaceholder />
+                    ? <LazyImg src={camera.image_url} alt={camera.name} className="absolute inset-0 w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center"><CamPlaceholder /></div>
                   }
                 </div>
 
