@@ -405,7 +405,7 @@ export default function RecipesPage() {
     const matchSearch = !search || r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.description?.toLowerCase().includes(search.toLowerCase())
     return matchFilter && matchSearch
-  })
+  }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 
   const counts = {
     all: recipes.length,
