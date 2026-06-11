@@ -41,9 +41,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </ToastProvider>
+          <NekoCat />
         </AppProvider>
       </AuthProvider>
-      <NekoCat />
     </BrowserRouter>
   )
 }

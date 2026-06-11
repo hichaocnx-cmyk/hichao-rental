@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useApp } from '../context/AppContext'
 
 // ขันเงิน — หิวตลอดเวลา เรียกนิจให้อาหาร
 const MSGS = [
@@ -9,21 +10,24 @@ const MSGS = [
   'ให้อาหารขันเงินด้วยนะนิจ~',
 ]
 const REACT_EMOJIS = ['😸','🐟','✨','💕','🍚','😋','🥰','🐾']
-const S = { WALK:'walk', RUN:'run', SIT:'sit', SLEEP:'sleep', REACT:'react', TEASE:'tease', MEOW:'meow' }
+const S = { WALK:'walk', RUN:'run', SIT:'sit', SLEEP:'sleep', REACT:'react', TEASE:'tease', MEOW:'meow', STRETCH:'stretch' }
 
 // ─── Persian Cat SVG with walking legs ──────────────────────────────────────
 function PersianCat({ state, flip, blinking, tailAngle, legFrame }) {
   const eyeRy   = blinking || state === S.SLEEP ? 0.8 : 9
   const pupilRy = blinking || state === S.SLEEP ? 0.8 : 7
   const ta      = tailAngle || 0
+  const amp     = state === S.RUN ? 1.5 : state === S.SLEEP ? 0.25
+                : (state === S.MEOW || state === S.REACT) ? 1.2 : 1
   const walking = state === S.WALK || state === S.RUN || state === S.TEASE
 
-  // leg positions: alternate frame 0/1
-  const lf = legFrame % 2
-  const leftLegY  = walking ? (lf === 0 ? 72 : 76) : 75
-  const rightLegY = walking ? (lf === 0 ? 76 : 72) : 75
-  const leftLegX  = walking ? (lf === 0 ? 28 : 30) : 29
-  const rightLegX = walking ? (lf === 0 ? 52 : 50) : 51
+  // leg positions: 4-frame gait (smooth phase -1..1)
+  const lf = legFrame % 4
+  const ph = [1, 0, -1, 0][lf]
+  const leftLegY  = walking ? 74 + ph * 2.2 : 75
+  const rightLegY = walking ? 74 - ph * 2.2 : 75
+  const leftLegX  = walking ? 29 + ph * 1.2 : 29
+  const rightLegX = walking ? 51 - ph * 1.2 : 51
 
   return (
     <svg width="80" height="88" viewBox="0 0 80 88"
@@ -46,15 +50,15 @@ function PersianCat({ state, flip, blinking, tailAngle, legFrame }) {
       <ellipse cx="40" cy="85" rx="20" ry="4" fill="rgba(0,0,0,0.07)"/>
 
       {/* tail */}
-      <path d={`M56,60 Q${70+Math.sin(ta)*9},${52+Math.cos(ta)*7} ${66+Math.sin(ta)*11},${40+Math.cos(ta)*5}`}
+      <path d={`M56,60 Q${70+Math.sin(ta)*9*amp},${52+Math.cos(ta)*7*amp} ${66+Math.sin(ta)*11*amp},${40+Math.cos(ta)*5*amp}`}
         fill="none" stroke="#e8d8d0" strokeWidth="10" strokeLinecap="round" filter="url(#nc-sh)"/>
-      <path d={`M56,60 Q${70+Math.sin(ta)*9},${52+Math.cos(ta)*7} ${66+Math.sin(ta)*11},${40+Math.cos(ta)*5}`}
+      <path d={`M56,60 Q${70+Math.sin(ta)*9*amp},${52+Math.cos(ta)*7*amp} ${66+Math.sin(ta)*11*amp},${40+Math.cos(ta)*5*amp}`}
         fill="none" stroke="white" strokeWidth="5" strokeLinecap="round" opacity="0.5"/>
 
       {/* ── LEGS ── */}
       {/* back legs (always visible, less detail) */}
-      <ellipse cx="32" cy={leftLegY+3}  rx="7" ry="5" fill="#e6d3ca" stroke="#d8c8be" strokeWidth="0.8"/>
-      <ellipse cx="50" cy={rightLegY+3} rx="7" ry="5" fill="#e6d3ca" stroke="#d8c8be" strokeWidth="0.8"/>
+      <ellipse cx={32 - ph*1} cy={rightLegY+3} rx="7" ry="5" fill="#e6d3ca" stroke="#d8c8be" strokeWidth="0.8"/>
+      <ellipse cx={50 + ph*1} cy={leftLegY+3}  rx="7" ry="5" fill="#e6d3ca" stroke="#d8c8be" strokeWidth="0.8"/>
 
       {/* front legs — animated */}
       <rect x={leftLegX-5}  y={leftLegY-10}  width="10" height={walking?16:14} rx="5" fill="#ede0d8" stroke="#d8c8be" strokeWidth="0.8"/>
@@ -130,7 +134,8 @@ function Bubble({ text, flip }) {
     <div style={{
       position:'absolute', bottom:86, left:flip?'auto':-8, right:flip?-8:'auto',
       background:'white', borderRadius:12, padding:'5px 10px',
-      fontSize:12, fontWeight:600, color:'#374151', whiteSpace:'nowrap',
+      fontSize:12, fontWeight:600, color:'#374151', whiteSpace:'normal',
+      width:'max-content', maxWidth:230, lineHeight:1.45,
       boxShadow:'0 2px 12px rgba(0,0,0,0.13)', border:'1.5px solid #f3e8e0',
       animation:'ncBubble .25s ease-out', zIndex:1,
     }}>
@@ -147,6 +152,7 @@ function Bubble({ text, flip }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function NekoCat() {
+  const { rentals, loading } = useApp()
   const [visible,  setVisible]  = useState(true)
   const [pos,      setPos]      = useState({ x: 160, y: 200 })
   const [flip,     setFlip]     = useState(false)
@@ -168,6 +174,9 @@ export default function NekoCat() {
   const rafRef     = useRef(null)
   const isDragging = useRef(false)
   const dragOffset = useRef({ x:0, y:0 })
+  const rentalsRef   = useRef([])
+  const knownIdsRef  = useRef(null)
+  const announcedRef = useRef(new Set())
 
   const safeX = x => Math.max(10, Math.min((window.innerWidth  || 1200) - 90, x))
   const safeY = y => Math.max(60, Math.min((window.innerHeight || 800)  - 95, y))
@@ -177,6 +186,11 @@ export default function NekoCat() {
     x: safeX(80  + Math.random() * ((window.innerWidth  || 1200) - 160)),
     y: safeY(100 + Math.random() * ((window.innerHeight || 800)  - 160)),
   }), [])
+
+  const todayStr   = () => new Date().toLocaleDateString('en-CA')
+  const queueToday = () => rentalsRef.current.filter(r =>
+    ['booked','active'].includes(r.status) &&
+    (r.start_date === todayStr() || r.end_date === todayStr())).length
 
   const showMsg = useCallback((text, dur=2600) => {
     setMsg(text)
@@ -189,20 +203,24 @@ export default function NekoCat() {
     setCatState(s)
   }, [])
 
-  // leg step timer (slower = 450ms per step)
+  // leg step timer — 4-frame gait
   useEffect(() => {
     const leg = setInterval(() => {
       if (stateRef.current===S.WALK || stateRef.current===S.RUN || stateRef.current===S.TEASE) {
         setLegFrame(f => f+1)
       }
-    }, stateRef.current===S.RUN ? 160 : 700)
+    }, stateRef.current===S.RUN ? 80 : 350)
     return () => clearInterval(leg)
   }, [catState])
 
-  // tail swish
+  // tail swish — speed follows mood
   useEffect(() => {
     let t = 0
-    const sw = setInterval(()=>{ t+=0.06; setTail(t) }, 70)
+    const sw = setInterval(()=>{
+      const st = stateRef.current
+      t += st===S.RUN ? 0.18 : (st===S.MEOW||st===S.REACT) ? 0.12 : st===S.SLEEP ? 0.02 : 0.06
+      setTail(t)
+    }, 70)
     return () => clearInterval(sw)
   }, [])
 
@@ -246,6 +264,69 @@ export default function NekoCat() {
     }
   }, [changeState, rndTarget])
 
+  // ── แมวรู้งานจริง ──────────────────────────────────────────────
+  useEffect(() => { rentalsRef.current = rentals || [] }, [rentals])
+
+  const announce = useCallback((text) => {
+    if (isDragging.current) { showMsg(text, 7000); return }
+    changeState(S.RUN); targetRef.current = rndTarget()
+    clearTimeout(timers.current.annc)
+    timers.current.annc = setTimeout(() => {
+      changeState(S.MEOW); showMsg(text, 7000)
+      setTimeout(() => { if (stateRef.current===S.MEOW) changeState(S.WALK) }, 4200)
+    }, 900)
+  }, [changeState, rndTarget, showMsg])
+
+  // จองใหม่เข้ามา → ตื่นเต้น
+  useEffect(() => {
+    if (!rentals || loading) return
+    const ids = new Set(rentals.map(r => r.id))
+    if (knownIdsRef.current) {
+      const fresh = rentals.filter(r => !knownIdsRef.current.has(r.id))
+      if (fresh.length > 0) {
+        const r = fresh[0]
+        setReact('🎉')
+        setTimeout(() => setReact(null), 1100)
+        announce(`จองใหม่เข้ามา! 🎉 ${r.camera?.name ?? 'กล้อง'} — คุณ${r.customer?.name ?? 'ลูกค้า'}`)
+      }
+    }
+    knownIdsRef.current = ids
+  }, [rentals, loading, announce])
+
+  // เตือนคิวรับ/คืนที่ใกล้ถึง (เช็คทุก 1 นาที)
+  useEffect(() => {
+    const check = () => {
+      const now = new Date()
+      const today = todayStr()
+      const evts = []
+      for (const r of rentalsRef.current) {
+        if (!['booked','active'].includes(r.status)) continue
+        const cam  = r.camera?.name ?? 'กล้อง'
+        const cust = r.customer?.name ?? 'ลูกค้า'
+        if (r.start_date === today && r.pickup_time)
+          evts.push({ key:`${r.id}-p`, time:r.pickup_time, txt:(mn)=>`📦 อีก ${mn} นาที คุณ${cust} มารับ ${cam} นะนิจ!`, soon:`❗ ใกล้ถึงคิวรับแล้ว! ${cam} — คุณ${cust}` })
+        if (r.end_date === today && r.return_time)
+          evts.push({ key:`${r.id}-r`, time:r.return_time, txt:(mn)=>`🔄 อีก ${mn} นาที คุณ${cust} มาคืน ${cam} นะนิจ!`, soon:`❗ ใกล้ถึงคิวคืนแล้ว! ${cam} — คุณ${cust}` })
+      }
+      for (const ev of evts) {
+        const [h, mi] = ev.time.split(':').map(Number)
+        const at = new Date(); at.setHours(h, mi, 0, 0)
+        const mn = Math.round((at - now) / 60000)
+        if (mn > 0 && mn <= 10 && !announcedRef.current.has(ev.key+'-10')) {
+          announcedRef.current.add(ev.key+'-10'); announcedRef.current.add(ev.key+'-60')
+          announce(ev.soon); break
+        }
+        if (mn > 10 && mn <= 60 && !announcedRef.current.has(ev.key+'-60')) {
+          announcedRef.current.add(ev.key+'-60')
+          announce(ev.txt(mn)); break
+        }
+      }
+    }
+    const iv = setInterval(check, 60000)
+    const t0 = setTimeout(check, 4000)
+    return () => { clearInterval(iv); clearTimeout(t0) }
+  }, [announce])
+
   // behavior scheduler
   const scheduleBehavior = useCallback(() => {
     clearTimeout(timers.current.behav)
@@ -256,10 +337,18 @@ export default function NekoCat() {
         changeState(S.RUN); targetRef.current = rndTarget()
         setTimeout(()=>{ if(stateRef.current===S.RUN) changeState(S.WALK) }, 1800)
       } else if (pick==='sit') {
-        changeState(S.SIT); showMsg(rndMsg(), 2600)
+        const q = queueToday()
+        const text = Math.random() < 0.35
+          ? (q > 0 ? `วันนี้มีคิว ${q} รายการนะนิจ 📋` : 'วันนี้ไม่มีคิว ชิลล์ๆ ได้เลย 😸')
+          : rndMsg()
+        changeState(S.SIT); showMsg(text, 2600)
         setTimeout(()=>changeState(S.WALK), 3500)
       } else if (pick==='meow') {
-        changeState(S.MEOW); showMsg(rndMsg(), 2600)
+        const q2 = queueToday()
+        const text2 = Math.random() < 0.35
+          ? (q2 > 0 ? `อย่าลืมคิววันนี้ ${q2} รายการนะนิจ! 📋` : 'วันนี้ว่างๆ เล่นกับขันเงินไหม 🐾')
+          : rndMsg()
+        changeState(S.MEOW); showMsg(text2, 2600)
         setTimeout(()=>changeState(S.WALK), 2800)
       } else {
         targetRef.current = rndTarget(); changeState(S.WALK)
@@ -273,7 +362,13 @@ export default function NekoCat() {
     let sl
     const reset = () => {
       clearTimeout(sl)
-      if (stateRef.current===S.SLEEP) { changeState(S.WALK); setMsg(null); targetRef.current = rndTarget() }
+      if (stateRef.current===S.SLEEP) {
+        changeState(S.STRETCH); setMsg(null); showMsg('ยืดเส้นยืดสายย~ 😺', 1400)
+        clearTimeout(timers.current.stretch)
+        timers.current.stretch = setTimeout(() => {
+          if (stateRef.current===S.STRETCH) { changeState(S.WALK); targetRef.current = rndTarget() }
+        }, 950)
+      }
       sl = setTimeout(()=>{ changeState(S.SLEEP); showMsg('zzz 💤',99999) }, 20000)
     }
     window.addEventListener('mousemove', reset)
@@ -291,7 +386,7 @@ export default function NekoCat() {
       const t  = targetRef.current
       const m  = mouseRef.current
       const st = stateRef.current
-      if (st===S.SLEEP||st===S.SIT||st===S.REACT||st===S.MEOW) { rafRef.current=requestAnimationFrame(loop); return }
+      if (st===S.SLEEP||st===S.SIT||st===S.REACT||st===S.MEOW||st===S.STRETCH) { rafRef.current=requestAnimationFrame(loop); return }
 
       const dMouse = dist(p, m)
       if (dMouse < 100 && st!==S.TEASE && dodgeRef.current < 5) {
@@ -334,7 +429,11 @@ export default function NekoCat() {
   const onClick = useCallback(e => {
     e.stopPropagation()
     if (isDragging.current) return
-    if (catState===S.SLEEP) { changeState(S.WALK); setMsg(null); return }
+    if (catState===S.SLEEP) {
+      changeState(S.STRETCH); setMsg(null); showMsg('ยืดเส้นยืดสายย~ 😺', 1400)
+      setTimeout(()=>{ if(stateRef.current===S.STRETCH){ changeState(S.WALK); targetRef.current = rndTarget() } }, 950)
+      return
+    }
     dodgeRef.current = 0
     changeState(S.REACT)
     setReact(REACT_EMOJIS[Math.floor(Math.random()*REACT_EMOJIS.length)])
@@ -345,9 +444,10 @@ export default function NekoCat() {
   if (!visible) return null
 
   const anim = dragging ? 'ncJump .4s ease-out'
-             : catState===S.WALK  ? 'ncWalk 1.8s ease-in-out infinite alternate'
-             : catState===S.RUN   ? 'ncRun  .35s ease-in-out infinite alternate'
-             : catState===S.REACT ? 'ncJump .4s ease-out'
+             : catState===S.WALK    ? 'ncWalk 1.8s ease-in-out infinite alternate'
+             : catState===S.RUN     ? 'ncRun  .35s ease-in-out infinite alternate'
+             : catState===S.REACT   ? 'ncJump .4s ease-out'
+             : catState===S.STRETCH ? 'ncStretch .95s ease-in-out'
              : 'ncBreath 3s ease-in-out infinite'
 
   return (
@@ -382,6 +482,7 @@ export default function NekoCat() {
         @keyframes ncJump   { 0%{transform:translateY(0)} 35%{transform:translateY(-16px) scale(1.07)} 100%{transform:translateY(0)} }
         @keyframes ncFloat  { 0%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-28px)} }
         @keyframes ncBubble { from{opacity:0;transform:scale(.85)} to{opacity:1;transform:scale(1)} }
+        @keyframes ncStretch{ 0%{transform:scale(1)} 40%{transform:scaleX(1.18) scaleY(.8) translateY(7px)} 70%{transform:scaleX(.96) scaleY(1.06) translateY(-3px)} 100%{transform:scale(1)} }
         div:hover > .nc-x   { opacity:1 !important }
       `}</style>
     </div>
