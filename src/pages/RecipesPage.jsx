@@ -117,9 +117,12 @@ const TONINGS = ['', 'None', 'Warm', 'Cool', 'Sepia', 'Red', 'Green', 'Blue', 'P
 const EXPOSURE_MODES = ['Av', 'Tv', 'M', 'P', 'TAv', 'AUTO']
 const ON_OFF_OPTIONS = ['—', 'ON', 'OFF']
 
-function ValChip({ value }) {
+function ValChip({ value, special }) {
   if (!value || value === '0' || value === '—') {
     return <span className="text-xs font-semibold text-gray-400">{value || '—'}</span>
+  }
+  if (special) {
+    return <span className="text-xs font-bold text-brand-500">{value}</span>
   }
   const isPos = value.startsWith('+')
   const isNeg = value.startsWith('-')
@@ -623,19 +626,20 @@ export default function RecipesPage() {
               {/* Tone */}
               <div>
                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tone Adjustments</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                <div className="space-y-1">
                   {[
-                    { label: 'Saturation', key: 'saturation' },
-                    { label: 'Hue',        key: 'hue' },
-                    { label: 'High/Low',   key: 'highLow' },
-                    { label: 'Contrast',   key: 'contrast' },
-                    { label: 'Highlight',  key: 'highlight' },
-                    { label: 'Shadow',     key: 'shadow' },
-                    { label: 'Sharpness',  key: 'sharpness' },
-                  ].map(({ label, key }) => (
-                    <div key={key} className="flex items-center justify-between">
+                    { label: 'Image Control', key: 'imageControl', special: true },
+                    { label: 'Saturation',    key: 'saturation' },
+                    { label: 'Hue',           key: 'hue' },
+                    { label: 'High/Low',      key: 'highLow' },
+                    { label: 'Contrast',      key: 'contrast' },
+                    { label: 'Highlight',     key: 'highlight' },
+                    { label: 'Shadow',        key: 'shadow' },
+                    { label: 'Sharpness',     key: 'sharpness' },
+                  ].map(({ label, key, special }) => (
+                    <div key={key} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
                       <span className="text-[11px] text-gray-400">{label}</span>
-                      <ValChip value={selected[key]} />
+                      <ValChip value={selected[key]} special={special} />
                     </div>
                   ))}
                 </div>
@@ -761,24 +765,20 @@ export default function RecipesPage() {
               {/* Tone grid */}
               <div>
                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tone Adjustments</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="space-y-1">
                   {[
-                    { label: 'Filter', value: selected.imageControl, special: true },
-                    { label: 'Sat',    value: selected.saturation },
-                    { label: 'Hue',    value: selected.hue },
-                    { label: 'Hi/Lo',  value: selected.highLow },
-                    { label: 'Con',    value: selected.contrast },
-                    { label: 'HL',     value: selected.highlight },
-                    { label: 'Shadow', value: selected.shadow },
-                    { label: 'Sharp',  value: selected.sharpness },
-                  ].map(({ label, value, special }) => (
-                    <div key={label} className={`rounded-xl p-2 text-center ${special ? 'bg-brand-50' : 'bg-gray-50'}`}>
-                      <div className="text-[9px] text-gray-400 font-medium mb-0.5">{label}</div>
-                      <div className={`text-xs font-bold ${
-                        special ? 'text-brand-500' :
-                        value?.startsWith('+') ? 'text-green-600' :
-                        value?.startsWith('-') ? 'text-red-500' : 'text-gray-400'
-                      }`}>{value || '—'}</div>
+                    { label: 'Image Control', key: 'imageControl', special: true },
+                    { label: 'Saturation',    key: 'saturation' },
+                    { label: 'Hue',           key: 'hue' },
+                    { label: 'High/Low',      key: 'highLow' },
+                    { label: 'Contrast',      key: 'contrast' },
+                    { label: 'Highlight',     key: 'highlight' },
+                    { label: 'Shadow',        key: 'shadow' },
+                    { label: 'Sharpness',     key: 'sharpness' },
+                  ].map(({ label, key, special }) => (
+                    <div key={key} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
+                      <span className="text-[11px] text-gray-400">{label}</span>
+                      <ValChip value={selected[key]} special={special} />
                     </div>
                   ))}
                 </div>
