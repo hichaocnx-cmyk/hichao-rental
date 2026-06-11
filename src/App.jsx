@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import useClickSound from './hooks/useClickSound'
 import { AuthProvider } from './context/AuthContext'
 import { AppProvider } from './context/AppContext'
 import { ToastProvider } from './context/ToastContext'
@@ -16,6 +17,7 @@ import CalendarPage from './pages/CalendarPage'
 import RecipesPage from './pages/RecipesPage'
 
 export default function App() {
+  useClickSound()
   return (
     <BrowserRouter>
       <AuthProvider>
