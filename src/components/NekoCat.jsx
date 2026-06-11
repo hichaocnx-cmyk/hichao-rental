@@ -195,7 +195,7 @@ export default function NekoCat() {
       if (stateRef.current===S.WALK || stateRef.current===S.RUN || stateRef.current===S.TEASE) {
         setLegFrame(f => f+1)
       }
-    }, stateRef.current===S.RUN ? 160 : 420)
+    }, stateRef.current===S.RUN ? 160 : 700)
     return () => clearInterval(leg)
   }, [catState])
 
@@ -299,7 +299,7 @@ export default function NekoCat() {
         setTimeout(()=>{ if(stateRef.current===S.TEASE) changeState(S.WALK) }, 2000)
       }
 
-      const spd = st===S.RUN ? 4.5 : st===S.TEASE ? 2.0 : 0.8   // slow walk
+      const spd = st===S.RUN ? 4.5 : st===S.TEASE ? 2.0 : 0.25  // very slow walk
       let tx=t.x, ty=t.y
       if (st===S.TEASE) {
         const ang = Math.atan2(p.y-m.y, p.x-m.x)
@@ -345,7 +345,7 @@ export default function NekoCat() {
   if (!visible) return null
 
   const anim = dragging ? 'ncJump .4s ease-out'
-             : catState===S.WALK  ? 'ncWalk 0.9s ease-in-out infinite alternate'
+             : catState===S.WALK  ? 'ncWalk 1.8s ease-in-out infinite alternate'
              : catState===S.RUN   ? 'ncRun  .35s ease-in-out infinite alternate'
              : catState===S.REACT ? 'ncJump .4s ease-out'
              : 'ncBreath 3s ease-in-out infinite'
@@ -376,7 +376,7 @@ export default function NekoCat() {
           cursor:'pointer', opacity:0, transition:'opacity .2s' }}>✕</div>
 
       <style>{`
-        @keyframes ncWalk   { from{transform:translateY(0) rotate(-.8deg)} to{transform:translateY(-3px) rotate(.8deg)} }
+        @keyframes ncWalk   { from{transform:translateY(0) rotate(-.5deg)} to{transform:translateY(-2px) rotate(.5deg)} }
         @keyframes ncRun    { from{transform:translateY(0) rotate(-2deg)}  to{transform:translateY(-6px) rotate(2deg)} }
         @keyframes ncBreath { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
         @keyframes ncJump   { 0%{transform:translateY(0)} 35%{transform:translateY(-16px) scale(1.07)} 100%{transform:translateY(0)} }
