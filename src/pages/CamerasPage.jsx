@@ -262,8 +262,8 @@ export default function CamerasPage() {
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
             <div className="flex items-start gap-4 mb-4">
               {selected.image_url
-                ? <LazyImg src={selected.image_url} alt={selected.name} className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" />
-                : <div className="w-20 h-20 bg-brand-50 rounded-2xl flex items-center justify-center flex-shrink-0"><CamPlaceholder /></div>
+                ? <LazyImg src={selected.image_url} alt={selected.name} className="w-28 h-28 rounded-2xl object-contain flex-shrink-0 bg-gray-50 p-1" />
+                : <div className="w-28 h-28 bg-brand-50 rounded-2xl flex items-center justify-center flex-shrink-0"><CamPlaceholder /></div>
               }
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-base leading-tight">{selected.name}</p>
