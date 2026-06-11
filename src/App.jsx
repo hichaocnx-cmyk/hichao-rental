@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import useClickSound from './hooks/useClickSound'
+import NekoCat from './components/NekoCat'
 import { AuthProvider } from './context/AuthContext'
 import { AppProvider } from './context/AppContext'
 import { ToastProvider } from './context/ToastContext'
@@ -42,6 +43,7 @@ export default function App() {
           </ToastProvider>
         </AppProvider>
       </AuthProvider>
+      <NekoCat />
     </BrowserRouter>
   )
 }
