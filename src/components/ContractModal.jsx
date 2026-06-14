@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 
 // ── ข้อมูลผู้ให้เช่า (แก้ไขได้ตรงนี้) ───────────────────────────────
 const LESSOR = {
@@ -22,11 +22,41 @@ const calcDays = (start, end) => {
 }
 const baht = (n) => '฿' + Number(n || 0).toLocaleString()
 
+async function toBase64(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const r = new FileReader()
+      r.onloadend = () => resolve(r.result)
+      r.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
+function loadHtml2Canvas() {
+  if (window.html2canvas) return Promise.resolve(window.html2canvas)
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+    s.onload = () => resolve(window.html2canvas)
+    s.onerror = () => reject(new Error('โหลดตัวสร้างรูปไม่สำเร็จ'))
+    document.head.appendChild(s)
+  })
+}
+
+const BRAND = '#FF6B9D'
+const INK   = '#1f2937'
+
 export default function ContractModal({ rental, onClose }) {
   const canvasRef = useRef(null)
+  const docRef    = useRef(null)
   const drawing   = useRef(false)
-  const [hasSig, setHasSig] = useState(false)
-  const [sigImg, setSigImg] = useState('')   // ลายเซ็นสำหรับฝังในเอกสารพิมพ์
+  const [hasSig, setHasSig]       = useState(false)
+  const [sigImg, setSigImg]       = useState('')
+  const [camB64, setCamB64]       = useState('')
+  const [logoB64, setLogoB64]     = useState('/logo.png')
+  const [exporting, setExporting] = useState(false)
 
   const days        = calcDays(rental.start_date, rental.end_date)
   const pricePerDay = Number(rental.price_per_day || 0)
@@ -45,15 +75,34 @@ export default function ContractModal({ rental, onClose }) {
     : 'คิดค่าปรับล่าช้าตามอัตราค่าเช่า 1 วันต่อวัน'
 
   const TERMS = [
-    'ผู้เช่าได้ตรวจสอบสภาพอุปกรณ์และยอมรับว่าอยู่ในสภาพสมบูรณ์ใช้งานได้ปกติก่อนรับมอบ',
-    `ผู้เช่าจะส่งคืนอุปกรณ์ภายในกำหนด หากคืนล่าช้า ${lateFee}`,
+    'ผู้เช่าได้ตรวจสอบสภาพอุปกรณ์และยอมรับว่าอยู่ในสภาพสมบูรณ์ ใช้งานได้ปกติก่อนรับมอบ',
+    `ผู้เช่าจะส่งคืนอุปกรณ์ภายในวันและเวลาที่กำหนด หากคืนล่าช้า ${lateFee}`,
+    'ผู้เช่าจะชำระค่าเช่าและค่าใช้จ่ายตามที่ระบุให้ครบถ้วนภายในวันรับอุปกรณ์',
+    'ผู้เช่าตกลงแสดงบัตรประชาชนตัวจริงและยินยอมให้ถ่ายสำเนาเพื่อประกอบสัญญา',
     'หากอุปกรณ์ชำรุดหรือเสียหายจากการใช้งานของผู้เช่า ผู้เช่าตกลงรับผิดชอบค่าซ่อมตามจริง',
-    'กรณีอุปกรณ์สูญหาย ผู้เช่าตกลงชดใช้ตามราคาประเมิน/ราคาตลาดของอุปกรณ์นั้น',
+    'กรณีอุปกรณ์สูญหาย ผู้เช่าตกลงชดใช้ตามราคาประเมินหรือราคาตลาดของอุปกรณ์นั้น',
+    'ห้ามดัดแปลง แกะ ซ่อม หรือให้ผู้อื่นซ่อมอุปกรณ์โดยไม่ได้รับอนุญาตจากผู้ให้เช่า',
+    'อุปกรณ์เสริม (แบตเตอรี่ เลนส์ การ์ดความจำ สายชาร์จ ฯลฯ) ต้องส่งคืนครบตามรายการที่รับไป',
+    'ผู้เช่าจะไม่นำอุปกรณ์ไปให้ผู้อื่นเช่าช่วง หรือใช้ผิดวัตถุประสงค์/ผิดกฎหมาย',
     'เงินค่าจอง/มัดจำ และค่าประกัน จะคืนให้เมื่อผู้เช่าส่งคืนอุปกรณ์ครบถ้วนในสภาพปกติ',
-    'ผู้เช่าจะไม่นำอุปกรณ์ไปให้ผู้อื่นเช่าช่วง หรือใช้ผิดวัตถุประสงค์',
+    'กรณีผิดนัดส่งคืนเกินกำหนดโดยไม่แจ้ง ผู้ให้เช่ามีสิทธิ์ริบเงินมัดจำ/ประกัน และดำเนินการตามกฎหมาย',
     'ผู้ให้เช่าไม่รับผิดชอบต่อความเสียหายหรืออุบัติเหตุที่เกิดแก่บุคคลภายนอกระหว่างที่ผู้เช่าใช้งานอุปกรณ์',
-    'คู่สัญญาทั้งสองฝ่ายได้อ่านและเข้าใจข้อความในสัญญานี้โดยตลอดแล้ว จึงลงลายมือชื่อไว้เป็นหลักฐาน',
+    'สัญญานี้จัดทำขึ้นโดยมีข้อความถูกต้องตรงกัน คู่สัญญาได้อ่านเข้าใจโดยตลอดแล้ว จึงลงลายมือชื่อไว้เป็นหลักฐาน',
   ]
+
+  // preload รูปกล้อง + โลโก้ เป็น base64 (กัน canvas ปนเปื้อน cross-origin)
+  useEffect(() => {
+    let on = true
+    if (cam.image_url) toBase64(cam.image_url).then(d => { if (on && d) setCamB64(d) })
+    toBase64('/logo.png').then(d => { if (on && d) setLogoB64(d) })
+    if (!document.getElementById('hc-sarabun')) {
+      const l = document.createElement('link')
+      l.id = 'hc-sarabun'; l.rel = 'stylesheet'
+      l.href = 'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap'
+      document.head.appendChild(l)
+    }
+    return () => { on = false }
+  }, [cam.image_url])
 
   // ── signature pad ────────────────────────────────────────────────
   const getPos = (e) => {
@@ -84,14 +133,39 @@ export default function ContractModal({ rental, onClose }) {
     setHasSig(false); setSigImg('')
   }
 
-  // ── พิมพ์ / บันทึก PDF (รองรับมือถือ — ไม่เปิดแท็บใหม่) ──────────
-  const handlePrint = () => {
-    if (hasSig && canvasRef.current) setSigImg(canvasRef.current.toDataURL('image/png'))
-    // รอให้ลายเซ็นเรนเดอร์ลง DOM ก่อนสั่งพิมพ์
-    setTimeout(() => { window.print() }, 200)
+  // ── บันทึกเป็นรูปภาพ ─────────────────────────────────────────────
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      if (hasSig && canvasRef.current) setSigImg(canvasRef.current.toDataURL('image/png'))
+      const h2c = await loadHtml2Canvas()
+      try { await document.fonts.ready } catch {}
+      await new Promise(r => setTimeout(r, 300)) // ให้ลายเซ็น/ฟอนต์เรนเดอร์ก่อน
+      const canvas = await h2c(docRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const fileName = `${contractNo}.png`
+      const finish = () => setExporting(false)
+      canvas.toBlob(async (blob) => {
+        if (blob && navigator.canShare) {
+          const file = new File([blob], fileName, { type: 'image/png' })
+          if (navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title: 'หนังสือสัญญาเช่ากล้อง' }); return finish() }
+            catch { /* ผู้ใช้ยกเลิก → ดาวน์โหลดแทน */ }
+          }
+        }
+        const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png')
+        const a = document.createElement('a')
+        a.href = url; a.download = fileName
+        document.body.appendChild(a); a.click(); a.remove()
+        if (blob) setTimeout(() => URL.revokeObjectURL(url), 8000)
+        finish()
+      }, 'image/png')
+    } catch (e) {
+      alert('สร้างรูปไม่สำเร็จ: ' + e.message)
+      setExporting(false)
+    }
   }
 
-  // ── UI helpers ───────────────────────────────────────────────────
+  // ── UI helpers (พรีวิวบนจอ) ──────────────────────────────────────
   const RowL = ({ k, v }) => (
     <div className="flex gap-2 text-sm mb-1">
       <span className="text-gray-400 w-28 flex-shrink-0">{k}</span>
@@ -99,33 +173,33 @@ export default function ContractModal({ rental, onClose }) {
     </div>
   )
 
-  // ── styles สำหรับเอกสารพิมพ์ ─────────────────────────────────────
-  const pParty = { background:'#f9fafb', border:'1px solid #eef0f3', borderRadius:10, padding:'12px 14px', marginBottom:10 }
-  const pH3    = { fontSize:12, color:'#0ea5e9', fontWeight:800, marginBottom:6, textTransform:'uppercase', letterSpacing:'.5px' }
-  const pRow   = { display:'flex', gap:8, marginBottom:3 }
-  const pK     = { width:130, color:'#6b7280', flexShrink:0 }
-  const pV     = { fontWeight:600 }
-  const pSec   = { fontSize:13, fontWeight:800, margin:'14px 0 4px' }
-  const pTd    = { padding:'5px 8px', borderBottom:'1px solid #f1f3f5' }
-  const pTdR   = { ...pTd, textAlign:'right', fontWeight:700 }
+  // ── styles เอกสาร ────────────────────────────────────────────────
+  const card  = { background:'#fafafa', border:'1px solid #eef0f3', borderRadius:12, padding:'14px 16px' }
+  const h3    = { fontSize:12, color:BRAND, fontWeight:800, marginBottom:8, letterSpacing:'.3px' }
+  const row   = { display:'flex', gap:8, marginBottom:4, fontSize:13 }
+  const kCol  = { width:118, color:'#6b7280', flexShrink:0 }
+  const vCol  = { fontWeight:600, color:INK }
+  const sec   = { fontSize:14, fontWeight:800, color:INK, margin:'18px 0 6px', display:'flex', alignItems:'center', gap:8 }
+  const secBar= { width:4, height:16, background:BRAND, borderRadius:3, display:'inline-block' }
+  const td    = { padding:'6px 10px', borderBottom:'1px solid #f1f3f5', fontSize:13 }
+  const tdR   = { ...td, textAlign:'right', fontWeight:700 }
 
-  const SignBlock = ({ role, name, img }) => (
-    <div style={{ textAlign:'center', width:'46%' }}>
-      {img ? <img src={img} alt="" style={{ height:46, objectFit:'contain', display:'block', margin:'0 auto 2px' }} />
-           : <div style={{ height:46 }} />}
+  const SignBox = ({ role, name, img }) => (
+    <div style={{ textAlign:'center', flex:1 }}>
+      {img ? <img src={img} alt="" style={{ height:44, objectFit:'contain', display:'block', margin:'0 auto 2px' }} />
+           : <div style={{ height:44 }} />}
       <div style={{ borderBottom:'1px dotted #9ca3af', marginBottom:6 }} />
       <div style={{ fontSize:12, color:'#6b7280' }}>{role}</div>
-      <div style={{ fontSize:12, fontWeight:600, marginTop:2 }}>( {name || '..............................'} )</div>
+      <div style={{ fontSize:12, fontWeight:600, marginTop:2, color:INK }}>( {name || '............................'} )</div>
+      <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>วันที่ ......./......./.......</div>
     </div>
   )
 
   return (
     <>
       {/* ── พรีวิว + เซ็น (บนจอ) ───────────────────────────────────── */}
-      <div className="hc-screen-only fixed inset-0 z-[10000] bg-black/40 flex items-center justify-center p-4"
-        onClick={onClose}>
-        <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
-          onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[10000] bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
 
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
             <div>
@@ -147,7 +221,6 @@ export default function ContractModal({ rental, onClose }) {
               <RowL k="โทร" v={cust.phone} />
               <RowL k="ที่อยู่" v={cust.address} />
             </div>
-
             <div className="bg-gray-50 rounded-xl p-3.5">
               <p className="text-xs font-bold text-brand-500 mb-2">อุปกรณ์ & ระยะเวลา</p>
               <RowL k="อุปกรณ์" v={`${cam.name || '—'}${cam.brand ? ' · ' + cam.brand : ''}`} />
@@ -173,7 +246,7 @@ export default function ContractModal({ rental, onClose }) {
                 onTouchStart={start} onTouchMove={move} onTouchEnd={end}
                 className="w-full h-[150px] border-2 border-dashed border-gray-200 rounded-xl bg-white touch-none"
               />
-              <p className="text-[11px] text-gray-400 mt-1">ลูกค้าเซ็นนิ้ว/เมาส์ตรงนี้ แล้วกดพิมพ์ — ลายเซ็นจะอยู่ในไฟล์ PDF (หรือเว้นว่างไว้เซ็นบนกระดาษก็ได้)</p>
+              <p className="text-[11px] text-gray-400 mt-1">เซ็นนิ้ว/เมาส์ตรงนี้ แล้วกดบันทึกรูป — ลายเซ็นจะอยู่ในภาพ (หรือเว้นว่างไว้เซ็นบนกระดาษก็ได้)</p>
             </div>
           </div>
 
@@ -182,96 +255,111 @@ export default function ContractModal({ rental, onClose }) {
               className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50">
               ปิด
             </button>
-            <button onClick={handlePrint}
-              className="flex-[2] py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold flex items-center justify-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
-              </svg>
-              พิมพ์ / บันทึก PDF
+            <button onClick={handleExport} disabled={exporting}
+              className="flex-[2] py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-2">
+              {exporting ? (
+                <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> กำลังสร้างรูป...</>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                  บันทึก / แชร์รูปสัญญา
+                </>
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── เอกสารสำหรับพิมพ์ (ซ่อนบนจอ โผล่ตอน print) ─────────────── */}
-      <div id="hc-contract-print" style={{ fontFamily:"'Sarabun','Sukhumvit Set','Prompt',sans-serif", color:'#1f2937', fontSize:13, lineHeight:1.5 }}>
-        <div style={{ textAlign:'center', marginBottom:14 }}>
-          <div style={{ fontSize:20, fontWeight:800 }}>หนังสือสัญญาเช่าอุปกรณ์ถ่ายภาพ</div>
-          <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>{LESSOR.name}</div>
-          <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>เลขที่สัญญา {contractNo}</div>
-        </div>
-        <div style={{ textAlign:'right', fontSize:12, color:'#6b7280', marginBottom:10 }}>
-          ทำที่ {LESSOR.address} · วันที่ {todayStr}
-        </div>
-
-        <div style={pParty}>
-          <div style={pH3}>ผู้ให้เช่า</div>
-          <div style={pRow}><span style={pK}>ชื่อ</span><span style={pV}>{LESSOR.name}</span></div>
-          <div style={pRow}><span style={pK}>ที่อยู่</span><span style={pV}>{LESSOR.address}</span></div>
-          <div style={pRow}><span style={pK}>โทร</span><span style={pV}>{LESSOR.phone}</span></div>
-        </div>
-
-        <div style={pParty}>
-          <div style={pH3}>ผู้เช่า</div>
-          <div style={pRow}><span style={pK}>ชื่อ</span><span style={pV}>{cust.name || '—'}</span></div>
-          <div style={pRow}><span style={pK}>เลขบัตรประชาชน</span><span style={pV}>{cust.id_card || '—'}</span></div>
-          <div style={pRow}><span style={pK}>โทร</span><span style={pV}>{cust.phone || '—'}</span></div>
-          <div style={pRow}><span style={pK}>ที่อยู่</span><span style={pV}>{cust.address || '—'}</span></div>
-        </div>
-
-        <div style={pSec}>รายการอุปกรณ์ที่เช่า</div>
-        <div style={pParty}>
-          <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-            {cam.image_url
-              ? <img src={cam.image_url} alt="" style={{ width:64, height:64, objectFit:'cover', borderRadius:8, border:'1px solid #e5e7eb' }} />
-              : <div style={{ width:64, height:64, borderRadius:8, background:'#f3f4f6' }} />}
-            <div>
-              <div style={pRow}><span style={pK}>อุปกรณ์</span><span style={pV}>{cam.name || '—'}{cam.brand ? ' · ' + cam.brand : ''}</span></div>
-              <div style={pRow}><span style={pK}>ระยะเวลาเช่า</span><span style={pV}>{fmtDate(rental.start_date)} {fmtTime(rental.pickup_time)} ถึง {fmtDate(rental.end_date)} {fmtTime(rental.return_time)} ({days} วัน)</span></div>
+      {/* ── เอกสารสำหรับสร้างรูป (วางนอกจอ) ────────────────────────── */}
+      <div style={{ position:'fixed', left:-99999, top:0, pointerEvents:'none', opacity:1 }} aria-hidden="true">
+        <div ref={docRef} style={{
+          width:760, background:'#ffffff', padding:'40px 44px',
+          fontFamily:"'Sarabun','Sukhumvit Set','Prompt',sans-serif", color:INK, fontSize:13, lineHeight:1.55,
+        }}>
+          {/* header + logo */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            borderBottom:`2px solid ${BRAND}`, paddingBottom:14, marginBottom:16 }}>
+            <img src={logoB64} alt="" crossOrigin="anonymous" style={{ height:56, width:'auto', objectFit:'contain' }} />
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:16, fontWeight:800 }}>{LESSOR.name}</div>
+              <div style={{ fontSize:12, color:'#6b7280' }}>{LESSOR.address}</div>
+              <div style={{ fontSize:12, color:'#6b7280' }}>โทร {LESSOR.phone}</div>
             </div>
           </div>
-        </div>
 
-        <div style={pSec}>ค่าใช้จ่าย</div>
-        <table style={{ width:'100%', borderCollapse:'collapse', marginTop:6 }}>
-          <tbody>
-            <tr><td style={pTd}>ค่าเช่า ({baht(pricePerDay)} × {days} วัน)</td><td style={pTdR}>{baht(pricePerDay * days)}</td></tr>
-            {deliveryFee > 0 && <tr><td style={pTd}>ค่าจัดส่ง</td><td style={pTdR}>{baht(deliveryFee)}</td></tr>}
-            <tr><td style={pTd}>ค่าจอง/มัดจำ</td><td style={pTdR}>{baht(deposit)}</td></tr>
-            <tr><td style={pTd}>ค่าประกันความเสียหาย</td><td style={pTdR}>{baht(insurance)}</td></tr>
-            <tr><td style={{ borderTop:'2px solid #111827', fontWeight:800, fontSize:14, paddingTop:8 }}>รวมค่าเช่าสุทธิ</td>
-                <td style={{ borderTop:'2px solid #111827', fontWeight:800, fontSize:14, paddingTop:8, textAlign:'right' }}>{baht(totalPrice)}</td></tr>
-          </tbody>
-        </table>
+          <div style={{ textAlign:'center', marginBottom:6 }}>
+            <div style={{ fontSize:21, fontWeight:800, letterSpacing:'.3px' }}>หนังสือสัญญาเช่าอุปกรณ์ถ่ายภาพ</div>
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'#6b7280', marginBottom:14 }}>
+            <span>เลขที่สัญญา {contractNo}</span>
+            <span>ทำที่ {LESSOR.address} · วันที่ {todayStr}</span>
+          </div>
 
-        <div style={pSec}>ข้อตกลงและเงื่อนไข</div>
-        <ol style={{ margin:'8px 0 0 18px' }}>
-          {TERMS.map((t, i) => <li key={i} style={{ marginBottom:5 }}>{t}</li>)}
-        </ol>
+          {/* parties: two columns */}
+          <div style={{ display:'flex', gap:12, marginBottom:4 }}>
+            <div style={{ ...card, flex:1 }}>
+              <div style={h3}>ผู้ให้เช่า</div>
+              <div style={row}><span style={kCol}>ชื่อ</span><span style={vCol}>{LESSOR.name}</span></div>
+              <div style={row}><span style={kCol}>ที่อยู่</span><span style={vCol}>{LESSOR.address}</span></div>
+              <div style={row}><span style={kCol}>โทร</span><span style={vCol}>{LESSOR.phone}</span></div>
+            </div>
+            <div style={{ ...card, flex:1 }}>
+              <div style={h3}>ผู้เช่า</div>
+              <div style={row}><span style={kCol}>ชื่อ</span><span style={vCol}>{cust.name || '—'}</span></div>
+              <div style={row}><span style={kCol}>บัตรประชาชน</span><span style={vCol}>{cust.id_card || '—'}</span></div>
+              <div style={row}><span style={kCol}>โทร</span><span style={vCol}>{cust.phone || '—'}</span></div>
+              <div style={row}><span style={kCol}>ที่อยู่</span><span style={vCol}>{cust.address || '—'}</span></div>
+            </div>
+          </div>
 
-        <div style={{ display:'flex', justifyContent:'space-around', gap:24, marginTop:40 }}>
-          <SignBlock role="ลงชื่อ ผู้เช่า" name={cust.name} img={sigImg} />
-          <SignBlock role="ลงชื่อ ผู้ให้เช่า" name={LESSOR.name} img="" />
+          {/* equipment */}
+          <div style={sec}><span style={secBar} />รายการอุปกรณ์ที่เช่า</div>
+          <div style={card}>
+            <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+              {camB64
+                ? <img src={camB64} alt="" style={{ width:70, height:70, objectFit:'cover', borderRadius:10, border:'1px solid #e5e7eb' }} />
+                : <div style={{ width:70, height:70, borderRadius:10, background:'#f3f4f6' }} />}
+              <div style={{ flex:1 }}>
+                <div style={row}><span style={kCol}>อุปกรณ์</span><span style={vCol}>{cam.name || '—'}{cam.brand ? ' · ' + cam.brand : ''}</span></div>
+                <div style={row}><span style={kCol}>รับวันที่</span><span style={vCol}>{fmtDate(rental.start_date)} {fmtTime(rental.pickup_time)}</span></div>
+                <div style={row}><span style={kCol}>คืนวันที่</span><span style={vCol}>{fmtDate(rental.end_date)} {fmtTime(rental.return_time)} (รวม {days} วัน)</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* fees */}
+          <div style={sec}><span style={secBar} />ค่าใช้จ่าย</div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <tbody>
+              <tr><td style={td}>ค่าเช่า ({baht(pricePerDay)} × {days} วัน)</td><td style={tdR}>{baht(pricePerDay * days)}</td></tr>
+              {deliveryFee > 0 && <tr><td style={td}>ค่าจัดส่ง</td><td style={tdR}>{baht(deliveryFee)}</td></tr>}
+              <tr><td style={td}>ค่าจอง / มัดจำ</td><td style={tdR}>{baht(deposit)}</td></tr>
+              <tr><td style={td}>ค่าประกันความเสียหาย</td><td style={tdR}>{baht(insurance)}</td></tr>
+              <tr><td style={{ borderTop:`2px solid ${INK}`, fontWeight:800, fontSize:15, padding:'9px 10px' }}>รวมค่าเช่าสุทธิ</td>
+                  <td style={{ borderTop:`2px solid ${INK}`, fontWeight:800, fontSize:15, padding:'9px 10px', textAlign:'right', color:BRAND }}>{baht(totalPrice)}</td></tr>
+            </tbody>
+          </table>
+
+          {/* terms */}
+          <div style={sec}><span style={secBar} />ข้อตกลงและเงื่อนไข</div>
+          <ol style={{ margin:'4px 0 0 20px', padding:0 }}>
+            {TERMS.map((t, i) => <li key={i} style={{ marginBottom:5, lineHeight:1.5 }}>{t}</li>)}
+          </ol>
+
+          {/* signatures */}
+          <div style={{ display:'flex', justifyContent:'space-between', gap:20, marginTop:42 }}>
+            <SignBox role="ลงชื่อ ผู้เช่า" name={cust.name} img={sigImg} />
+            <SignBox role="ลงชื่อ ผู้ให้เช่า" name={LESSOR.name} img="" />
+            <SignBox role="ลงชื่อ พยาน" name="" img="" />
+          </div>
+
+          <div style={{ textAlign:'center', fontSize:10, color:'#cbd5e1', marginTop:24 }}>
+            เอกสารนี้สร้างโดยระบบ {LESSOR.name} · {contractNo}
+          </div>
         </div>
       </div>
-
-      <style>{`
-        #hc-contract-print { display: none; }
-        @media screen {
-          #hc-contract-print { display: none !important; }
-        }
-        @media print {
-          .hc-screen-only { display: none !important; }
-          body * { visibility: hidden !important; }
-          #hc-contract-print, #hc-contract-print * { visibility: visible !important; }
-          #hc-contract-print {
-            display: block !important;
-            position: absolute; left: 0; top: 0; width: 100%;
-            padding: 0; margin: 0; background: #fff;
-          }
-          @page { size: A4; margin: 14mm 16mm; }
-        }
-      `}</style>
     </>
   )
 }
