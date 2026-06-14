@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 
 // ขันเงิน — หิวตลอดเวลา เรียกนิจให้อาหาร
@@ -11,6 +12,8 @@ const MSGS = [
 ]
 const REACT_EMOJIS = ['😸','🐟','✨','💕','🍚','😋','🥰','🐾']
 const S = { WALK:'walk', RUN:'run', SIT:'sit', SLEEP:'sleep', REACT:'react', TEASE:'tease', MEOW:'meow', STRETCH:'stretch' }
+
+const todayStr = () => new Date().toLocaleDateString('en-CA')
 
 // ─── Persian Cat SVG with walking legs ──────────────────────────────────────
 function PersianCat({ state, flip, blinking, tailAngle, legFrame }) {
@@ -129,13 +132,13 @@ function PersianCat({ state, flip, blinking, tailAngle, legFrame }) {
 }
 
 // ─── Speech bubble ────────────────────────────────────────────────────────────
-function Bubble({ text, flip }) {
+function Bubble({ text, flip, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       position:'absolute', bottom:86, left:flip?'auto':-8, right:flip?-8:'auto',
       background:'white', borderRadius:12, padding:'5px 10px',
       fontSize:12, fontWeight:600, color:'#374151', whiteSpace:'normal',
-      width:'max-content', maxWidth:230, lineHeight:1.45,
+      width:'max-content', maxWidth:230, lineHeight:1.45, cursor: onClick?'pointer':'default',
       boxShadow:'0 2px 12px rgba(0,0,0,0.13)', border:'1.5px solid #f3e8e0',
       animation:'ncBubble .25s ease-out', zIndex:1,
     }}>
@@ -150,13 +153,65 @@ function Bubble({ text, flip }) {
   )
 }
 
+// ─── Task panel ───────────────────────────────────────────────────────────────
+function TaskPanel({ rows, onGo, side }) {
+  return (
+    <div style={{
+      position:'absolute', bottom:96, [side]:0,
+      background:'white', borderRadius:16, padding:'12px', width:248,
+      boxShadow:'0 8px 30px rgba(0,0,0,0.18)', border:'1.5px solid #f3e8e0',
+      animation:'ncBubble .2s ease-out', zIndex:2,
+    }}>
+      <div style={{ fontSize:13, fontWeight:800, color:'#374151', marginBottom:8,
+        display:'flex', alignItems:'center', gap:6 }}>
+        🐾 ขันเงินสรุปให้
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ fontSize:12, color:'#9ca3af', padding:'10px 4px', textAlign:'center' }}>
+          ไม่มีงานค้างเลยนิจ ชิลล์ๆ ได้ ✨
+        </div>
+      ) : rows.map(r => (
+        <button key={r.k} onClick={()=>onGo(r.to)} style={{
+          display:'flex', alignItems:'center', gap:10, width:'100%',
+          padding:'8px 8px', marginBottom:4, border:'none', borderRadius:10,
+          background:'#faf8f6', cursor:'pointer', textAlign:'left',
+          transition:'background .15s',
+        }}
+          onMouseEnter={e=>e.currentTarget.style.background='#f3e8e0'}
+          onMouseLeave={e=>e.currentTarget.style.background='#faf8f6'}>
+          <span style={{ width:8, height:8, borderRadius:'50%', background:r.color, flexShrink:0 }}/>
+          <span style={{ fontSize:15 }}>{r.icon}</span>
+          <span style={{ flex:1, fontSize:12.5, fontWeight:600, color:'#4b5563' }}>{r.label}</span>
+          <span style={{ fontSize:12.5, fontWeight:800, color:r.color }}>{r.val}</span>
+          <span style={{ color:'#cbd5e1', fontSize:13 }}>›</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function NekoCat() {
-  const { rentals, loading } = useApp()
-  const [visible,  setVisible]  = useState(true)
+  const { rentals, cameras, loading, unreadCount } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(max-width: 768px)').matches || 'ontouchstart' in window))
+  const docked = isMobile || reduceMotion
+
+  const [hidden,   setHidden]   = useState(() => {
+    try { return localStorage.getItem('nc_hidden') === '1' } catch { return false }
+  })
+  const [panelOpen, setPanelOpen] = useState(false)
+
   const [pos,      setPos]      = useState({ x: 160, y: 200 })
   const [flip,     setFlip]     = useState(false)
-  const [catState, setCatState] = useState(S.WALK)
+  const [catState, setCatState] = useState(docked ? S.SIT : S.WALK)
   const [blink,    setBlink]    = useState(false)
   const [tail,     setTail]     = useState(0)
   const [legFrame, setLegFrame] = useState(0)
@@ -165,7 +220,7 @@ export default function NekoCat() {
   const [dragging, setDragging] = useState(false)
 
   const posRef     = useRef({ x: 160, y: 200 })
-  const stateRef   = useRef(S.WALK)
+  const stateRef   = useRef(docked ? S.SIT : S.WALK)
   const flipRef    = useRef(false)
   const targetRef  = useRef({ x: 400, y: 300 })
   const mouseRef   = useRef({ x: -999, y: -999 })
@@ -177,6 +232,7 @@ export default function NekoCat() {
   const rentalsRef   = useRef([])
   const knownIdsRef  = useRef(null)
   const announcedRef = useRef(new Set())
+  const containerRef = useRef(null)
 
   const safeX = x => Math.max(10, Math.min((window.innerWidth  || 1200) - 90, x))
   const safeY = y => Math.max(60, Math.min((window.innerHeight || 800)  - 95, y))
@@ -187,7 +243,33 @@ export default function NekoCat() {
     y: safeY(100 + Math.random() * ((window.innerHeight || 800)  - 160)),
   }), [])
 
-  const todayStr   = () => new Date().toLocaleDateString('en-CA')
+  // ── คำนวณงาน/เงินเดิมพัน ────────────────────────────────────────
+  const tasks = useMemo(() => {
+    const today = todayStr()
+    const rs = rentals || []
+    const toDeliver       = rs.filter(r => r.status==='booked' && r.start_date <= today)
+    const toReturnToday   = rs.filter(r => r.status==='active' && r.end_date === today)
+    const overdue         = rs.filter(r => r.status==='active' && r.end_date < today)
+    const insurancePending= rs.filter(r => r.status==='returned' && Number(r.insurance)>0 && !r.insurance_returned)
+    const collectList     = rs.filter(r => (r.status==='booked'||r.status==='active') && r.start_date===today && Number(r.due_on_pickup)>0)
+    const collectAmt      = collectList.reduce((s,r)=>s+Number(r.due_on_pickup||0),0)
+    const busyIds         = new Set(rs.filter(r=>['booked','active'].includes(r.status)).map(r=>r.camera_id))
+    const idleCameras     = (cameras||[]).filter(c => c.status==='available' && !busyIds.has(c.id))
+    return { today, toDeliver, toReturnToday, overdue, insurancePending, collectList, collectAmt, idleCameras }
+  }, [rentals, cameras])
+
+  const panelRows = useMemo(() => {
+    const rows = []
+    if (tasks.toDeliver.length)        rows.push({ k:'d',  icon:'📦', label:'ต้องส่งกล้อง',        val:tasks.toDeliver.length,      to:'/rentals',  color:'#f59e0b' })
+    if (tasks.overdue.length)          rows.push({ k:'o',  icon:'⚠️', label:'ค้างคืน (เลยกำหนด)',   val:tasks.overdue.length,        to:'/rentals',  color:'#ef4444' })
+    if (tasks.toReturnToday.length)    rows.push({ k:'r',  icon:'🔄', label:'คืนวันนี้',           val:tasks.toReturnToday.length,  to:'/rentals',  color:'#10b981' })
+    if (tasks.collectAmt > 0)          rows.push({ k:'c',  icon:'💰', label:'ต้องเก็บเงินวันนี้',   val:'฿'+tasks.collectAmt.toLocaleString(), to:'/rentals', color:'#0ea5e9' })
+    if (tasks.insurancePending.length) rows.push({ k:'i',  icon:'🛡️', label:'ประกันค้างคืน',        val:tasks.insurancePending.length, to:'/rentals', color:'#8b5cf6' })
+    if (tasks.idleCameras.length)      rows.push({ k:'idle',icon:'📷', label:'กล้องว่าง',           val:tasks.idleCameras.length,    to:'/cameras',  color:'#64748b' })
+    if (unreadCount > 0)               rows.push({ k:'n',  icon:'🔔', label:'แจ้งเตือนใหม่',        val:unreadCount,                 to:'/notifications', color:'#ec4899' })
+    return rows
+  }, [tasks, unreadCount])
+
   const queueToday = () => rentalsRef.current.filter(r =>
     ['booked','active'].includes(r.status) &&
     (r.start_date === todayStr() || r.end_date === todayStr())).length
@@ -201,6 +283,19 @@ export default function NekoCat() {
   const changeState = useCallback(s => {
     stateRef.current = s
     setCatState(s)
+  }, [])
+
+  const goTo = useCallback((path) => {
+    setPanelOpen(false)
+    navigate(path)
+  }, [navigate])
+
+  // ── track viewport size (mobile/desktop switch) ─────────────────
+  useEffect(() => {
+    const onResize = () => setIsMobile(
+      window.matchMedia('(max-width: 768px)').matches || 'ontouchstart' in window)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   // leg step timer — 4-frame gait
@@ -232,15 +327,17 @@ export default function NekoCat() {
     return () => clearInterval(bl)
   }, [])
 
-  // mouse track
+  // mouse track (roaming only)
   useEffect(() => {
+    if (docked) return
     const mv = e => { mouseRef.current = { x: e.clientX, y: e.clientY } }
     window.addEventListener('mousemove', mv)
     return () => window.removeEventListener('mousemove', mv)
-  }, [])
+  }, [docked])
 
-  // drag
+  // drag (roaming only)
   useEffect(() => {
+    if (docked) return
     const onMove = e => {
       if (!isDragging.current) return
       const nx = safeX(e.clientX - dragOffset.current.x)
@@ -262,20 +359,29 @@ export default function NekoCat() {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup',   onUp)
     }
-  }, [changeState, rndTarget])
+  }, [docked, changeState, rndTarget])
+
+  // close panel on outside click
+  useEffect(() => {
+    if (!panelOpen) return
+    const h = e => { if (containerRef.current && !containerRef.current.contains(e.target)) setPanelOpen(false) }
+    document.addEventListener('mousedown', h)
+    document.addEventListener('touchstart', h)
+    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('touchstart', h) }
+  }, [panelOpen])
 
   // ── แมวรู้งานจริง ──────────────────────────────────────────────
   useEffect(() => { rentalsRef.current = rentals || [] }, [rentals])
 
   const announce = useCallback((text) => {
-    if (isDragging.current) { showMsg(text, 7000); return }
+    if (isDragging.current || docked) { showMsg(text, 7000); return }
     changeState(S.RUN); targetRef.current = rndTarget()
     clearTimeout(timers.current.annc)
     timers.current.annc = setTimeout(() => {
       changeState(S.MEOW); showMsg(text, 7000)
       setTimeout(() => { if (stateRef.current===S.MEOW) changeState(S.WALK) }, 4200)
     }, 900)
-  }, [changeState, rndTarget, showMsg])
+  }, [changeState, rndTarget, showMsg, docked])
 
   // จองใหม่เข้ามา → ตื่นเต้น
   useEffect(() => {
@@ -292,6 +398,32 @@ export default function NekoCat() {
     }
     knownIdsRef.current = ids
   }, [rentals, loading, announce])
+
+  // ── บรีฟตอนเช้า (ครั้งเดียว/วัน) + เตือนของค้างคืน ──────────────
+  useEffect(() => {
+    if (loading) return
+    const today = tasks.today
+    const briefKey = 'nc_brief_' + today
+    let briefShown = false
+    try { briefShown = localStorage.getItem(briefKey) === '1' } catch {}
+
+    if (!briefShown) {
+      const parts = []
+      parts.push(`ส่ง ${tasks.toDeliver.length}`)
+      parts.push(`คืน ${tasks.toReturnToday.length}`)
+      if (tasks.overdue.length) parts.push(`ค้าง ${tasks.overdue.length} ❗`)
+      if (tasks.collectAmt > 0) parts.push(`เก็บ ฿${tasks.collectAmt.toLocaleString()}`)
+      const brief = `อรุณสวัสดิ์นิจ! ☀️ วันนี้: ${parts.join(' · ')} — กดดูได้เลยนิจ`
+      clearTimeout(timers.current.brief)
+      timers.current.brief = setTimeout(() => announce(brief), 5000)
+      try { localStorage.setItem(briefKey, '1') } catch {}
+    } else if (tasks.overdue.length && !announcedRef.current.has('overdue-'+today)) {
+      announcedRef.current.add('overdue-'+today)
+      clearTimeout(timers.current.over)
+      timers.current.over = setTimeout(
+        () => announce(`❗ มีของค้างคืน ${tasks.overdue.length} ชิ้น กดดูเลยนิจ!`), 7000)
+    }
+  }, [loading, tasks, announce])
 
   // เตือนคิวรับ/คืนที่ใกล้ถึง (เช็คทุก 1 นาที)
   useEffect(() => {
@@ -327,8 +459,9 @@ export default function NekoCat() {
     return () => { clearInterval(iv); clearTimeout(t0) }
   }, [announce])
 
-  // behavior scheduler
+  // behavior scheduler (roaming only)
   const scheduleBehavior = useCallback(() => {
+    if (docked) return
     clearTimeout(timers.current.behav)
     timers.current.behav = setTimeout(() => {
       if (isDragging.current || stateRef.current===S.REACT) return scheduleBehavior()
@@ -355,10 +488,11 @@ export default function NekoCat() {
       }
       scheduleBehavior()
     }, 3500 + Math.random()*5000)
-  }, [changeState, rndTarget, showMsg])
+  }, [docked, changeState, rndTarget, showMsg])
 
-  // sleep after idle
+  // sleep after idle (roaming only)
   useEffect(() => {
+    if (docked) return
     let sl
     const reset = () => {
       clearTimeout(sl)
@@ -375,13 +509,14 @@ export default function NekoCat() {
     window.addEventListener('keydown',   reset)
     reset()
     return () => { window.removeEventListener('mousemove',reset); window.removeEventListener('keydown',reset); clearTimeout(sl) }
-  }, [changeState, rndTarget, showMsg])
+  }, [docked, changeState, rndTarget, showMsg])
 
-  // main RAF loop
+  // main RAF loop (roaming only; paused when tab hidden)
   useEffect(() => {
+    if (docked) return
     scheduleBehavior(); targetRef.current = rndTarget()
     const loop = () => {
-      if (isDragging.current) { rafRef.current = requestAnimationFrame(loop); return }
+      if (document.hidden || isDragging.current) { rafRef.current = requestAnimationFrame(loop); return }
       const p  = posRef.current
       const t  = targetRef.current
       const m  = mouseRef.current
@@ -394,7 +529,7 @@ export default function NekoCat() {
         setTimeout(()=>{ if(stateRef.current===S.TEASE) changeState(S.WALK) }, 2000)
       }
 
-      const spd = st===S.RUN ? 4.5 : st===S.TEASE ? 2.0 : 0.25  // very slow walk
+      const spd = st===S.RUN ? 4.5 : st===S.TEASE ? 2.0 : 0.25
       let tx=t.x, ty=t.y
       if (st===S.TEASE) {
         const ang = Math.atan2(p.y-m.y, p.x-m.x)
@@ -415,33 +550,54 @@ export default function NekoCat() {
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { cancelAnimationFrame(rafRef.current); Object.values(timers.current).forEach(clearTimeout) }
-  }, [scheduleBehavior, rndTarget, changeState])
+  }, [docked, scheduleBehavior, rndTarget, changeState])
 
   const onMouseDown = useCallback(e => {
+    if (docked) return
     e.preventDefault(); e.stopPropagation()
     isDragging.current = true
     setDragging(true)
     dragOffset.current = { x: e.clientX - posRef.current.x, y: e.clientY - posRef.current.y }
     changeState(S.REACT)
     showMsg('ว้าย!! 😹', 800)
-  }, [changeState, showMsg])
+  }, [docked, changeState, showMsg])
 
+  // คลิกแมว = เปิดแผงสรุปงาน
   const onClick = useCallback(e => {
     e.stopPropagation()
     if (isDragging.current) return
-    if (catState===S.SLEEP) {
-      changeState(S.STRETCH); setMsg(null); showMsg('ยืดเส้นยืดสายย~ 😺', 1400)
-      setTimeout(()=>{ if(stateRef.current===S.STRETCH){ changeState(S.WALK); targetRef.current = rndTarget() } }, 950)
-      return
-    }
-    dodgeRef.current = 0
-    changeState(S.REACT)
-    setReact(REACT_EMOJIS[Math.floor(Math.random()*REACT_EMOJIS.length)])
-    showMsg(rndMsg(), 2200)
-    setTimeout(()=>{ setReact(null); changeState(S.WALK); targetRef.current = rndTarget() }, 900)
-  }, [catState, changeState, rndTarget, showMsg])
+    if (stateRef.current===S.SLEEP) changeState(S.WALK)
+    setReact('💕'); setTimeout(()=>setReact(null), 700)
+    setPanelOpen(o => !o)
+  }, [changeState])
 
-  if (!visible) return null
+  const restore = useCallback(() => {
+    try { localStorage.removeItem('nc_hidden') } catch {}
+    setHidden(false)
+  }, [])
+
+  const hide = useCallback((e) => {
+    e.stopPropagation()
+    try { localStorage.setItem('nc_hidden', '1') } catch {}
+    setHidden(true)
+    setPanelOpen(false)
+  }, [])
+
+  // ── ไม่แสดงบนหน้า login ──────────────────────────────────────────
+  if (location.pathname === '/login') return null
+
+  // ── ปิดอยู่ → ปุ่มเรียกกลับเล็ก ๆ ────────────────────────────────
+  if (hidden) {
+    return (
+      <button onClick={restore} title="เรียกขันเงินกลับมา"
+        style={{ position:'fixed', right:14, bottom:14, zIndex:9999,
+          width:44, height:44, borderRadius:'50%', border:'1.5px solid #f3e8e0',
+          background:'white', boxShadow:'0 4px 14px rgba(0,0,0,0.15)',
+          cursor:'pointer', fontSize:20 }}>🐾</button>
+    )
+  }
+
+  const side = (docked || flip) ? 'right' : 'left'
 
   const anim = dragging ? 'ncJump .4s ease-out'
              : catState===S.WALK    ? 'ncWalk 1.8s ease-in-out infinite alternate'
@@ -450,13 +606,18 @@ export default function NekoCat() {
              : catState===S.STRETCH ? 'ncStretch .95s ease-in-out'
              : 'ncBreath 3s ease-in-out infinite'
 
+  const containerStyle = docked
+    ? { position:'fixed', right:14, bottom:14, zIndex:9999, userSelect:'none', cursor:'pointer' }
+    : { position:'fixed', left:pos.x, top:pos.y, zIndex:9999, userSelect:'none',
+        cursor: dragging ? 'grabbing' : 'grab' }
+
   return (
-    <div
-      style={{ position:'fixed', left:pos.x, top:pos.y, zIndex:9999, userSelect:'none',
-               cursor: dragging ? 'grabbing' : 'grab' }}
+    <div ref={containerRef} style={containerStyle}
       onMouseDown={onMouseDown} onClick={onClick} title="ขันเงิน 🐾">
 
-      {msg && <Bubble text={msg} flip={flip}/>}
+      {panelOpen && <TaskPanel rows={panelRows} onGo={goTo} side={side} />}
+
+      {!panelOpen && msg && <Bubble text={msg} flip={docked ? true : flip} onClick={onClick}/>}
 
       {reactEmoji && (
         <div style={{ position:'absolute', top:-44, left:'50%', transform:'translateX(-50%)',
@@ -466,14 +627,14 @@ export default function NekoCat() {
       )}
 
       <div style={{ animation: anim }}>
-        <PersianCat state={catState} flip={flip} blinking={blink} tailAngle={tail} legFrame={legFrame}/>
+        <PersianCat state={catState} flip={docked ? true : flip} blinking={blink} tailAngle={tail} legFrame={legFrame}/>
       </div>
 
-      <div onClick={e=>{e.stopPropagation();setVisible(false)}} className="nc-x"
-        style={{ position:'absolute', top:-6, right:-6, width:15, height:15,
+      <div onClick={hide} className="nc-x"
+        style={{ position:'absolute', top:-6, right:-6, width:16, height:16,
           borderRadius:'50%', background:'#e2e8f0', color:'#94a3b8',
           fontSize:9, display:'flex', alignItems:'center', justifyContent:'center',
-          cursor:'pointer', opacity:0, transition:'opacity .2s' }}>✕</div>
+          cursor:'pointer', opacity: docked ? 1 : 0, transition:'opacity .2s' }}>✕</div>
 
       <style>{`
         @keyframes ncWalk   { from{transform:translateY(0) rotate(-.5deg)} to{transform:translateY(-2px) rotate(.5deg)} }
