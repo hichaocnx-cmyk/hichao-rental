@@ -198,6 +198,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         (deliveryFee > 0 ? `🚚 ค่าส่ง: ฿${deliveryFee.toLocaleString()}\n` : '') +
         `✅ จ่ายวันรับกล้อง: ฿${dueOnPickup.toLocaleString()}`
 
+      let savedId = isEdit ? rental.id : null
       if (isEdit) {
         const cameraChanged = form.camera_id !== rental.camera_id
         await updateRental(rental.id, payload)
@@ -221,6 +222,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         sendLineNotify(buildLineMsg('[HICHAO.CNX] ✏️ แก้ไขรายการเช่า')).catch(console.warn)
       } else {
         const newRental = await createRental({ ...payload, status: 'booked' })
+        savedId = newRental.id
         try {
           await updateCamera(form.camera_id, { status: 'rented' })
         } catch (camErr) {
@@ -230,7 +232,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         }
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
-      onSaved()
+      onSaved(savedId, !isEdit)
     } catch (err) { setError(err.message) }
     finally { setSaving(false) }
   }

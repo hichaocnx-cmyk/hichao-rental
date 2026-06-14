@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
 import RentalModal from '../components/RentalModal'
 import InvoiceModal from '../components/InvoiceModal'
+import ContractModal from '../components/ContractModal'
 import { RentalsSkeleton } from '../components/Skeleton'
 import { useToast, useConfirm } from '../context/ToastContext'
 
@@ -308,6 +309,8 @@ export default function RentalsPage() {
   // Modals
   const [rentalModal, setRentalModal]   = useState(null)
   const [invoiceRental, setInvoiceRental] = useState(null)
+  const [contractRental, setContractRental] = useState(null)
+  const [pendingContractId, setPendingContractId] = useState(null)
   const [notiOpen, setNotiOpen]         = useState(false)
   const [bannerDismissed, setBannerDismissed] = useState(false)
 
@@ -355,6 +358,13 @@ export default function RentalsPage() {
       return true
     }).sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
   }, [rentals, selectedDay, filterStatus, search, activeTab])
+
+  // เปิดหนังสือสัญญาอัตโนมัติหลังบันทึกรายการใหม่ (รอข้อมูล join จาก reload)
+  useEffect(() => {
+    if (!pendingContractId) return
+    const full = (rentals || []).find(r => r.id === pendingContractId)
+    if (full) { setContractRental(full); setPendingContractId(null) }
+  }, [pendingContractId, rentals])
 
   // ── Actions ───────────────────────────────────────────────────
   const handleDeliver = async (rental) => {
@@ -824,6 +834,11 @@ export default function RentalsPage() {
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                           ใบเสร็จ
                         </button>
+                        <button onClick={() => setContractRental(r)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                          สัญญา
+                        </button>
                         <button onClick={() => setRentalModal(r)}
                           className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 rounded-xl transition-colors border border-gray-200">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" /></svg>
@@ -940,6 +955,11 @@ export default function RentalsPage() {
                                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-brand-600 bg-brand-50 border border-brand-100 hover:bg-brand-100 rounded-xl transition-colors">
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                                 ออกใบเสร็จ
+                              </button>
+                              <button onClick={() => setContractRental(r)}
+                                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl transition-colors">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                                หนังสือสัญญา
                               </button>
                               {r.status === 'booked' && (
                                 <button onClick={() => handleDeliver(r)}
@@ -1058,11 +1078,15 @@ export default function RentalsPage() {
         <RentalModal
           rental={rentalModal === 'new' ? null : rentalModal}
           onClose={() => setRentalModal(null)}
-          onSaved={async () => { setRentalModal(null); await reload() }}
+          onSaved={async (savedId, isNew) => { setRentalModal(null); await reload(); if (isNew && savedId) setPendingContractId(savedId) }}
         />
       )}
 
       {/* ── Invoice Modal ────────────────────────────────────── */}
+      {contractRental && (
+        <ContractModal rental={contractRental} onClose={() => setContractRental(null)} />
+      )}
+
       {invoiceRental && (
         <InvoiceModal rental={invoiceRental} onClose={() => setInvoiceRental(null)} />
       )}
