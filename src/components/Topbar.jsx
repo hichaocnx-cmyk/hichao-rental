@@ -86,9 +86,7 @@ export default function Topbar({ onMenuClick, title = 'Dashboard' }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
         </button>
-        <div className="lg:hidden bg-[#0b0b0b] rounded-lg px-2 py-1 flex items-center">
-          <img src="/logo.png" alt="HICHAO Camera" className="h-5 w-auto" />
-        </div>
+        <img src="/logo.png" alt="HICHAO Camera" className="lg:hidden h-7 w-auto" />
         <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
       </div>
 

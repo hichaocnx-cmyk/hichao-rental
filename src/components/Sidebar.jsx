@@ -108,9 +108,7 @@ export default function Sidebar({ open, onClose }) {
 
         {/* Logo */}
         <div className="flex items-center px-5 py-5 border-b border-gray-50">
-          <div className="bg-[#0b0b0b] rounded-xl px-3 py-2 shadow-sm inline-flex items-center">
-            <img src="/logo.png" alt="HICHAO Camera" className="h-7 w-auto" />
-          </div>
+          <img src="/logo.png" alt="HICHAO Camera" className="h-9 w-auto" />
         </div>
 
         {/* Nav */}

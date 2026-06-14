@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hichao-v4'
+const CACHE_NAME = 'hichao-v5'
 const STATIC_ASSETS = [
   '/manifest.json',
   '/logo.png',

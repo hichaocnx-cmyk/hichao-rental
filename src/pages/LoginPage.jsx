@@ -41,16 +41,12 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="relative z-10 self-start">
-          <div className="bg-[#0b0b0b] rounded-2xl px-4 py-2.5 shadow-lg inline-flex items-center">
-            <img src="/logo.png" alt="HICHAO Camera" className="h-8 w-auto" />
-          </div>
+          <img src="/logo.png" alt="HICHAO Camera" className="h-10 w-auto drop-shadow" />
         </div>
 
         {/* Center text */}
         <div className="relative z-10 text-center">
-          <div className="bg-[#0b0b0b] rounded-3xl px-7 py-6 mx-auto mb-6 inline-block shadow-xl">
-            <img src="/logo.png" alt="HICHAO Camera" className="h-24 w-auto mx-auto" />
-          </div>
+          <img src="/logo.png" alt="HICHAO Camera" className="h-28 w-auto mx-auto mb-6 drop-shadow-lg" />
           <h2 className="text-3xl font-bold text-white leading-snug mb-3">
             จัดการการเช่ากล้อง<br />ให้ง่ายขึ้น
           </h2>
@@ -74,9 +70,7 @@ export default function LoginPage() {
 
         {/* Mobile logo (hidden on desktop) */}
         <div className="lg:hidden text-center mb-8">
-          <div className="bg-[#0b0b0b] rounded-2xl px-5 py-3.5 inline-block mx-auto mb-3 shadow-md">
-            <img src="/logo.png" alt="HICHAO Camera" className="h-12 w-auto mx-auto" />
-          </div>
+          <img src="/logo.png" alt="HICHAO Camera" className="h-14 w-auto mx-auto mb-3" />
           <p className="text-gray-400 text-xs">Camera Rental Management</p>
         </div>
 
