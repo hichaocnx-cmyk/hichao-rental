@@ -233,6 +233,7 @@ export default function NekoCat() {
   const knownIdsRef  = useRef(null)
   const announcedRef = useRef(new Set())
   const containerRef = useRef(null)
+  const autoShownRef = useRef(false)
 
   const safeX = x => Math.max(10, Math.min((window.innerWidth  || 1200) - 90, x))
   const safeY = y => Math.max(60, Math.min((window.innerHeight || 800)  - 95, y))
@@ -360,6 +361,18 @@ export default function NekoCat() {
       window.removeEventListener('mouseup',   onUp)
     }
   }, [docked, changeState, rndTarget])
+
+  // ── เปิดแผงสรุปอัตโนมัติทุกครั้งที่เปิดแอป (หลังโหลดข้อมูลเสร็จ) ──
+  useEffect(() => {
+    if (loading || autoShownRef.current) return
+    autoShownRef.current = true
+    clearTimeout(timers.current.autoOpen)
+    timers.current.autoOpen = setTimeout(() => {
+      setPanelOpen(true)
+      clearTimeout(timers.current.autoClose)
+      timers.current.autoClose = setTimeout(() => setPanelOpen(false), 12000)
+    }, 1500)
+  }, [loading])
 
   // close panel on outside click
   useEffect(() => {
