@@ -386,9 +386,14 @@ export default function ContractModal({ rental, onClose }) {
 
           {/* terms */}
           <div style={sec}><span style={secBar} />ข้อตกลงและเงื่อนไข</div>
-          <ol style={{ margin:'4px 0 0 20px', padding:0 }}>
-            {TERMS.map((t, i) => <li key={i} style={{ marginBottom:5, lineHeight:1.5 }}>{t}</li>)}
-          </ol>
+          <div style={{ marginTop:4 }}>
+            {TERMS.map((t, i) => (
+              <div key={i} style={{ display:'flex', gap:8, marginBottom:6, lineHeight:1.55 }}>
+                <span style={{ fontWeight:700, color:BRAND, flexShrink:0, minWidth:44 }}>ข้อ {i + 1}</span>
+                <span style={{ flex:1 }}>{t}</span>
+              </div>
+            ))}
+          </div>
 
           {/* signatures */}
           <div style={{ display:'flex', justifyContent:'space-between', gap:20, marginTop:42 }}>
