@@ -200,6 +200,9 @@ export default function RentalsPage() {
     new Set(JSON.parse(localStorage.getItem('sent_queue_noti') || '[]'))
   )
 
+  // ── Auto ส่ง/คืนกล้อง ตามเวลา (กันรันซ้ำระหว่างรอ reload) ──────
+  const autoBusyRef = useRef(new Set())
+
   useEffect(() => {
     const checkUpcoming = () => {
       const now   = new Date()
@@ -241,6 +244,65 @@ export default function RentalsPage() {
     checkUpcoming()
     const interval = setInterval(checkUpcoming, 60000)
     return () => clearInterval(interval)
+  }, [rentals])
+
+  // ── Auto-deliver / Auto-return ตามเวลา pickup/return ─────────────
+  useEffect(() => {
+    // สร้าง Date จาก 'YYYY-MM-DD' + 'HH:MM[:SS]' ตามเวลาท้องถิ่น
+    const dueAt = (dateStr, timeStr) => {
+      if (!dateStr) return null
+      const [y, mo, d] = dateStr.split('-').map(Number)
+      const [h = 0, mi = 0] = (timeStr || '00:00').split(':').map(Number)
+      return new Date(y, mo - 1, d, h, mi, 0)
+    }
+
+    const autoProcess = async () => {
+      const now = new Date()
+      let changed = false
+      for (const r of rentals) {
+        if (!r || autoBusyRef.current.has(r.id)) continue
+
+        // booked -> active (ส่งกล้อง) เมื่อถึงเวลา pickup (ไม่ได้ตั้งเวลา = ต้นวัน start_date)
+        if (r.status === 'booked' && r.camera_id) {
+          const due = dueAt(r.start_date, r.pickup_time || '00:00')
+          if (due && now >= due) {
+            autoBusyRef.current.add(r.id)
+            try {
+              await updateRental(r.id, { status: 'active' })
+              await updateCamera(r.camera_id, { status: 'rented' })
+              changed = true
+              toast.success(`ส่งกล้อง ${r.camera?.name || ''} อัตโนมัติแล้ว`)
+              sendLineNotify(`[HICHAO.CNX] 🟠 ส่งกล้องอัตโนมัติ\n📷 ${r.camera?.name || 'กล้อง'}\n👤 ${r.customer?.name || '—'}\n🗓 คืนวันที่ ${r.end_date}`).catch(console.warn)
+            } catch (e) { console.warn('auto-deliver failed', e) }
+            finally { autoBusyRef.current.delete(r.id) }
+            continue
+          }
+        }
+
+        // active -> returned (คืนกล้อง) เมื่อถึงเวลา return (ไม่ได้ตั้งเวลา = สิ้นวัน end_date)
+        if (r.status === 'active' && r.camera_id) {
+          const due = dueAt(r.end_date, r.return_time || '23:59')
+          if (due && now >= due) {
+            autoBusyRef.current.add(r.id)
+            try {
+              const upd = { status: 'returned' }
+              if (Number(r.insurance) > 0) upd.insurance_returned = true
+              await updateRental(r.id, upd)
+              await updateCamera(r.camera_id, { status: 'available' })
+              changed = true
+              toast.success(`คืน ${r.camera?.name || ''} อัตโนมัติแล้ว`)
+              sendLineNotify(`[HICHAO.CNX] ✅ คืนกล้องอัตโนมัติ\n📷 ${r.camera?.name || 'กล้อง'}\n👤 ${r.customer?.name || '—'}`).catch(console.warn)
+            } catch (e) { console.warn('auto-return failed', e) }
+            finally { autoBusyRef.current.delete(r.id) }
+          }
+        }
+      }
+      if (changed) await reload()
+    }
+
+    autoProcess()
+    const t = setInterval(autoProcess, 60000)
+    return () => clearInterval(t)
   }, [rentals])
 
   // Modals
