@@ -272,7 +272,7 @@ export default function RentalsPage() {
               await updateCamera(r.camera_id, { status: 'rented' })
               changed = true
               toast.success(`ส่งกล้อง ${r.camera?.name || ''} อัตโนมัติแล้ว`)
-              sendLineNotify(`[HICHAO.CNX] 🟠 ส่งกล้องอัตโนมัติ\n📷 ${r.camera?.name || 'กล้อง'}\n👤 ${r.customer?.name || '—'}\n🗓 คืนวันที่ ${r.end_date}`).catch(console.warn)
+              // LINE แจ้งเตือน auto ส่งจากฝั่ง server (pg_cron) เพื่อกันส่งซ้ำ
             } catch (e) { console.warn('auto-deliver failed', e) }
             finally { autoBusyRef.current.delete(r.id) }
             continue
@@ -291,7 +291,7 @@ export default function RentalsPage() {
               await updateCamera(r.camera_id, { status: 'available' })
               changed = true
               toast.success(`คืน ${r.camera?.name || ''} อัตโนมัติแล้ว`)
-              sendLineNotify(`[HICHAO.CNX] ✅ คืนกล้องอัตโนมัติ\n📷 ${r.camera?.name || 'กล้อง'}\n👤 ${r.customer?.name || '—'}`).catch(console.warn)
+              // LINE แจ้งเตือน auto ส่งจากฝั่ง server (pg_cron) เพื่อกันส่งซ้ำ
             } catch (e) { console.warn('auto-return failed', e) }
             finally { autoBusyRef.current.delete(r.id) }
           }
