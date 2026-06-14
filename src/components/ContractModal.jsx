@@ -260,7 +260,6 @@ export default function ContractModal({ rental, onClose }) {
               />
               <p className="text-[11px] text-gray-400 mt-1">เซ็นนิ้ว/เมาส์ตรงนี้ แล้วกดบันทึกรูป — ลายเซ็นจะอยู่ในภาพ (หรือเว้นว่างไว้เซ็นบนกระดาษก็ได้)</p>
             </div>
-          </div>
 
             {resultUrl && (
               <div className="border-2 border-brand-100 rounded-xl p-3 bg-brand-50/40">
