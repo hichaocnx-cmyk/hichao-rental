@@ -41,27 +41,15 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="relative z-10 self-start">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm tracking-tight leading-tight">HICHAO.CNX</p>
-              <p className="text-white/60 text-xs">Camera Rental</p>
-            </div>
+          <div className="bg-[#0b0b0b] rounded-2xl px-4 py-2.5 shadow-lg inline-flex items-center">
+            <img src="/logo.png" alt="HICHAO Camera" className="h-8 w-auto" />
           </div>
         </div>
 
         {/* Center text */}
         <div className="relative z-10 text-center">
-          <div className="w-20 h-20 bg-white/15 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-sm shadow-inner">
-            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-            </svg>
+          <div className="bg-[#0b0b0b] rounded-3xl px-7 py-6 mx-auto mb-6 inline-block shadow-xl">
+            <img src="/logo.png" alt="HICHAO Camera" className="h-24 w-auto mx-auto" />
           </div>
           <h2 className="text-3xl font-bold text-white leading-snug mb-3">
             จัดการการเช่ากล้อง<br />ให้ง่ายขึ้น
@@ -86,13 +74,9 @@ export default function LoginPage() {
 
         {/* Mobile logo (hidden on desktop) */}
         <div className="lg:hidden text-center mb-8">
-          <div className="w-14 h-14 bg-brand-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-brand-100">
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-            </svg>
+          <div className="bg-[#0b0b0b] rounded-2xl px-5 py-3.5 inline-block mx-auto mb-3 shadow-md">
+            <img src="/logo.png" alt="HICHAO Camera" className="h-12 w-auto mx-auto" />
           </div>
-          <p className="text-gray-900 font-bold text-base tracking-tight">HICHAO.CNX</p>
           <p className="text-gray-400 text-xs">Camera Rental Management</p>
         </div>
 

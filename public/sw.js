@@ -1,6 +1,8 @@
-const CACHE_NAME = 'hichao-v3'
+const CACHE_NAME = 'hichao-v4'
 const STATIC_ASSETS = [
   '/manifest.json',
+  '/logo.png',
+  '/favicon.png',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
