@@ -34,12 +34,12 @@ async function toBase64(url) {
   } catch { return null }
 }
 
-function loadHtml2Canvas() {
-  if (window.html2canvas) return Promise.resolve(window.html2canvas)
+function loadHtmlToImage() {
+  if (window.htmlToImage) return Promise.resolve(window.htmlToImage)
   return new Promise((resolve, reject) => {
     const s = document.createElement('script')
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
-    s.onload = () => resolve(window.html2canvas)
+    s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js'
+    s.onload = () => resolve(window.htmlToImage)
     s.onerror = () => reject(new Error('โหลดตัวสร้างรูปไม่สำเร็จ'))
     document.head.appendChild(s)
   })
@@ -138,25 +138,27 @@ export default function ContractModal({ rental, onClose }) {
     setGenerating(true)
     try {
       if (hasSig && canvasRef.current) setSigImg(canvasRef.current.toDataURL('image/png'))
-      const h2c = await loadHtml2Canvas()
-      try { await document.fonts.ready } catch {}
-      await new Promise(r => setTimeout(r, 300))
-      const canvas = await h2c(docRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      await new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-          if (resultUrl) URL.revokeObjectURL(resultUrl)
-          if (blob) {
-            setResultFile(new File([blob], `${contractNo}.png`, { type: 'image/png' }))
-            setResultUrl(URL.createObjectURL(blob))
-          } else {
-            setResultFile(null)
-            setResultUrl(canvas.toDataURL('image/png'))
-          }
-          resolve()
-        }, 'image/png')
-      })
+      const lib = await loadHtmlToImage()
+      // รอฟอนต์พร้อม แต่กันค้างด้วย timeout (iOS บางทีค้าง)
+      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]) } catch {}
+      await new Promise(r => setTimeout(r, 350))
+      const node = docRef.current
+      // เรนเดอร์ 2 ครั้ง — iOS Safari ครั้งแรกมักได้รูปว่าง ครั้งสองค่อยครบ
+      const opts = {
+        pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true, skipFonts: true,
+        width: node.offsetWidth, height: node.offsetHeight,
+      }
+      await lib.toPng(node, opts)
+      const dataUrl = await lib.toPng(node, opts)
+      let file = null
+      try {
+        const blob = await (await fetch(dataUrl)).blob()
+        file = new File([blob], `${contractNo}.png`, { type: 'image/png' })
+      } catch { /* ใช้ dataUrl อย่างเดียว */ }
+      setResultFile(file)
+      setResultUrl(dataUrl)
     } catch (e) {
-      alert('สร้างรูปไม่สำเร็จ: ' + e.message)
+      alert('สร้างรูปไม่สำเร็จ: ' + (e.message || e))
     } finally {
       setGenerating(false)
     }
