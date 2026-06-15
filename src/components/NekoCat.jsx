@@ -218,6 +218,7 @@ export default function NekoCat() {
   const [msg,      setMsg]      = useState(null)
   const [reactEmoji,setReact]   = useState(null)
   const [dragging, setDragging] = useState(false)
+  const [spinning, setSpinning] = useState(false)
 
   const posRef     = useRef({ x: 160, y: 200 })
   const stateRef   = useRef(docked ? S.SIT : S.WALK)
@@ -234,6 +235,8 @@ export default function NekoCat() {
   const announcedRef = useRef(new Set())
   const containerRef = useRef(null)
   const autoShownRef = useRef(false)
+  const prevStatusRef = useRef(null)
+  const moodRef = useRef('happy')
 
   const safeX = x => Math.max(10, Math.min((window.innerWidth  || 1200) - 90, x))
   const safeY = y => Math.max(60, Math.min((window.innerHeight || 800)  - 95, y))
@@ -270,6 +273,27 @@ export default function NekoCat() {
     if (unreadCount > 0)               rows.push({ k:'n',  icon:'🔔', label:'แจ้งเตือนใหม่',        val:unreadCount,                 to:'/notifications', color:'#ec4899' })
     return rows
   }, [tasks, unreadCount])
+
+  // อารมณ์ตามปริมาณงาน: stressed (ค้างคืน) / busy (คิวเยอะ) / lazy (ว่าง) / happy
+  const mood = useMemo(() => {
+    if (tasks.overdue.length > 0) return 'stressed'
+    const q = tasks.toDeliver.length + tasks.toReturnToday.length
+    if (q >= 3) return 'busy'
+    if (q === 0) return 'lazy'
+    return 'happy'
+  }, [tasks])
+  useEffect(() => { moodRef.current = mood }, [mood])
+
+  // เตือนแบบกังวลเมื่อมีของค้างคืน (ทุก 1 นาที)
+  useEffect(() => {
+    if (mood !== 'stressed') return
+    const t = setInterval(() => {
+      if (isDragging.current) return
+      setReact('💦'); setTimeout(() => setReact(null), 1000)
+      showMsg('ยังมีของค้างคืนอยู่นะนิจ~ รีบตามหน่อย 😿', 3200)
+    }, 60000)
+    return () => clearInterval(t)
+  }, [mood, showMsg])
 
   const queueToday = () => rentalsRef.current.filter(r =>
     ['booked','active'].includes(r.status) &&
@@ -412,6 +436,31 @@ export default function NekoCat() {
     knownIdsRef.current = ids
   }, [rentals, loading, announce])
 
+  // รีแอคชันเมื่อสถานะเปลี่ยน: ส่งกล้อง (🚀/💰) · คืนกล้อง (หมุน + ✨)
+  useEffect(() => {
+    if (!rentals || loading) return
+    const prev = prevStatusRef.current
+    if (prev) {
+      for (const r of rentals) {
+        const before = prev.get(r.id)
+        if (!before || before === r.status) continue
+        if (before === 'booked' && r.status === 'active') {
+          setReact(Number(r.due_on_pickup) > 0 ? '💰' : '🚀')
+          setTimeout(() => setReact(null), 1300)
+          announce(`ส่งกล้อง ${r.camera?.name ?? ''} เรียบร้อย! 🚀`)
+        } else if (before === 'active' && r.status === 'returned') {
+          setSpinning(true)
+          clearTimeout(timers.current.spin)
+          timers.current.spin = setTimeout(() => setSpinning(false), 1000)
+          setReact('✨')
+          setTimeout(() => setReact(null), 1300)
+          announce(`รับคืน ${r.camera?.name ?? ''} แล้ว เก่งมากนิจ! 🎉`)
+        }
+      }
+    }
+    prevStatusRef.current = new Map(rentals.map(r => [r.id, r.status]))
+  }, [rentals, loading, announce])
+
   // ── บรีฟตอนเช้า (ครั้งเดียว/วัน) + เตือนของค้างคืน ──────────────
   useEffect(() => {
     if (loading) return
@@ -516,7 +565,8 @@ export default function NekoCat() {
           if (stateRef.current===S.STRETCH) { changeState(S.WALK); targetRef.current = rndTarget() }
         }, 950)
       }
-      sl = setTimeout(()=>{ changeState(S.SLEEP); showMsg('zzz 💤',99999) }, 20000)
+      const sleepMs = moodRef.current==='lazy' ? 12000 : (moodRef.current==='busy'||moodRef.current==='stressed') ? 40000 : 20000
+      sl = setTimeout(()=>{ changeState(S.SLEEP); showMsg('zzz 💤',99999) }, sleepMs)
     }
     window.addEventListener('mousemove', reset)
     window.addEventListener('keydown',   reset)
@@ -613,6 +663,7 @@ export default function NekoCat() {
   const side = (docked || flip) ? 'right' : 'left'
 
   const anim = dragging ? 'ncJump .4s ease-out'
+             : spinning ? 'ncSpin 1s ease-in-out'
              : catState===S.WALK    ? 'ncWalk 1.8s ease-in-out infinite alternate'
              : catState===S.RUN     ? 'ncRun  .35s ease-in-out infinite alternate'
              : catState===S.REACT   ? 'ncJump .4s ease-out'
@@ -657,6 +708,7 @@ export default function NekoCat() {
         @keyframes ncFloat  { 0%{opacity:1;transform:translateX(-50%) translateY(0)} 100%{opacity:0;transform:translateX(-50%) translateY(-28px)} }
         @keyframes ncBubble { from{opacity:0;transform:scale(.85)} to{opacity:1;transform:scale(1)} }
         @keyframes ncStretch{ 0%{transform:scale(1)} 40%{transform:scaleX(1.18) scaleY(.8) translateY(7px)} 70%{transform:scaleX(.96) scaleY(1.06) translateY(-3px)} 100%{transform:scale(1)} }
+        @keyframes ncSpin   { 0%{transform:rotate(0) scale(1)} 50%{transform:rotate(180deg) scale(1.12)} 100%{transform:rotate(360deg) scale(1)} }
         div:hover > .nc-x   { opacity:1 !important }
       `}</style>
     </div>
