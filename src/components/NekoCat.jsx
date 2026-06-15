@@ -284,6 +284,16 @@ export default function NekoCat() {
   }, [tasks])
   useEffect(() => { moodRef.current = mood }, [mood])
 
+
+  const queueToday = () => rentalsRef.current.filter(r =>
+    ['booked','active'].includes(r.status) &&
+    (r.start_date === todayStr() || r.end_date === todayStr())).length
+
+  const showMsg = useCallback((text, dur=2600) => {
+    setMsg(text)
+    clearTimeout(timers.current.msg)
+    timers.current.msg = setTimeout(()=>setMsg(null), dur)
+  }, [])
   // เตือนแบบกังวลเมื่อมีของค้างคืน (ทุก 1 นาที)
   useEffect(() => {
     if (mood !== 'stressed') return
@@ -295,15 +305,6 @@ export default function NekoCat() {
     return () => clearInterval(t)
   }, [mood, showMsg])
 
-  const queueToday = () => rentalsRef.current.filter(r =>
-    ['booked','active'].includes(r.status) &&
-    (r.start_date === todayStr() || r.end_date === todayStr())).length
-
-  const showMsg = useCallback((text, dur=2600) => {
-    setMsg(text)
-    clearTimeout(timers.current.msg)
-    timers.current.msg = setTimeout(()=>setMsg(null), dur)
-  }, [])
 
   const changeState = useCallback(s => {
     stateRef.current = s
