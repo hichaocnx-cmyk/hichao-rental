@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useApp } from '../context/AppContext'
+import { useToast } from '../context/ToastContext'
+import { exportBackup } from '../lib/backup'
 
 const navItems = [
   {
@@ -82,6 +85,20 @@ const navItems = [
 
 export default function Sidebar({ open, onClose }) {
   const { logout, user } = useAuth()
+  const toast = useToast()
+  const [backingUp, setBackingUp] = useState(false)
+  const handleBackup = async () => {
+    if (backingUp) return
+    setBackingUp(true)
+    try {
+      const c = await exportBackup()
+      toast.success(`สำรองข้อมูลแล้ว · กล้อง ${c.cameras} · ลูกค้า ${c.customers} · เช่า ${c.rentals} · รายจ่าย ${c.expenses}`)
+    } catch (e) {
+      toast.error('สำรองข้อมูลไม่สำเร็จ: ' + e.message)
+    } finally {
+      setBackingUp(false)
+    }
+  }
   const { unreadCount } = useApp()
 
   // ดึงชื่อจาก email (ก่อน @)
@@ -162,6 +179,20 @@ export default function Sidebar({ open, onClose }) {
               <p className="text-[10px] text-gray-400 truncate">{user?.email}</p>
             </div>
           </div>
+          <button
+            onClick={handleBackup}
+            disabled={backingUp}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors disabled:opacity-60"
+          >
+            {backingUp ? (
+              <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+            )}
+            {backingUp ? 'กำลังสำรอง...' : 'สำรองข้อมูล'}
+          </button>
           <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
