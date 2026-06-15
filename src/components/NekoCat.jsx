@@ -15,6 +15,18 @@ const S = { WALK:'walk', RUN:'run', SIT:'sit', SLEEP:'sleep', REACT:'react', TEA
 
 const todayStr = () => new Date().toLocaleDateString('en-CA')
 
+// โหลด lottie-web จาก CDN ตอนใช้งาน (ไม่ต้องลง dependency)
+function loadLottie() {
+  if (window.lottie) return Promise.resolve(window.lottie)
+  return new Promise((resolve, reject) => {
+    const sc = document.createElement('script')
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js'
+    sc.onload = () => resolve(window.lottie)
+    sc.onerror = () => reject(new Error('load lottie failed'))
+    document.head.appendChild(sc)
+  })
+}
+
 // ─── Persian Cat SVG with walking legs ──────────────────────────────────────
 function PersianCat({ state, flip, blinking, tailAngle, legFrame }) {
   const eyeRy   = blinking || state === S.SLEEP ? 0.8 : 9
@@ -237,6 +249,10 @@ export default function NekoCat() {
   const autoShownRef = useRef(false)
   const prevStatusRef = useRef(null)
   const moodRef = useRef('happy')
+  // Lottie แมวสมจริง (มี fallback เป็น SVG เดิมถ้าไม่มีไฟล์ /cat.json)
+  const lottieBoxRef = useRef(null)
+  const animInstRef  = useRef(null)
+  const [lottieState, setLottieState] = useState('loading') // loading | ready | failed
 
   const safeX = x => Math.max(10, Math.min((window.innerWidth  || 1200) - 90, x))
   const safeY = y => Math.max(60, Math.min((window.innerHeight || 800)  - 95, y))
@@ -323,6 +339,41 @@ export default function NekoCat() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  // ── โหลด Lottie แมว (/cat.json) — ถ้าไม่มี/พัง ใช้ SVG เดิม ──────
+  // โหลดครั้งเดียวเมื่อกล่องพร้อม (รองรับเข้า login ก่อนแล้วค่อยไป dashboard)
+  useEffect(() => {
+    if (animInstRef.current || lottieState === 'failed') return
+    if (!lottieBoxRef.current) return
+    let cancelled = false
+    loadLottie().then((lib) => {
+      if (cancelled || animInstRef.current || !lottieBoxRef.current || !lib) return
+      const inst = lib.loadAnimation({
+        container: lottieBoxRef.current,
+        renderer: 'svg', loop: true, autoplay: true, path: '/cat.json',
+      })
+      animInstRef.current = inst
+      inst.addEventListener('DOMLoaded',   () => { if (!cancelled) setLottieState('ready') })
+      inst.addEventListener('data_failed', () => { if (!cancelled) setLottieState('failed') })
+    }).catch(() => { if (!cancelled) setLottieState('failed') })
+    return () => { cancelled = true }
+  }, [location.pathname, lottieState])
+
+  // ทำลาย instance ตอน unmount เท่านั้น
+  useEffect(() => () => {
+    if (animInstRef.current) { try { animInstRef.current.destroy() } catch {} animInstRef.current = null }
+  }, [])
+
+  // ปรับความเร็ว Lottie ตามสถานะ (วิ่งเร็ว/นอนช้า)
+  useEffect(() => {
+    const inst = animInstRef.current
+    if (!inst || lottieState !== 'ready') return
+    try {
+      if (catState === S.RUN || catState === S.TEASE) inst.setSpeed(2)
+      else if (catState === S.SLEEP) inst.setSpeed(0.4)
+      else inst.setSpeed(1)
+    } catch {}
+  }, [catState, lottieState])
 
   // leg step timer — 4-frame gait
   useEffect(() => {
@@ -692,7 +743,17 @@ export default function NekoCat() {
       )}
 
       <div style={{ animation: anim }}>
-        <PersianCat state={catState} flip={docked ? true : flip} blinking={blink} tailAngle={tail} legFrame={legFrame}/>
+        <div
+          ref={lottieBoxRef}
+          style={{
+            width: 104, height: 104,
+            display: lottieState === 'ready' ? 'block' : 'none',
+            transform: (docked ? true : flip) ? 'scaleX(-1)' : 'none',
+          }}
+        />
+        {lottieState !== 'ready' && (
+          <PersianCat state={catState} flip={docked ? true : flip} blinking={blink} tailAngle={tail} legFrame={legFrame}/>
+        )}
       </div>
 
       <div onClick={hide} className="nc-x"
