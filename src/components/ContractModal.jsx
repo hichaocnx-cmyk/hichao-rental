@@ -40,9 +40,18 @@ function loadHtmlToImage() {
     const s = document.createElement('script')
     s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js'
     s.onload = () => resolve(window.htmlToImage)
-    s.onerror = () => reject(new Error('โหลดตัวสร้างรูปไม่สำเร็จ'))
+    s.onerror = () => reject(new Error('โหลดตัวสร้างรูปไม่สำเร็จ (เช็คเน็ต)'))
     document.head.appendChild(s)
   })
+}
+
+// กัน await ค้างถาวร — บน iOS Safari/PWA toPng รอ img.onload ของ SVG ที่บางทีไม่ยิงกลับ
+function withTimeout(promise, ms, label) {
+  let t
+  const timeout = new Promise((_, reject) => {
+    t = setTimeout(() => reject(new Error((label || 'ทำงาน') + 'นานเกินไป (timeout)')), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t))
 }
 
 const BRAND = '#FF6B9D'
@@ -55,7 +64,7 @@ export default function ContractModal({ rental, onClose }) {
   const [hasSig, setHasSig]       = useState(false)
   const [sigImg, setSigImg]       = useState('')
   const [camB64, setCamB64]       = useState('')
-  const [logoB64, setLogoB64]     = useState('/logo.png')
+  const [logoB64, setLogoB64]     = useState('')
   const [generating, setGenerating] = useState(false)
   const [resultUrl, setResultUrl]   = useState('')
   const [resultFile, setResultFile] = useState(null)
@@ -138,18 +147,37 @@ export default function ContractModal({ rental, onClose }) {
     setGenerating(true)
     try {
       if (hasSig && canvasRef.current) setSigImg(canvasRef.current.toDataURL('image/png'))
-      const lib = await loadHtmlToImage()
+      const lib = await withTimeout(loadHtmlToImage(), 15000, 'โหลดตัวสร้างรูป')
       // รอฟอนต์พร้อม แต่กันค้างด้วย timeout (iOS บางทีค้าง)
-      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]) } catch {}
-      await new Promise(r => setTimeout(r, 350))
+      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1200))]) } catch {}
+      await new Promise(r => setTimeout(r, 300))
       const node = docRef.current
-      // เรนเดอร์ 2 ครั้ง — iOS Safari ครั้งแรกมักได้รูปว่าง ครั้งสองค่อยครบ
-      const opts = {
-        pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true, skipFonts: true,
-        width: node.offsetWidth, height: node.offsetHeight,
-      }
-      await lib.toPng(node, opts)
-      const dataUrl = await lib.toPng(node, opts)
+      const w = node.offsetWidth, h = node.offsetHeight
+
+      // คุม pixelRatio ไม่ให้เกินลิมิต canvas ของ iOS (ด้านยาว ~4096px / พื้นที่รวม)
+      const MAX_SIDE = 3500
+      const MAX_AREA = 12_000_000
+      let ratio = 2
+      ratio = Math.min(ratio, MAX_SIDE / Math.max(w, h))
+      ratio = Math.min(ratio, Math.sqrt(MAX_AREA / (w * h)))
+      ratio = Math.max(1, ratio)
+
+      const render = (pr) => withTimeout(
+        lib.toPng(node, {
+          pixelRatio: pr, backgroundColor: '#ffffff', cacheBust: true, skipFonts: true,
+          width: w, height: h,
+        }),
+        20000, 'สร้างรูป'
+      )
+
+      // warm-up (iOS ครั้งแรกมักได้รูปว่าง) — ครั้งแรกพังก็ไม่เป็นไร
+      try { await render(ratio) } catch {}
+      let dataUrl = await render(ratio)
+
+      // ถ้าได้ภาพว่าง/เล็กผิดปกติ ลองใหม่ด้วย ratio = 1
+      if (!dataUrl || dataUrl.length < 5000) dataUrl = await render(1)
+      if (!dataUrl || dataUrl.length < 5000) throw new Error('เรนเดอร์ได้ภาพว่าง ลองกดใหม่อีกครั้ง')
+
       let file = null
       try {
         const blob = await (await fetch(dataUrl)).blob()
@@ -312,7 +340,7 @@ export default function ContractModal({ rental, onClose }) {
       </div>
 
       {/* ── เอกสารสำหรับสร้างรูป (วางนอกจอ) ────────────────────────── */}
-      <div style={{ position:'fixed', left:-99999, top:0, pointerEvents:'none', opacity:1 }} aria-hidden="true">
+      <div style={{ position:'fixed', left:0, top:0, zIndex:-1, opacity:0, pointerEvents:'none' }} aria-hidden="true">
         <div ref={docRef} style={{
           width:760, background:'#ffffff', padding:'40px 44px',
           fontFamily:"'Sarabun','Sukhumvit Set','Prompt',sans-serif", color:INK, fontSize:13, lineHeight:1.55,
@@ -320,7 +348,9 @@ export default function ContractModal({ rental, onClose }) {
           {/* header + logo */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
             borderBottom:`2px solid ${BRAND}`, paddingBottom:14, marginBottom:16 }}>
-            <img src={logoB64} alt="" crossOrigin="anonymous" style={{ height:56, width:'auto', objectFit:'contain' }} />
+            {logoB64
+              ? <img src={logoB64} alt="" style={{ height:56, width:'auto', objectFit:'contain' }} />
+              : <div style={{ height:56, width:56 }} />}
             <div style={{ textAlign:'right' }}>
               <div style={{ fontSize:16, fontWeight:800 }}>{LESSOR.name}</div>
               <div style={{ fontSize:12, color:'#6b7280' }}>{LESSOR.address}</div>
