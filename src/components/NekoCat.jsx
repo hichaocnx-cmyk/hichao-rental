@@ -220,6 +220,7 @@ export default function NekoCat() {
     try { return localStorage.getItem('nc_hidden') === '1' } catch { return false }
   })
   const [panelOpen, setPanelOpen] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
 
   const [pos,      setPos]      = useState({ x: 160, y: 200 })
   const [flip,     setFlip]     = useState(false)
@@ -338,6 +339,19 @@ export default function NekoCat() {
       window.matchMedia('(max-width: 768px)').matches || 'ontouchstart' in window)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // ── ซ่อนแมวเมื่อมีหน้าต่าง modal เปิดอยู่ (modal ใช้ class 'fixed inset-0') ──
+  // กันแมว (zIndex 9999) ลอยทับปุ่มใน modal เช่นตอนสร้างรายการเช่า
+  useEffect(() => {
+    const check = () => {
+      const open = !!document.querySelector('.fixed.inset-0')
+      setModalOpen(prev => (prev === open ? prev : open))
+    }
+    check()
+    const mo = new MutationObserver(check)
+    mo.observe(document.body, { childList: true, subtree: true })
+    return () => mo.disconnect()
   }, [])
 
   // ── โหลด Lottie แมว (/cat.json) — ถ้าไม่มี/พัง ใช้ SVG เดิม ──────
@@ -700,6 +714,9 @@ export default function NekoCat() {
 
   // ── ไม่แสดงบนหน้า login ──────────────────────────────────────────
   if (location.pathname === '/login') return null
+
+  // ── ซ่อนแมวระหว่างเปิด modal (กันบังปุ่ม) ────────────────────────
+  if (modalOpen) return null
 
   // ── ปิดอยู่ → ปุ่มเรียกกลับเล็ก ๆ ────────────────────────────────
   if (hidden) {
