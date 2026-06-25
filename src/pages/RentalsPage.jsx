@@ -337,7 +337,6 @@ export default function RentalsPage() {
       await updateCamera(rental.camera_id, { status: 'rented' })
       await reload()
       toast.success(`ส่งกล้อง ${rental.camera?.name} ให้ลูกค้าแล้ว`)
-      sendLineNotify(`[HICHAO.CNX] 🟠 ส่งกล้องแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}\n🗓 คืนวันที่ ${rental.end_date}`).catch(e => { console.warn(e); toast.warning('บันทึกแล้ว แต่ส่ง LINE ไม่สำเร็จ') })
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
@@ -357,7 +356,6 @@ export default function RentalsPage() {
       await reload()
       setActiveTab('returned')
       toast.success(`รับ ${rental.camera?.name} คืนเรียบร้อย`)
-      sendLineNotify(`[HICHAO.CNX] ✅ รับกล้องคืนแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}`).catch(e => { console.warn(e); toast.warning('บันทึกแล้ว แต่ส่ง LINE ไม่สำเร็จ') })
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
