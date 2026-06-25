@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { useNavigate } from 'react-router-dom'
 import { sendLineNotify } from '../lib/lineNotify'
 import { DashboardSkeleton } from '../components/Skeleton'
+import CountUp from '../components/CountUp'
 import { useToast } from '../context/ToastContext'
 
 // ── Donut Chart ────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ export default function DashboardPage() {
             <span className="text-[10px] font-medium text-brand-500 bg-brand-50 px-1.5 py-0.5 rounded-full leading-tight">{currentMonthLabel()}</span>
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{fmtMoney(bd.rentalIncome ?? 0)}</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{loading ? '—' : <CountUp value={bd.rentalIncome ?? 0} format={(v) => `฿${v.toLocaleString()}`} />}</p>
             <p className="text-xs text-gray-400 mt-0.5">รายได้ค่าเช่า</p>
           </div>
         </div>
@@ -218,7 +219,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className={`text-xl font-bold leading-tight ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-              {loading ? '—' : `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${Math.abs(stats.monthProfit ?? 0).toLocaleString()}`}
+              {loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">กำไรสุทธิเดือนนี้</p>
           </div>
@@ -234,7 +235,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{fmt(pickups.length + returns.length)}</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{loading ? '—' : <CountUp value={pickups.length + returns.length} />}</p>
             <p className="text-xs text-gray-400 mt-0.5">คิววันนี้ · รับ {pickups.length} คืน {returns.length}</p>
           </div>
         </div>
@@ -251,7 +252,7 @@ export default function DashboardPage() {
             <span className="text-[10px] text-sky-500 bg-sky-50 px-1.5 py-0.5 rounded-full leading-tight">จาก {fmt(stats.totalCameras)} ตัว</span>
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{fmt(stats.availableCameras)}</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{loading ? '—' : <CountUp value={stats.availableCameras ?? 0} />}</p>
             <p className="text-xs text-gray-400 mt-0.5">กล้องว่างพร้อมเช่า</p>
           </div>
         </div>
@@ -411,7 +412,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-gray-400">กำไรสุทธิ</p>
                 <p className={`text-lg font-bold ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {loading ? '—' : `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${Math.abs(stats.monthProfit ?? 0).toLocaleString()}`}
+                  {loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}
                 </p>
               </div>
             </div>

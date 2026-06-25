@@ -37,3 +37,51 @@ html {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   Cute UI kit — แอนิเมชัน & micro-interactions (HICHAO)
+   ════════════════════════════════════════════════════════════ */
+@keyframes hcFloatUp   { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes hcPopIn     { 0% { opacity: 0; transform: scale(.92); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes hcSoftPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: .8; } }
+@keyframes hcBlob      { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(24px, -28px) scale(1.08); } 66% { transform: translate(-18px, 18px) scale(.94); } }
+@keyframes hcWiggle    { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
+
+/* เฟดเข้าตอนเปลี่ยนหน้า */
+.page-enter { animation: hcFloatUp .45s cubic-bezier(.22, 1, .36, 1) both; }
+
+/* การ์ดลอยขึ้นนุ่มๆ ตอน hover (เฉพาะเนื้อหาหลัก ไม่โดน modal/แมว) */
+main .bg-white.rounded-2xl,
+main .bg-white.rounded-3xl,
+main .bg-white.rounded-xl {
+  transition: transform .25s cubic-bezier(.22, 1, .36, 1), box-shadow .25s ease;
+}
+@media (hover: hover) {
+  main .bg-white.rounded-2xl:hover,
+  main .bg-white.rounded-3xl:hover,
+  main .bg-white.rounded-xl:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px -10px rgba(255, 107, 157, .28);
+  }
+}
+/* ยกเลิกเอฟเฟกต์ลอยภายใน overlay/modal (กันการ์ด modal ขยับแปลกๆ) */
+.fixed .bg-white:hover { transform: none !important; box-shadow: none !important; }
+
+/* ปุ่มกดแล้วยุบเบาๆ ให้รู้สึกตอบสนอง */
+button { transition: transform .12s ease; }
+button:active:not(:disabled) { transform: scale(.96); }
+
+/* พื้นหลังพาสเทลลอยฟุ้ง */
+.cute-bg   { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.cute-blob { position: absolute; border-radius: 50%; filter: blur(44px); opacity: .35; animation: hcBlob 18s ease-in-out infinite; will-change: transform; }
+
+/* badge เต้นเบาๆ เรียกความสนใจ */
+.cute-pulse { animation: hcSoftPulse 2.2s ease-in-out infinite; transform-origin: center; }
+
+/* ลดการเคลื่อนไหวตามการตั้งค่าผู้ใช้ */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter, .cute-blob, .cute-pulse,
+  main .bg-white.rounded-2xl, main .bg-white.rounded-3xl, main .bg-white.rounded-xl,
+  button { animation: none !important; transition: none !important; }
+  main .bg-white:hover { transform: none !important; }
+}

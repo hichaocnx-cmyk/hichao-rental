@@ -63,14 +63,23 @@ export default function DashboardLayout() {
   const pageTitle = PAGE_TITLES[location.pathname] || 'Dashboard'
 
   return (
-    <div className="flex h-screen bg-surface overflow-hidden">
+    <div className="flex h-screen bg-surface overflow-hidden relative">
+      {/* พื้นหลังพาสเทลลอยฟุ้ง (ตกแต่ง) */}
+      <div className="cute-bg" aria-hidden="true">
+        <span className="cute-blob" style={{ width: 340, height: 340, top: '-90px', left: '-60px', background: '#FFD6E8', animationDelay: '0s' }} />
+        <span className="cute-blob" style={{ width: 300, height: 300, bottom: '-80px', right: '8%', background: '#FFE3C7', animationDelay: '-6s' }} />
+        <span className="cute-blob" style={{ width: 260, height: 260, top: '32%', right: '-70px', background: '#E7DBFF', animationDelay: '-11s' }} />
+      </div>
+
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
         <Topbar onMenuClick={() => setSidebarOpen(true)} title={pageTitle} />
 
         <main className="flex-1 overflow-y-auto p-4 pb-20 lg:pb-6 lg:p-6">
-          <Outlet />
+          <div key={location.pathname} className="page-enter">
+            <Outlet />
+          </div>
         </main>
 
         {/* Mobile bottom nav */}
