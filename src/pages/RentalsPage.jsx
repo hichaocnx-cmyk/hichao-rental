@@ -196,56 +196,13 @@ export default function RentalsPage() {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summarySent, setSummarySent]       = useState(false)
 
-  // ── Auto-notify 1 ชั่วโมงก่อนคิว ────────────────────────────
-  const sentNotiRef = useRef(
-    new Set(JSON.parse(localStorage.getItem('sent_queue_noti') || '[]'))
-  )
+  // ── การเตือน "อีก X นาที ก่อนคิว" ย้ายไปทำงานฝั่ง server แล้ว ──────
+  //    ดู supabase/migration_004.sql (pg_cron → send_queue_reminders)
+  //    ทำงานตลอด 24 ชม. ไม่ต้องเปิดหน้าเว็บค้างไว้ และกันส่งซ้ำด้วย flag
+  //    pickup_reminded / return_reminded ในตาราง rentals
 
   // ── Auto ส่ง/คืนกล้อง ตามเวลา (กันรันซ้ำระหว่างรอ reload) ──────
   const autoBusyRef = useRef(new Set())
-
-  useEffect(() => {
-    const checkUpcoming = () => {
-      const now   = new Date()
-      const nowMs = now.getTime()
-      const todayDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
-
-      rentals.forEach(r => {
-        if (r.status !== 'booked' && r.status !== 'active') return
-        if (r.start_date === todayDate && r.pickup_time) {
-          const key = `pickup-${r.id}-${r.start_date}`
-          if (!sentNotiRef.current.has(key)) {
-            const [h, m] = r.pickup_time.split(':').map(Number)
-            const queueMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime()
-            const diffMin = (queueMs - nowMs) / 60000
-            if (diffMin > 0 && diffMin <= 60) {
-              const loc = r.pickup_location ? `\n📍 ${r.pickup_location}` : ''
-              sendLineNotify(`[HICHAO.CNX] ⏰ อีก ${Math.round(diffMin)} นาที — รับกล้อง\n📷 ${r.camera?.name || '—'}\n👤 ${r.customer?.name || '—'}\n🕐 ${r.pickup_time.slice(0,5)}${loc}`).catch(console.warn)
-              sentNotiRef.current.add(key)
-              localStorage.setItem('sent_queue_noti', JSON.stringify([...sentNotiRef.current]))
-            }
-          }
-        }
-        if (r.end_date === todayDate && r.return_time && r.status === 'active') {
-          const key = `return-${r.id}-${r.end_date}`
-          if (!sentNotiRef.current.has(key)) {
-            const [h, m] = r.return_time.split(':').map(Number)
-            const queueMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime()
-            const diffMin = (queueMs - nowMs) / 60000
-            if (diffMin > 0 && diffMin <= 60) {
-              const loc = r.return_location ? `\n📍 ${r.return_location}` : ''
-              sendLineNotify(`[HICHAO.CNX] ⏰ อีก ${Math.round(diffMin)} นาที — คืนกล้อง\n📷 ${r.camera?.name || '—'}\n👤 ${r.customer?.name || '—'}\n🕐 ${r.return_time.slice(0,5)}${loc}`).catch(console.warn)
-              sentNotiRef.current.add(key)
-              localStorage.setItem('sent_queue_noti', JSON.stringify([...sentNotiRef.current]))
-            }
-          }
-        }
-      })
-    }
-    checkUpcoming()
-    const interval = setInterval(checkUpcoming, 60000)
-    return () => clearInterval(interval)
-  }, [rentals])
 
   // ── Auto-deliver / Auto-return ตามเวลา pickup/return ─────────────
   useEffect(() => {
@@ -380,7 +337,7 @@ export default function RentalsPage() {
       await updateCamera(rental.camera_id, { status: 'rented' })
       await reload()
       toast.success(`ส่งกล้อง ${rental.camera?.name} ให้ลูกค้าแล้ว`)
-      sendLineNotify(`[HICHAO.CNX] 🟠 ส่งกล้องแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}\n🗓 คืนวันที่ ${rental.end_date}`).catch(console.warn)
+      sendLineNotify(`[HICHAO.CNX] 🟠 ส่งกล้องแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}\n🗓 คืนวันที่ ${rental.end_date}`).catch(e => { console.warn(e); toast.warning('บันทึกแล้ว แต่ส่ง LINE ไม่สำเร็จ') })
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
@@ -400,7 +357,7 @@ export default function RentalsPage() {
       await reload()
       setActiveTab('returned')
       toast.success(`รับ ${rental.camera?.name} คืนเรียบร้อย`)
-      sendLineNotify(`[HICHAO.CNX] ✅ รับกล้องคืนแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}`).catch(console.warn)
+      sendLineNotify(`[HICHAO.CNX] ✅ รับกล้องคืนแล้ว!\n📷 ${rental.camera?.name || 'กล้อง'}\n👤 ${rental.customer?.name || '—'}`).catch(e => { console.warn(e); toast.warning('บันทึกแล้ว แต่ส่ง LINE ไม่สำเร็จ') })
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
 
