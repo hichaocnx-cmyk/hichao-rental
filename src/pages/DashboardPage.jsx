@@ -171,21 +171,21 @@ export default function DashboardPage() {
     <div className="space-y-4">
 
       {/* ── Greeting Header ─────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-lg">🌸</span>
-            <h2 className="text-base font-bold text-gray-900">{getGreeting()}, คุณนิจ เจ้าของร้าน</h2>
-          </div>
-          <p className="text-xs text-gray-400">{dayLabel}</p>
+      <div className="bg-white rounded-3xl border border-gray-100 px-5 py-4 flex items-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-2xl flex-shrink-0">🐱</div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-bold text-gray-900">{getGreeting()}, คุณนิจ ☀️</h2>
+          <span className="inline-block mt-1 text-[11px] font-medium text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full">
+            {(pickups.length + returns.length) > 0
+              ? `วันนี้มีคิว ${pickups.length + returns.length} รายการนะนิจ~`
+              : 'วันนี้ไม่มีคิว ชิลล์ๆ ได้เลยนิจ ✨'}
+          </span>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center shadow-sm shadow-brand-200">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
-            </svg>
-          </div>
+        <div className="w-10 h-10 bg-brand-500 rounded-2xl flex items-center justify-center shadow-sm shadow-brand-200 flex-shrink-0">
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+          </svg>
         </div>
       </div>
 
@@ -193,67 +193,55 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
 
         {/* รายได้ค่าเช่า */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
-          <div className="flex items-start justify-between">
-            <div className="w-9 h-9 bg-brand-50 rounded-xl flex items-center justify-center flex-shrink-0">
-              <svg style={{width:18,height:18}} className="text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </div>
-            <span className="text-[10px] font-medium text-brand-500 bg-brand-50 px-1.5 py-0.5 rounded-full leading-tight">{currentMonthLabel()}</span>
+        <div className="bg-brand-50 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+            <svg style={{width:20,height:20}} className="text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
           </div>
-          <div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{loading ? '—' : <CountUp value={bd.rentalIncome ?? 0} format={(v) => `฿${v.toLocaleString()}`} />}</p>
-            <p className="text-xs text-gray-400 mt-0.5">รายได้ค่าเช่า</p>
+          <div className="min-w-0">
+            <p className="text-lg sm:text-xl font-bold text-brand-700 leading-tight truncate">{loading ? '—' : <CountUp value={bd.rentalIncome ?? 0} format={(v) => `฿${v.toLocaleString()}`} />}</p>
+            <p className="text-[11px] font-medium text-brand-500 mt-0.5">รายได้ค่าเช่า</p>
           </div>
         </div>
 
         {/* กำไรสุทธิ */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
-          <div className="flex items-start justify-between">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${(stats.monthProfit ?? 0) >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-              <svg style={{width:18,height:18}} className={`${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-              </svg>
-            </div>
+        <div className={`rounded-2xl p-4 flex items-center gap-3 ${(stats.monthProfit ?? 0) >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+            <svg style={{width:20,height:20}} className={`${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+            </svg>
           </div>
-          <div>
-            <p className={`text-xl font-bold leading-tight ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-              {loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">กำไรสุทธิเดือนนี้</p>
+          <div className="min-w-0">
+            <p className={`text-lg sm:text-xl font-bold leading-tight truncate ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}</p>
+            <p className={`text-[11px] font-medium mt-0.5 ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>กำไรสุทธิเดือนนี้</p>
           </div>
         </div>
 
         {/* คิววันนี้ */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
-          <div className="flex items-start justify-between">
-            <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-              <svg style={{width:18,height:18}} className="text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-              </svg>
-            </div>
+        <div className="bg-orange-50 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+            <svg style={{width:20,height:20}} className="text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+            </svg>
           </div>
-          <div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{loading ? '—' : <CountUp value={pickups.length + returns.length} />}</p>
-            <p className="text-xs text-gray-400 mt-0.5">คิววันนี้ · รับ {pickups.length} คืน {returns.length}</p>
+          <div className="min-w-0">
+            <p className="text-lg sm:text-xl font-bold text-orange-600 leading-tight">{loading ? '—' : <CountUp value={pickups.length + returns.length} />}</p>
+            <p className="text-[11px] font-medium text-orange-500 mt-0.5">คิววันนี้ · รับ {pickups.length} คืน {returns.length}</p>
           </div>
         </div>
 
         {/* กล้องว่าง */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
-          <div className="flex items-start justify-between">
-            <div className="w-9 h-9 bg-sky-50 rounded-xl flex items-center justify-center flex-shrink-0">
-              <svg style={{width:18,height:18}} className="text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-              </svg>
-            </div>
-            <span className="text-[10px] text-sky-500 bg-sky-50 px-1.5 py-0.5 rounded-full leading-tight">จาก {fmt(stats.totalCameras)} ตัว</span>
+        <div className="bg-sky-50 rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+            <svg style={{width:20,height:20}} className="text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+            </svg>
           </div>
-          <div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{loading ? '—' : <CountUp value={stats.availableCameras ?? 0} />}</p>
-            <p className="text-xs text-gray-400 mt-0.5">กล้องว่างพร้อมเช่า</p>
+          <div className="min-w-0">
+            <p className="text-lg sm:text-xl font-bold text-sky-700 leading-tight">{loading ? '—' : <CountUp value={stats.availableCameras ?? 0} />}</p>
+            <p className="text-[11px] font-medium text-sky-600 mt-0.5">กล้องว่าง · จาก {fmt(stats.totalCameras)} ตัว</p>
           </div>
         </div>
 

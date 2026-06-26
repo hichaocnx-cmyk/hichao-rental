@@ -136,16 +136,16 @@ export default function Sidebar({ open, onClose }) {
               to={item.to}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? 'bg-brand-50 text-brand-500 font-semibold'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                    ? 'bg-brand-500 text-white font-semibold shadow-sm shadow-brand-200'
+                    : 'text-gray-500 hover:bg-brand-50 hover:text-brand-600'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <span className={isActive ? 'text-brand-500' : 'text-gray-400'}>
+                  <span className={isActive ? 'text-white' : 'text-gray-400'}>
                     {item.icon}
                   </span>
                   <span className="flex-1">{item.label}</span>
@@ -155,12 +155,9 @@ export default function Sidebar({ open, onClose }) {
                     </span>
                   )}
                   {item.isNew && (
-                    <span className="px-1.5 py-0.5 bg-brand-50 text-brand-500 text-[10px] font-bold rounded-full border border-brand-100">
+                    <span className="px-1.5 py-0.5 bg-white/90 text-brand-600 text-[10px] font-bold rounded-full">
                       ใหม่
                     </span>
-                  )}
-                  {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0" />
                   )}
                 </>
               )}
