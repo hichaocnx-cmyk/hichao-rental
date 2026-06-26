@@ -3,6 +3,7 @@ import { getCameras, updateCamera } from '../lib/cameras'
 import { getCustomers, createCustomer } from '../lib/customers'
 import { createRental, updateRental, deleteRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
+import { celebrate } from '../lib/confetti'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
 
@@ -230,6 +231,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
           await deleteRental(newRental.id).catch(() => {})
           throw new Error('อัปเดตสถานะกล้องล้มเหลว กรุณาลองใหม่: ' + camErr.message)
         }
+        celebrate()
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
       onSaved(savedId, !isEdit)

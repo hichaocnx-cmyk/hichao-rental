@@ -11,8 +11,8 @@ const TYPE_CFG = {
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
       </svg>
     ),
-    bar: 'bg-emerald-400',
-    icon_cls: 'text-emerald-400',
+    chip: 'bg-emerald-50',
+    icon_cls: 'text-emerald-500',
   },
   error: {
     icon: (
@@ -20,8 +20,8 @@ const TYPE_CFG = {
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
       </svg>
     ),
-    bar: 'bg-red-400',
-    icon_cls: 'text-red-400',
+    chip: 'bg-red-50',
+    icon_cls: 'text-red-500',
   },
   info: {
     icon: (
@@ -29,8 +29,8 @@ const TYPE_CFG = {
         <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
       </svg>
     ),
-    bar: 'bg-sky-400',
-    icon_cls: 'text-sky-400',
+    chip: 'bg-sky-50',
+    icon_cls: 'text-sky-500',
   },
   warning: {
     icon: (
@@ -38,8 +38,8 @@ const TYPE_CFG = {
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
       </svg>
     ),
-    bar: 'bg-amber-400',
-    icon_cls: 'text-amber-400',
+    chip: 'bg-amber-50',
+    icon_cls: 'text-amber-500',
   },
 }
 
@@ -49,12 +49,10 @@ function ToastItem({ toast, onRemove }) {
   return (
     <div
       className="flex items-start gap-3 bg-white border border-gray-100 rounded-2xl shadow-lg px-4 py-3 w-full max-w-sm pointer-events-auto"
-      style={{ animation: 'slideIn .2s ease-out' }}
+      style={{ animation: 'hcToastIn .3s cubic-bezier(.22,1,.36,1)' }}
     >
-      {/* color bar */}
-      <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${cfg.bar}`} />
-      {/* icon */}
-      <span className={`flex-shrink-0 mt-0.5 ${cfg.icon_cls}`}>{cfg.icon}</span>
+      {/* icon chip */}
+      <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${cfg.chip} ${cfg.icon_cls}`}>{cfg.icon}</span>
       {/* message */}
       <p className="flex-1 text-sm text-gray-800 leading-snug">{toast.message}</p>
       {/* close */}
@@ -152,9 +150,10 @@ export function ToastProvider({ children }) {
         {/* Toast container — bottom-right on desktop, bottom-center on mobile */}
         <div className="fixed bottom-6 right-4 sm:right-6 z-[9998] flex flex-col gap-2 items-end pointer-events-none w-full sm:w-auto">
           <style>{`
-            @keyframes slideIn {
-              from { opacity: 0; transform: translateY(12px) scale(0.96); }
-              to   { opacity: 1; transform: translateY(0)    scale(1); }
+            @keyframes hcToastIn {
+              0%   { opacity: 0; transform: translateY(14px) scale(0.95); }
+              60%  { opacity: 1; transform: translateY(-2px) scale(1.015); }
+              100% { opacity: 1; transform: translateY(0)    scale(1); }
             }
           `}</style>
           {toasts.map(t => (

@@ -1,6 +1,6 @@
 // ── Skeleton primitives ────────────────────────────────────────
 const Pulse = ({ className = '' }) => (
-  <div className={`animate-pulse bg-gray-100 rounded-lg ${className}`} />
+  <div className={`hc-shimmer rounded-lg ${className}`} />
 )
 
 // ── Dashboard skeleton ─────────────────────────────────────────

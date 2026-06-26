@@ -85,3 +85,28 @@ button:active:not(:disabled) { transform: scale(.96); }
   button { animation: none !important; transition: none !important; }
   main .bg-white:hover { transform: none !important; }
 }
+
+/* ── Shimmer skeleton ── */
+.hc-shimmer { position: relative; overflow: hidden; background: #F1EFEF; }
+.hc-shimmer::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent);
+  animation: hcShimmer 1.4s infinite;
+}
+@keyframes hcShimmer { 100% { transform: translateX(100%); } }
+
+/* ── Confetti ── */
+.hc-confetti-root { position: fixed; inset: 0; pointer-events: none; z-index: 10000; overflow: hidden; }
+.hc-confetti { position: absolute; top: -14px; width: 9px; height: 14px; opacity: .92; animation: hcConfetti linear forwards; }
+@keyframes hcConfetti {
+  0%   { transform: translate(0,0) rotate(0); opacity: 1; }
+  100% { transform: translate(var(--dx), 106vh) rotate(var(--rot)); opacity: .9; }
+}
+
+/* ── Empty-state cat bob ── */
+@keyframes hcBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.hc-bob { animation: hcBob 2.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-shimmer::after, .hc-bob { animation: none !important; }
+}

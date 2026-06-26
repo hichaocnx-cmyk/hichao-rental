@@ -3,6 +3,7 @@ import { updateRental, deleteRental } from '../lib/rentals'
 import { updateCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
+import { celebrate } from '../lib/confetti'
 import RentalModal from '../components/RentalModal'
 import InvoiceModal from '../components/InvoiceModal'
 import ContractModal from '../components/ContractModal'
@@ -336,6 +337,7 @@ export default function RentalsPage() {
       await updateRental(rental.id, { status: 'active' })
       await updateCamera(rental.camera_id, { status: 'rented' })
       await reload()
+      celebrate()
       toast.success(`ส่งกล้อง ${rental.camera?.name} ให้ลูกค้าแล้ว`)
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
@@ -355,6 +357,7 @@ export default function RentalsPage() {
       await updateCamera(rental.camera_id, { status: 'available' })
       await reload()
       setActiveTab('returned')
+      celebrate()
       toast.success(`รับ ${rental.camera?.name} คืนเรียบร้อย`)
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }
