@@ -155,24 +155,24 @@ export default function ExpensesPage() {
 
       {/* ── Summary cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">รายจ่ายเดือนนี้</p>
+        <div className="bg-red-50 rounded-2xl p-4">
+          <p className="text-xs font-medium text-red-500 mb-1">รายจ่ายเดือนนี้</p>
           <p className="text-2xl font-bold text-red-600">฿{totalFiltered.toLocaleString()}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{filtered.length} รายการ</p>
+          <p className="text-xs text-red-400 mt-0.5">{filtered.length} รายการ</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">หมวดสูงสุด</p>
-          <p className="text-base font-bold text-gray-800 truncate">{byCategory[0]?.[0] || '—'}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{byCategory[0] ? `฿${byCategory[0][1].toLocaleString()}` : '—'}</p>
+        <div className="bg-orange-50 rounded-2xl p-4">
+          <p className="text-xs font-medium text-orange-500 mb-1">หมวดสูงสุด</p>
+          <p className="text-base font-bold text-orange-700 truncate">{byCategory[0]?.[0] || '—'}</p>
+          <p className="text-xs text-orange-400 mt-0.5">{byCategory[0] ? `฿${byCategory[0][1].toLocaleString()}` : '—'}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">เฉลี่ย/รายการ</p>
-          <p className="text-2xl font-bold text-gray-800">฿{filtered.length ? Math.round(totalFiltered / filtered.length).toLocaleString() : 0}</p>
+        <div className="bg-sky-50 rounded-2xl p-4">
+          <p className="text-xs font-medium text-sky-500 mb-1">เฉลี่ย/รายการ</p>
+          <p className="text-2xl font-bold text-sky-700">฿{filtered.length ? Math.round(totalFiltered / filtered.length).toLocaleString() : 0}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">จำนวนหมวดหมู่</p>
-          <p className="text-2xl font-bold text-gray-800">{byCategory.length}</p>
-          <p className="text-xs text-gray-400 mt-0.5">หมวดหมู่</p>
+        <div className="bg-brand-50 rounded-2xl p-4">
+          <p className="text-xs font-medium text-brand-500 mb-1">จำนวนหมวดหมู่</p>
+          <p className="text-2xl font-bold text-brand-700">{byCategory.length}</p>
+          <p className="text-xs text-brand-400 mt-0.5">หมวดหมู่</p>
         </div>
       </div>
 

@@ -235,12 +235,12 @@ export default function ReportPage() {
         {[
           {
             label: 'รายรับรวม', value: fmtMoney(totalRevenue),
-            sub: totalPending > 0 ? `${totalCount} รายการ · รอรับอีก ${fmtMoney(totalPending)}` : `${totalCount} รายการ`, iconBg: 'bg-brand-50', iconColor: 'text-brand-500',
+            sub: totalPending > 0 ? `${totalCount} รายการ · รอรับอีก ${fmtMoney(totalPending)}` : `${totalCount} รายการ`, iconBg: 'bg-brand-50', iconColor: 'text-brand-500', numColor: 'text-brand-700',
             icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75" />,
           },
           {
             label: 'รายจ่ายรวม', value: fmtMoney(totalExpenses),
-            sub: `${expCategories.length} หมวดหมู่`, iconBg: 'bg-orange-50', iconColor: 'text-orange-400',
+            sub: `${expCategories.length} หมวดหมู่`, iconBg: 'bg-orange-50', iconColor: 'text-orange-400', numColor: 'text-orange-600',
             icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6 9 12.75l4.286-4.286a11.948 11.948 0 0 1 4.306 6.43l.776 2.898m0 0 3.182-5.511m-3.182 5.51-5.511-3.181" />,
           },
           {
@@ -256,21 +256,21 @@ export default function ReportPage() {
           },
           {
             label: 'เดือนนี้', value: fmtMoney(currentMonth.revenue),
-            sub: currentMonth.pending > 0 ? `${currentMonth.count} รายการ · รอรับ ${fmtMoney(currentMonth.pending)}` : `${currentMonth.count} รายการ`, iconBg: 'bg-sky-50', iconColor: 'text-sky-400',
+            sub: currentMonth.pending > 0 ? `${currentMonth.count} รายการ · รอรับ ${fmtMoney(currentMonth.pending)}` : `${currentMonth.count} รายการ`, iconBg: 'bg-sky-50', iconColor: 'text-sky-400', numColor: 'text-sky-700',
             icon: <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />,
           },
         ].map((s, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4">
+          <div key={i} className={`${s.iconBg} rounded-2xl p-4`}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-gray-400 font-medium">{s.label}</p>
-              <div className={`w-8 h-8 ${s.iconBg} rounded-xl flex items-center justify-center`}>
+              <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+              <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
                 <svg className={`w-4 h-4 ${s.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   {s.icon}
                 </svg>
               </div>
             </div>
-            <p className={`text-xl font-bold ${s.valueColor || 'text-gray-900'}`}>{s.value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+            <p className={`text-xl font-bold ${s.valueColor || s.numColor || 'text-gray-800'}`}>{s.value}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{s.sub}</p>
           </div>
         ))}
       </div>

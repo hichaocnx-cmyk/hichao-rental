@@ -186,17 +186,17 @@ export default function CustomersPage() {
                 <div className="bg-gray-50/60 px-4 pt-4 pb-5 border-t border-brand-100">
                   {/* Stats row */}
                   <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
-                      <p className="text-lg font-bold text-gray-900">{stats.count}</p>
-                      <p className="text-[10px] text-gray-400">ครั้งที่เช่า</p>
+                    <div className="bg-brand-50 rounded-xl p-3 text-center">
+                      <p className="text-lg font-bold text-brand-700">{stats.count}</p>
+                      <p className="text-[10px] font-medium text-brand-500">ครั้งที่เช่า</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
-                      <p className="text-base font-bold text-brand-500">฿{stats.total.toLocaleString()}</p>
-                      <p className="text-[10px] text-gray-400">ยอดรวม</p>
+                    <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                      <p className="text-base font-bold text-emerald-600">฿{stats.total.toLocaleString()}</p>
+                      <p className="text-[10px] font-medium text-emerald-500">ยอดรวม</p>
                     </div>
-                    <div className="bg-white rounded-xl p-3 text-center border border-gray-100">
-                      <p className="text-sm font-bold text-gray-700">{stats.last ? stats.last.slice(5).replace('-', '/') : '—'}</p>
-                      <p className="text-[10px] text-gray-400">ล่าสุด</p>
+                    <div className="bg-sky-50 rounded-xl p-3 text-center">
+                      <p className="text-sm font-bold text-sky-700">{stats.last ? stats.last.slice(5).replace('-', '/') : '—'}</p>
+                      <p className="text-[10px] font-medium text-sky-500">ล่าสุด</p>
                     </div>
                   </div>
 
