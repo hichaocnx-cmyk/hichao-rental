@@ -13,6 +13,7 @@ const CAMERA_PRICES = {
   griiix: { 1:700,  2:1400, 3:2000, 4:2200, 5:2500, 6:3000, 7:3500, 8:3800, 9:3990, 10:4200 },
   griv:   { 1:790,  2:1500, 3:2000, 4:2500, 5:3000, 6:3500, 7:3990, 8:4200, 9:4400, 10:4500 },
   canon:  { 1:299,  2:499,  3:699,  4:850,  5:1000, 6:1200, 7:1400 },
+  osmo:   { 1:450,  2:850,  3:1200, 4:1550, 5:1900, 6:2200, 7:2500, 8:2800, 9:3050, 10:3300 },
 }
 
 const getCameraKey = (name) => {
@@ -21,6 +22,7 @@ const getCameraKey = (name) => {
   if (n.includes('gr iv')   || n.includes('gr4')  || n.includes('griv'))   return 'griv'
   if (n.includes('gr iii')  || n.includes('gr3')  || n.includes('griii'))  return 'griii'
   if (n.includes('ixy') || n.includes('canon ixy'))                         return 'canon'
+  if (n.includes('osmo') || n.includes('pocket'))                            return 'osmo'
   return null
 }
 
