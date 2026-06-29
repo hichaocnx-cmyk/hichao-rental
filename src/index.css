@@ -110,3 +110,76 @@ button:active:not(:disabled) { transform: scale(.96); }
 @media (prefers-reduced-motion: reduce) {
   .hc-shimmer::after, .hc-bob { animation: none !important; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   HICHAO — Glass / Glow / 3D theme (v1)
+   พื้นผิวกระจกโปร่งแสง + พื้นหลังเรืองแสง + ความลึก 3D
+   ════════════════════════════════════════════════════════════ */
+
+/* พื้นหลังเรืองแสง (glow mesh) */
+.flex.h-screen.bg-surface {
+  background:
+    radial-gradient(900px 520px at 8% -8%,   rgba(255,140,190,.50) 0%, transparent 60%),
+    radial-gradient(820px 560px at 115% 6%,  rgba(150,110,255,.45) 0%, transparent 58%),
+    radial-gradient(760px 520px at 50% 128%, rgba(255,170,90,.40) 0%, transparent 60%),
+    radial-gradient(700px 500px at 85% 90%,  rgba(90,200,255,.32) 0%, transparent 60%),
+    linear-gradient(180deg, #f7f0fa 0%, #eee8fb 100%);
+  background-attachment: fixed;
+}
+.cute-blob { filter: blur(70px); opacity: .55; }
+
+/* การ์ดกระจกโปร่งแสง (glassmorphism) */
+main .bg-white.rounded-2xl,
+main .bg-white.rounded-3xl,
+main .bg-white.rounded-xl {
+  background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.55)) !important;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.85);
+  box-shadow:
+    0 1px 0  rgba(255,255,255,.9) inset,
+    0 18px 44px -16px rgba(108,33,128,.30),
+    0 4px 14px  -6px rgba(108,33,128,.16);
+  transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s ease;
+}
+@media (hover: hover) {
+  main .bg-white.rounded-2xl:hover,
+  main .bg-white.rounded-3xl:hover,
+  main .bg-white.rounded-xl:hover {
+    transform: translateY(-8px) scale(1.015);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,1) inset,
+      0 34px 70px -18px rgba(108,33,128,.42),
+      0 0 28px -2px rgba(255,120,180,.45);
+  }
+}
+
+/* Topbar + Sidebar + bottom nav = กระจก */
+header.h-16 {
+  background: rgba(255,255,255,.55) !important;
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  border-bottom: 1px solid rgba(255,255,255,.55) !important;
+}
+aside,
+nav.lg\:hidden {
+  background: rgba(255,255,255,.55) !important;
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+
+/* Modal ต้องทึบเสมอ (specificity สูงกว่ากฎ glass ด้านบน) */
+.fixed .bg-white.rounded-2xl,
+.fixed .bg-white.rounded-3xl,
+.fixed .bg-white.rounded-xl,
+.fixed .bg-white.rounded-t-2xl {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main .bg-white.rounded-2xl,
+  main .bg-white.rounded-3xl,
+  main .bg-white.rounded-xl { transition: none !important; }
+}
