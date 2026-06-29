@@ -48,7 +48,7 @@ html {
 @keyframes hcWiggle    { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg); } 75% { transform: rotate(7deg); } }
 
 /* เฟดเข้าตอนเปลี่ยนหน้า */
-.page-enter { animation: hcFloatUp .45s cubic-bezier(.22, 1, .36, 1) both; }
+.page-enter { animation: hcFloatUp .45s cubic-bezier(.22, 1, .36, 1) backwards; }
 
 /* การ์ดลอยขึ้นนุ่มๆ ตอน hover (เฉพาะเนื้อหาหลัก ไม่โดน modal/แมว) */
 main .bg-white.rounded-2xl,
