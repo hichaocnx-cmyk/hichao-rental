@@ -183,3 +183,74 @@ nav.lg\:hidden {
   main .bg-white.rounded-3xl,
   main .bg-white.rounded-xl { transition: none !important; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   HICHAO — Dark mode (html.dark)  •  glass + neon glow บนพื้นเข้ม
+   ════════════════════════════════════════════════════════════ */
+html.dark body { color: #ECE9F2; }
+
+html.dark .flex.h-screen.bg-surface {
+  background:
+    radial-gradient(900px 520px at 8% -8%,   rgba(255,90,160,.20) 0%, transparent 60%),
+    radial-gradient(820px 560px at 115% 6%,  rgba(140,90,255,.22) 0%, transparent 58%),
+    radial-gradient(760px 520px at 50% 128%, rgba(255,150,70,.14) 0%, transparent 60%),
+    linear-gradient(180deg, #120e1c 0%, #0e0b16 100%) !important;
+}
+html.dark .cute-blob { opacity: .28; }
+
+/* การ์ดกระจกเข้ม */
+html.dark main .bg-white.rounded-2xl,
+html.dark main .bg-white.rounded-3xl,
+html.dark main .bg-white.rounded-xl {
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035)) !important;
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 18px 44px -16px rgba(0,0,0,.6) !important;
+}
+@media (hover: hover) {
+  html.dark main .bg-white.rounded-2xl:hover,
+  html.dark main .bg-white.rounded-3xl:hover,
+  html.dark main .bg-white.rounded-xl:hover {
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.12) inset,
+      0 34px 70px -18px rgba(0,0,0,.7),
+      0 0 30px -2px rgba(180,120,255,.35) !important;
+  }
+}
+
+/* Topbar / Sidebar / bottom nav */
+html.dark header.h-16 { background: rgba(20,16,30,.55) !important; border-bottom: 1px solid rgba(255,255,255,.08) !important; }
+html.dark aside,
+html.dark nav.lg\:hidden { background: rgba(18,14,28,.6) !important; border-color: rgba(255,255,255,.08) !important; }
+
+/* ข้อความ */
+html.dark .text-gray-900, html.dark .text-gray-800 { color: #ECE9F2 !important; }
+html.dark .text-gray-700, html.dark .text-gray-600 { color: #CDC7DA !important; }
+html.dark .text-gray-500, html.dark .text-gray-400 { color: #9C93AE !important; }
+html.dark .text-gray-300 { color: #6E6781 !important; }
+
+/* พื้นผิว & เส้นขอบ */
+html.dark .bg-gray-50, html.dark .bg-gray-100 { background: rgba(255,255,255,.05) !important; }
+html.dark .border-gray-50, html.dark .border-gray-100, html.dark .border-gray-200 { border-color: rgba(255,255,255,.10) !important; }
+
+/* สถิติพาสเทล -> tint เข้ม */
+html.dark .bg-rose-50    { background: rgba(244,63,94,.14) !important; }
+html.dark .bg-emerald-50, html.dark .bg-green-50 { background: rgba(16,185,129,.14) !important; }
+html.dark .bg-orange-50, html.dark .bg-amber-50  { background: rgba(245,158,11,.14) !important; }
+html.dark .bg-blue-50, html.dark .bg-sky-50      { background: rgba(56,189,248,.14) !important; }
+html.dark .bg-purple-50, html.dark .bg-violet-50, html.dark .bg-indigo-50 { background: rgba(139,92,246,.14) !important; }
+html.dark .bg-brand-50   { background: rgba(255,107,157,.14) !important; }
+
+/* ฟอร์ม */
+html.dark input, html.dark select, html.dark textarea {
+  background: rgba(255,255,255,.05) !important; color: #ECE9F2 !important; border-color: rgba(255,255,255,.14) !important;
+}
+
+/* Modal เข้มแต่ทึบ */
+html.dark .fixed .bg-white.rounded-2xl,
+html.dark .fixed .bg-white.rounded-3xl,
+html.dark .fixed .bg-white.rounded-xl,
+html.dark .fixed .bg-white.rounded-t-2xl {
+  background: #1b1626 !important; border: 1px solid rgba(255,255,255,.10) !important;
+}
