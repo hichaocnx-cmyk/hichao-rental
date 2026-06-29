@@ -275,7 +275,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
         {/* ── Scrollable form body ── */}
         <form id="rental-form" onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-5">
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-5"
+          style={{ WebkitOverflowScrolling: 'touch' }}>
 
           {error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">{error}</div>
