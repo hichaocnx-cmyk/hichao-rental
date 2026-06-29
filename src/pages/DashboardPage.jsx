@@ -284,18 +284,21 @@ export default function DashboardPage() {
           {(() => {
             const max = Math.max(1, ...revTrend.map(m => m.total))
             return (
-              <div className="flex items-end justify-between gap-2 h-40">
+              <div className="flex items-end gap-2 h-40">
                 {revTrend.map((m, i) => {
                   const h = (m.total / max) * 100
                   const isLast = i === revTrend.length - 1
                   return (
-                    <div key={m.key} className="flex-1 flex flex-col items-center gap-1.5 group">
-                      <span className="text-[10px] font-semibold text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {m.total >= 1000 ? `฿${(m.total/1000).toFixed(1)}k` : `฿${m.total}`}
-                      </span>
-                      <div className="w-full rounded-t-lg transition-all duration-300" title={`฿${m.total.toLocaleString()}`}
-                        style={{ height: `${Math.max(3, h)}%`, background: isLast ? 'linear-gradient(180deg,#FF6B9D,#E8508A)' : 'linear-gradient(180deg,#FFB3D1,#FF8FB9)' }} />
-                      <span className="text-[10px] text-gray-400">{m.label}</span>
+                    <div key={m.key} className="flex-1 h-full flex flex-col items-center group">
+                      <div className="w-full flex-1 flex items-end min-h-0">
+                        <div className="w-full rounded-t-lg transition-all duration-500 relative" title={`฿${m.total.toLocaleString()}`}
+                          style={{ height: `${Math.max(2, h)}%`, background: isLast ? 'linear-gradient(180deg,#FF6B9D,#E8508A)' : 'linear-gradient(180deg,#FFB3D1,#FF8FB9)' }}>
+                          <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {m.total >= 1000 ? `฿${(m.total/1000).toFixed(1)}k` : `฿${m.total}`}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1.5">{m.label}</span>
                     </div>
                   )
                 })}
