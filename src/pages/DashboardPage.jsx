@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { useNavigate } from 'react-router-dom'
 import { sendLineNotify } from '../lib/lineNotify'
@@ -165,6 +165,33 @@ export default function DashboardPage() {
   const bd       = stats.revenueBreakdown || {}
   const revTotal = stats.monthRevenue || 0
 
+  // ── กราฟ: แนวโน้มรายได้ย้อนหลัง 6 เดือน + กล้องทำเงินสูงสุด ──
+  const revTrend = useMemo(() => {
+    const now = new Date()
+    const months = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      months.push({ key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: MONTHS_TH[d.getMonth()].slice(0,3), total: 0 })
+    }
+    const idx = Object.fromEntries(months.map((m, i) => [m.key, i]))
+    rentals.forEach(r => {
+      if (r.status === 'cancelled' || !r.start_date) return
+      const k = r.start_date.slice(0, 7)
+      if (k in idx) months[idx[k]].total += Number(r.total_price || 0) + Number(r.delivery_fee || 0)
+    })
+    return months
+  }, [rentals])
+
+  const topCameras = useMemo(() => {
+    const m = {}
+    rentals.forEach(r => {
+      if (r.status === 'cancelled') return
+      const name = r.camera?.name || '—'
+      m[name] = (m[name] || 0) + Number(r.total_price || 0) + Number(r.delivery_fee || 0)
+    })
+    return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  }, [rentals])
+
   if (loading) return <DashboardSkeleton />
 
   return (
@@ -245,6 +272,63 @@ export default function DashboardPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* ── กราฟวิเคราะห์ ────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* แนวโน้มรายได้ 6 เดือน */}
+        <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4">
+          <h3 className="text-sm font-semibold text-gray-800">แนวโน้มรายได้ย้อนหลัง 6 เดือน</h3>
+          <p className="text-xs text-gray-400 mt-0.5 mb-4">รวมค่าเช่า + ค่าส่ง</p>
+          {(() => {
+            const max = Math.max(1, ...revTrend.map(m => m.total))
+            return (
+              <div className="flex items-end justify-between gap-2 h-40">
+                {revTrend.map((m, i) => {
+                  const h = (m.total / max) * 100
+                  const isLast = i === revTrend.length - 1
+                  return (
+                    <div key={m.key} className="flex-1 flex flex-col items-center gap-1.5 group">
+                      <span className="text-[10px] font-semibold text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {m.total >= 1000 ? `฿${(m.total/1000).toFixed(1)}k` : `฿${m.total}`}
+                      </span>
+                      <div className="w-full rounded-t-lg transition-all duration-300" title={`฿${m.total.toLocaleString()}`}
+                        style={{ height: `${Math.max(3, h)}%`, background: isLast ? 'linear-gradient(180deg,#FF6B9D,#E8508A)' : 'linear-gradient(180deg,#FFB3D1,#FF8FB9)' }} />
+                      <span className="text-[10px] text-gray-400">{m.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </div>
+
+        {/* กล้องทำเงินสูงสุด */}
+        <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4">
+          <h3 className="text-sm font-semibold text-gray-800">กล้องทำเงินสูงสุด</h3>
+          <p className="text-xs text-gray-400 mt-0.5 mb-4">รายได้รวมทุกการเช่า</p>
+          {topCameras.length === 0 ? (
+            <p className="text-sm text-gray-300 text-center py-10">ยังไม่มีข้อมูล</p>
+          ) : (() => {
+            const max = Math.max(1, ...topCameras.map(c => c[1]))
+            return (
+              <div className="space-y-3">
+                {topCameras.map(([name, val], i) => (
+                  <div key={name}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-gray-700 truncate">{name}</span>
+                      <span className="font-semibold text-gray-600 flex-shrink-0 ml-2">฿{val.toLocaleString()}</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(val/max)*100}%`, background: EXP_COLORS[i % EXP_COLORS.length] }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </div>
       </div>
 
       {/* ── Revenue Breakdown ────────────────────────────────────── */}
