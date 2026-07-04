@@ -409,7 +409,7 @@ export default function RentalsPage() {
     })
     if (!ok) return
     try {
-      if ((rental.status === 'active' || rental.status === 'booked') && rental.camera_id) await updateCamera(rental.camera_id, { status: 'available' })
+      if (rental.status === 'active' && rental.camera_id) await updateCamera(rental.camera_id, { status: 'available' })
       await deleteRental(rental.id); await reload()
       toast.success('ลบรายการเช่าแล้ว')
     } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }

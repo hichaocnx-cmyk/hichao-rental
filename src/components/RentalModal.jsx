@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getCameras, updateCamera } from '../lib/cameras'
 import { getCustomers, createCustomer } from '../lib/customers'
-import { createRental, updateRental, deleteRental } from '../lib/rentals'
+import { getRentals, createRental, updateRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 import { celebrate } from '../lib/confetti'
 
@@ -51,6 +51,18 @@ const calcDaysFromDates = (start, end) => {
   return d >= 1 ? d : 1
 }
 
+const rangesOverlap = (startA, endA, startB, endB) =>
+  startA <= endB && startB <= endA
+
+const fmtConflictDate = (start, end) => {
+  const fmt = iso => {
+    if (!iso) return '-'
+    const [y, m, d] = iso.split('-')
+    return `${d}/${m}/${y}`
+  }
+  return `${fmt(start)} - ${fmt(end)}`
+}
+
 export default function RentalModal({ rental = null, onClose, onSaved }) {
   const isEdit = !!rental
 
@@ -58,6 +70,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
   const [cameras, setCameras] = useState([])
   const [customers, setCustomers] = useState([])
+  const [existingRentals, setExistingRentals] = useState([])
   const [form, setForm] = useState({
     camera_id:        rental?.camera_id        || '',
     customer_id:      rental?.customer_id      || '',
@@ -87,7 +100,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         }
         setCameras(available)
       }),
-      getCustomers().then(setCustomers)
+      getCustomers().then(setCustomers),
+      getRentals().then(setExistingRentals)
     ]).catch(console.error)
   }, [])
 
@@ -132,12 +146,28 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const totalPrice   = Math.max(0, rentalPrice - discountAmt)
   const dueOnPickup  = Math.max(0, totalPrice - depositAmt + insuranceAmt + deliveryFee)
 
+  const findDateConflict = () => {
+    if (!form.camera_id || !form.start_date || !form.end_date) return null
+    return existingRentals.find(r =>
+      r.id !== rental?.id &&
+      r.camera_id === form.camera_id &&
+      (r.status === 'booked' || r.status === 'active') &&
+      rangesOverlap(form.start_date, form.end_date, r.start_date, r.end_date)
+    )
+  }
+
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setSaving(true)
     try {
       if (!form.camera_id) throw new Error('กรุณาเลือกกล้อง')
       if (!form.start_date || !form.end_date) throw new Error('กรุณาเลือกวันที่')
       if (new Date(form.end_date) < new Date(form.start_date)) throw new Error('วันคืนต้องไม่ก่อนวันรับ')
+      const conflict = findDateConflict()
+      if (conflict) {
+        const cam = conflict.camera?.name || selectedCamera?.name || 'กล้องนี้'
+        const cust = conflict.customer?.name ? ` (${conflict.customer.name})` : ''
+        throw new Error(`${cam} มีคิวชนวันที่ ${fmtConflictDate(conflict.start_date, conflict.end_date)}${cust}`)
+      }
 
       let customerId = form.customer_id
       if (!isEdit) {
@@ -205,7 +235,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       if (isEdit) {
         const cameraChanged = form.camera_id !== rental.camera_id
         await updateRental(rental.id, payload)
-        if (cameraChanged) {
+        if (cameraChanged && rental.status === 'active') {
           try {
             await updateCamera(rental.camera_id, { status: 'available' })
             await updateCamera(form.camera_id, { status: 'rented' })
@@ -226,13 +256,6 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       } else {
         const newRental = await createRental({ ...payload, status: 'booked' })
         savedId = newRental.id
-        try {
-          await updateCamera(form.camera_id, { status: 'rented' })
-        } catch (camErr) {
-          // rollback rental ถ้า camera update ล้มเหลว
-          await deleteRental(newRental.id).catch(() => {})
-          throw new Error('อัปเดตสถานะกล้องล้มเหลว กรุณาลองใหม่: ' + camErr.message)
-        }
         celebrate()
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
