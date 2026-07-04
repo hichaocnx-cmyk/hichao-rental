@@ -216,6 +216,83 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── คิวประจำวัน ──────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">คิวประจำวัน</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{dayLabel}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleSendQueueLine} disabled={lineSending || !hasQueue}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors disabled:opacity-40
+                ${lineSent ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:border-brand-200 hover:text-brand-500'}`}>
+              {lineSending
+                ? <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                : lineSent
+                  ? <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                  : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>
+              }
+              {lineSent ? 'ส่งแล้ว!' : 'ส่ง LINE'}
+            </button>
+            <button onClick={() => navigate('/rentals')}
+              className="text-xs text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1">
+              ดูทั้งหมด
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !hasQueue ? (
+          <div className="flex flex-col items-center py-10 gap-2">
+            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-400">ว่างทั้งวัน ไม่มีคิววันนี้ 🎉</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
+
+            {/* รับกล้อง */}
+            <div>
+              <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50/50">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                <p className="text-xs font-semibold text-emerald-700">📦 รับกล้อง</p>
+                <span className="ml-auto text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">{pickups.length} รายการ</span>
+              </div>
+              <div className="px-5 divide-y divide-gray-50">
+                {pickups.length === 0
+                  ? <p className="py-6 text-sm text-gray-300 text-center">ไม่มีรายการ</p>
+                  : pickups.map(r => <QueueItem key={r.id} rental={r} type="pickup" />)
+                }
+              </div>
+            </div>
+
+            {/* คืนกล้อง */}
+            <div>
+              <div className="flex items-center gap-2 px-5 py-3 bg-orange-50/50">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                <p className="text-xs font-semibold text-orange-700">🔄 คืนกล้อง</p>
+                <span className="ml-auto text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">{returns.length} รายการ</span>
+              </div>
+              <div className="px-5 divide-y divide-gray-50">
+                {returns.length === 0
+                  ? <p className="py-6 text-sm text-gray-300 text-center">ไม่มีรายการ</p>
+                  : returns.map(r => <QueueItem key={r.id} rental={r} type="return" />)
+                }
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+
       {/* ── Stats Cards Row ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
 
@@ -369,83 +446,6 @@ export default function DashboardPage() {
                   <div key={i} style={{width:`${(s.v/revTotal)*100}%`,background:s.c}} />
                 ))}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── คิวประจำวัน ──────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800">คิวประจำวัน</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{dayLabel}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleSendQueueLine} disabled={lineSending || !hasQueue}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors disabled:opacity-40
-                ${lineSent ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:border-brand-200 hover:text-brand-500'}`}>
-              {lineSending
-                ? <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                : lineSent
-                  ? <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                  : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>
-              }
-              {lineSent ? 'ส่งแล้ว!' : 'ส่ง LINE'}
-            </button>
-            <button onClick={() => navigate('/rentals')}
-              className="text-xs text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1">
-              ดูทั้งหมด
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-            </button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : !hasQueue ? (
-          <div className="flex flex-col items-center py-10 gap-2">
-            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </div>
-            <p className="text-sm text-gray-400">ว่างทั้งวัน ไม่มีคิววันนี้ 🎉</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
-
-            {/* รับกล้อง */}
-            <div>
-              <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                <p className="text-xs font-semibold text-emerald-700">📦 รับกล้อง</p>
-                <span className="ml-auto text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">{pickups.length} รายการ</span>
-              </div>
-              <div className="px-5 divide-y divide-gray-50">
-                {pickups.length === 0
-                  ? <p className="py-6 text-sm text-gray-300 text-center">ไม่มีรายการ</p>
-                  : pickups.map(r => <QueueItem key={r.id} rental={r} type="pickup" />)
-                }
-              </div>
-            </div>
-
-            {/* คืนกล้อง */}
-            <div>
-              <div className="flex items-center gap-2 px-5 py-3 bg-orange-50/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
-                <p className="text-xs font-semibold text-orange-700">🔄 คืนกล้อง</p>
-                <span className="ml-auto text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">{returns.length} รายการ</span>
-              </div>
-              <div className="px-5 divide-y divide-gray-50">
-                {returns.length === 0
-                  ? <p className="py-6 text-sm text-gray-300 text-center">ไม่มีรายการ</p>
-                  : returns.map(r => <QueueItem key={r.id} rental={r} type="return" />)
-                }
-              </div>
-            </div>
-
           </div>
         )}
       </div>
