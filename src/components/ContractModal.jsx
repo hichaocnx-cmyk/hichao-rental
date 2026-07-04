@@ -71,10 +71,13 @@ export default function ContractModal({ rental, onClose }) {
 
   const days        = calcDays(rental.start_date, rental.end_date)
   const pricePerDay = Number(rental.price_per_day || 0)
-  const totalPrice  = Number(rental.total_price || 0)
+  const discount    = Number(rental.discount || 0)
+  const totalPrice  = Number(rental.total_price || 0)        // ค่าเช่าสุทธิหลังหักส่วนลด (ต้องตรงกับระบบ)
+  const rentalPrice = totalPrice + discount                    // ค่าเช่าก่อนหักส่วนลด
   const deposit     = Number(rental.deposit || 0)
   const insurance   = Number(rental.insurance || 0)
   const deliveryFee = Number(rental.delivery_fee || 0)
+  const dueOnPickup = Number(rental.due_on_pickup || 0)         // ยอดที่ต้องชำระจริงวันรับอุปกรณ์ (ต้องตรงกับระบบ)
   const contractNo  = `HC-CT-${rental.id?.slice(-8).toUpperCase() || '00000000'}`
   const todayStr    = (() => { const d = new Date(); return `${d.getDate()} ${MONTHS_TH[d.getMonth()]} ${d.getFullYear() + 543}` })()
 
@@ -264,7 +267,8 @@ export default function ContractModal({ rental, onClose }) {
               <RowL k="อุปกรณ์" v={`${cam.name || '—'}${cam.brand ? ' · ' + cam.brand : ''}`} />
               <RowL k="รับ" v={`${fmtDate(rental.start_date)} ${fmtTime(rental.pickup_time)}`} />
               <RowL k="คืน" v={`${fmtDate(rental.end_date)} ${fmtTime(rental.return_time)}`} />
-              <RowL k="รวมสุทธิ" v={baht(totalPrice)} />
+              <RowL k="ค่าเช่าสุทธิ" v={baht(totalPrice)} />
+              <RowL k="ยอดชำระวันรับ" v={baht(dueOnPickup)} />
             </div>
 
             {(!cust.id_card || !cust.address) && (
@@ -398,16 +402,29 @@ export default function ContractModal({ rental, onClose }) {
             </div>
           </div>
 
-          {/* fees */}
+          {/* fees — คำนวณให้ตรงกับระบบ (RentalModal/InvoiceModal):
+              ค่าเช่า → หักส่วนลด → ค่าเช่าสุทธิ (= rental.total_price)
+              → หักมัดจำ + บวกประกัน + บวกค่าส่ง → ยอดชำระวันรับอุปกรณ์ (= rental.due_on_pickup) */}
           <div style={sec}><span style={secBar} />ค่าใช้จ่าย</div>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <tbody>
-              <tr><td style={td}>ค่าเช่า ({baht(pricePerDay)} × {days} วัน)</td><td style={tdR}>{baht(pricePerDay * days)}</td></tr>
-              {deliveryFee > 0 && <tr><td style={td}>ค่าจัดส่ง</td><td style={tdR}>{baht(deliveryFee)}</td></tr>}
-              <tr><td style={td}>ค่าจอง / มัดจำ</td><td style={tdR}>{baht(deposit)}</td></tr>
-              <tr><td style={td}>ค่าประกันความเสียหาย</td><td style={tdR}>{baht(insurance)}</td></tr>
-              <tr><td style={{ borderTop:`2px solid ${INK}`, fontWeight:800, fontSize:15, padding:'9px 10px' }}>รวมค่าเช่าสุทธิ</td>
-                  <td style={{ borderTop:`2px solid ${INK}`, fontWeight:800, fontSize:15, padding:'9px 10px', textAlign:'right', color:BRAND }}>{baht(totalPrice)}</td></tr>
+              <tr><td style={td}>ค่าเช่า ({baht(pricePerDay)} × {days} วัน)</td><td style={tdR}>{baht(rentalPrice)}</td></tr>
+              {discount > 0 && (
+                <tr><td style={td}>ส่วนลด</td><td style={{ ...tdR, color:'#7c3aed' }}>−{baht(discount)}</td></tr>
+              )}
+              <tr><td style={{ ...td, fontWeight:700 }}>ค่าเช่าสุทธิ (หลังหักส่วนลด)</td>
+                  <td style={{ ...tdR, color:BRAND }}>{baht(totalPrice)}</td></tr>
+              {deposit > 0 && (
+                <tr><td style={td}>หัก: ค่าจอง / มัดจำ (ชำระไว้แล้ว)</td><td style={{ ...tdR, color:'#16a34a' }}>−{baht(deposit)}</td></tr>
+              )}
+              {insurance > 0 && (
+                <tr><td style={td}>ค่าประกันความเสียหาย (คืนเมื่อส่งอุปกรณ์ครบ)</td><td style={{ ...tdR, color:'#ea580c' }}>+{baht(insurance)}</td></tr>
+              )}
+              {deliveryFee > 0 && (
+                <tr><td style={td}>ค่าจัดส่ง</td><td style={{ ...tdR, color:'#2563eb' }}>+{baht(deliveryFee)}</td></tr>
+              )}
+              <tr><td style={{ borderTop:`2px solid ${INK}`, fontWeight:800, fontSize:15, padding:'9px 10px' }}>ยอดชำระวันรับอุปกรณ์</td>
+                  <td style={{ borderTop:`2px solid ${INK}`, fontWeight:800, fontSize:15, padding:'9px 10px', textAlign:'right', color:BRAND }}>{baht(dueOnPickup)}</td></tr>
             </tbody>
           </table>
 
