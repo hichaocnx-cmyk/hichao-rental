@@ -18,7 +18,8 @@ const fmtDate = (ds) => {
 const fmtTime = (t) => (t ? `${t.slice(0,5)} น.` : '')
 const calcDays = (start, end) => {
   if (!start || !end) return 0
-  return Math.ceil((new Date(end) - new Date(start)) / 86400000) + 1
+  // นับแบบ "คืน": รับวันหนึ่ง คืนอีกวัน (ข้ามคืน) = 1 วัน ไม่ใช่ 2 วัน
+  return Math.max(1, Math.ceil((new Date(end) - new Date(start)) / 86400000))
 }
 const baht = (n) => '฿' + Number(n || 0).toLocaleString()
 

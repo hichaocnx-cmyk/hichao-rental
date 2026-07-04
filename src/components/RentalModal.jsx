@@ -47,7 +47,8 @@ const calcDaysFromDates = (start, end) => {
   if (!start || !end) return 1
   const s = new Date(start + 'T00:00:00')
   const e = new Date(end   + 'T00:00:00')
-  const d = Math.round((e - s) / 86400000) + 1
+  // นับแบบ "คืน": รับวันหนึ่ง คืนอีกวัน (ข้ามคืน) = 1 วัน ไม่ใช่ 2 วัน
+  const d = Math.round((e - s) / 86400000)
   return d >= 1 ? d : 1
 }
 
@@ -108,7 +109,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   // ตอนสร้างใหม่: start_date หรือ days เปลี่ยน → คำนวณ end_date
   useEffect(() => {
     if (!isEdit && form.start_date && form.days) {
-      const n = parseInt(form.days) - 1
+      // N วัน = N คืน: รับวันนี้ คืนอีก N วันถัดไป (เช่น 1 วัน = รับวันนี้ คืนพรุ่งนี้)
+      const n = parseInt(form.days)
       const newEnd = addDays(form.start_date, n)
       setForm(f => ({ ...f, end_date: newEnd }))
     }

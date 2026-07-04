@@ -15,7 +15,8 @@ const fmtTime = (t) => {
 
 const calcDays = (start, end) => {
   if (!start || !end) return 0
-  return Math.ceil((new Date(end) - new Date(start)) / 86400000) + 1
+  // นับแบบ "คืน": รับวันหนึ่ง คืนอีกวัน (ข้ามคืน) = 1 วัน ไม่ใช่ 2 วัน
+  return Math.max(1, Math.ceil((new Date(end) - new Date(start)) / 86400000))
 }
 
 async function toBase64(url) {
