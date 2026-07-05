@@ -66,6 +66,7 @@ export default function ContractModal({ rental, onClose }) {
   const [sigImg, setSigImg]       = useState('')
   const [camB64, setCamB64]       = useState('')
   const [logoB64, setLogoB64]     = useState('')
+  const [lessorSigB64, setLessorSigB64] = useState('')
   const [generating, setGenerating] = useState(false)
   const [resultUrl, setResultUrl]   = useState('')
   const [resultFile, setResultFile] = useState(null)
@@ -106,6 +107,7 @@ export default function ContractModal({ rental, onClose }) {
     let on = true
     if (cam.image_url) toBase64(cam.image_url).then(d => { if (on && d) setCamB64(d) })
     toBase64('/logo.png').then(d => { if (on && d) setLogoB64(d) })
+    toBase64('/signature-lessor.png').then(d => { if (on && d) setLessorSigB64(d) })
     if (!document.getElementById('hc-sarabun')) {
       const l = document.createElement('link')
       l.id = 'hc-sarabun'; l.rel = 'stylesheet'
@@ -443,7 +445,7 @@ export default function ContractModal({ rental, onClose }) {
           {/* signatures */}
           <div style={{ display:'flex', justifyContent:'space-between', gap:20, marginTop:42 }}>
             <SignBox role="ลงชื่อ ผู้เช่า" name={cust.name} img={sigImg} />
-            <SignBox role="ลงชื่อ ผู้ให้เช่า" name={LESSOR.name} img="" />
+            <SignBox role="ลงชื่อ ผู้ให้เช่า" name={LESSOR.name} img={lessorSigB64} />
             <SignBox role="ลงชื่อ พยาน" name="" img="" />
           </div>
 
