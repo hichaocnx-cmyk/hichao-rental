@@ -59,10 +59,11 @@ export function AppProvider({ children }) {
   // Computed stats
   const stats = useMemo(() => {
     const today = localDateStr()
-    const startOfMonth = today.slice(0, 7) + '-01'
-    const monthExpenses = expenses.filter(e => e.date >= startOfMonth)
+    // นับเฉพาะเดือนปัจจุบันเท่านั้น (เทียบ YYYY-MM ตรงๆ) — ไม่รวมคิวจอง/รายจ่ายของเดือนหน้า
+    const monthKey = today.slice(0, 7)
+    const monthExpenses = expenses.filter(e => (e.date || '').slice(0, 7) === monthKey)
     // รายได้แยกตามสถานะ
-    const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && r.start_date >= startOfMonth)
+    const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && (r.start_date || '').slice(0, 7) === monthKey)
     const returned     = thisMonthRentals.filter(r => r.status === 'returned')
     const active       = thisMonthRentals.filter(r => r.status === 'active')
     const booked       = thisMonthRentals.filter(r => r.status === 'booked')

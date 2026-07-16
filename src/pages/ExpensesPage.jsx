@@ -335,7 +335,16 @@ export default function ExpensesPage() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">วันที่ <span className="text-red-500">*</span></label>
-                <input type="date" name="date" value={form.date} onChange={set} required className={inputCls} />
+                {/* โชว์ วัน/เดือน/ปี ทับ input (ยังกดเปิดปฏิทินได้ปกติ) */}
+                <div className="relative">
+                  <input type="date" name="date" value={form.date} onChange={set} required
+                    className={inputCls} style={{ color: 'transparent' }} />
+                  <span className="absolute inset-y-0 left-3 flex items-center text-sm text-gray-900 pointer-events-none">
+                    {form.date
+                      ? `${form.date.split('-')[2]}/${form.date.split('-')[1]}/${form.date.split('-')[0]}`
+                      : <span className="text-gray-400">วว/ดด/ปปปป</span>}
+                  </span>
+                </div>
               </div>
 
               <div>
