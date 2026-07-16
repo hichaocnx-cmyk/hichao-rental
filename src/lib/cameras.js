@@ -46,11 +46,33 @@ export async function deleteCamera(id, imageUrl) {
   if (error) throw error
 }
 
-// Upload รูปกล้อง
+// ย่อ+บีบอัดรูปก่อนอัปโหลด — รูปจากมือถือหลาย MB แต่แสดงเป็น thumbnail เล็ก
+// ช่วยลดทั้ง Storage และ Cached Egress (โควตา bandwidth ของ Supabase)
+async function compressImage(file, maxSide = 1000, quality = 0.82) {
+  try {
+    // ไฟล์เล็กอยู่แล้ว (< 300KB) ไม่ต้องยุ่ง
+    if (file.size < 300 * 1024) return file
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+    const w = Math.max(1, Math.round(bitmap.width * scale))
+    const h = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w; canvas.height = h
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h)
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality))
+    if (!blob || blob.size >= file.size) return file // บีบแล้วไม่เล็กลง ใช้ของเดิม
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file // เบราว์เซอร์เก่า/ไฟล์แปลก → อัปโหลดต้นฉบับตามเดิม
+  }
+}
+
+// Upload รูปกล้อง (ย่อรูปอัตโนมัติก่อนอัปโหลด)
 export async function uploadCameraImage(file, cameraId) {
-  const ext = file.name.split('.').pop()
+  const compressed = await compressImage(file)
+  const ext = compressed.name.split('.').pop()
   const path = `${cameraId}-${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true })
+  const { error } = await supabase.storage.from(BUCKET).upload(path, compressed, { upsert: true })
   if (error) throw error
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
   return data.publicUrl

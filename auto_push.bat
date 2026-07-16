@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Dedupe customers by phone on rental create; add migration_008 to merge existing duplicates" >> push_log.txt 2>&1
+git commit -m "Reduce Supabase cached egress: SW cache-first for storage images (v7); compress camera image uploads" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )
