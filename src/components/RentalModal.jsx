@@ -124,6 +124,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     }
   }, [form.start_date, form.end_date])
 
+  // เวลารับ/เวลาคืน: เว้นว่างไว้ให้กรอกเองอิสระ — ค่าที่กรอกจะไปแสดงในหนังสือสัญญา/ใบเสร็จอัตโนมัติ
   const set = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   const setNC = e => setNewCustomer(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -410,6 +411,9 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                   <input type="time" name="return_time" value={form.return_time} onChange={set} className={inputCls} />
                 </div>
               </div>
+              <p className="text-[10px] text-gray-400">
+                ⏱ กรอกเวลาเอง (แนะนำคืนเวลาเดียวกับรับ = ครบ 24 ชม./วัน) — เวลาที่กรอกจะแสดงในหนังสือสัญญาและใบเสร็จ
+              </p>
             </div>
           </section>
 
