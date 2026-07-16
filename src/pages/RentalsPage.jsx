@@ -366,7 +366,7 @@ export default function RentalsPage() {
     setSummaryLoading(true); setSummarySent(false)
     try {
       const pickups = rentals.filter(r => r.start_date === todayStr && (r.status === 'booked' || r.status === 'active'))
-      const returns = rentals.filter(r => r.end_date === todayStr && r.status === 'active')
+      const returns = rentals.filter(r => r.end_date === todayStr && r.status === 'active' && r.start_date !== todayStr)
       const d = today.getDate(), m = MONTHS_TH[today.getMonth()], y = today.getFullYear() + 543
       let msg = `[HICHAO.CNX] 📋 คิวประจำวัน\n${d} ${m} ${y}\n`
       msg += `\n📦 รับกล้องวันนี้ (${pickups.length} รายการ)\n`

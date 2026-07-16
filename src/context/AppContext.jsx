@@ -7,6 +7,11 @@ import { supabase } from '../lib/supabaseClient'
 
 const AppContext = createContext(null)
 
+// วันที่แบบ local time (เวลาไทย) — ห้ามใช้ toISOString() เพราะเป็น UTC
+// (ช่วง 00:00–07:00 น. จะได้วันที่ของเมื่อวาน ทำให้แจ้งเตือน/สถิติเพี้ยน)
+const localDateStr = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
 export function AppProvider({ children }) {
   const [cameras, setCameras] = useState([])
   const [customers, setCustomers] = useState([])
@@ -53,7 +58,7 @@ export function AppProvider({ children }) {
 
   // Computed stats
   const stats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localDateStr()
     const startOfMonth = today.slice(0, 7) + '-01'
     const monthExpenses = expenses.filter(e => e.date >= startOfMonth)
     // รายได้แยกตามสถานะ
@@ -70,7 +75,7 @@ export function AppProvider({ children }) {
     }
     const monthRevenue = revenueBreakdown.rentalIncome + revenueBreakdown.heldInsurance
     const monthExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0)
-    // กำไรสุทธิไม่รวมประกันรับมาแล้วคืนให้ลูกค้༲วันคืนกล้อง
+    // กำไรสุทธิไม่รวมประกัน (รับมาแล้วคืนให้ลูกค้าในวันคืนกล้อง)
     const monthProfitBase = revenueBreakdown.rentalIncome
     // category breakdown this month
     const expByCategory = {}
@@ -91,10 +96,10 @@ export function AppProvider({ children }) {
   // Computed notifications
   const notifications = useMemo(() => {
     const today = new Date()
-    const todayStr = today.toISOString().split('T')[0]
+    const todayStr = localDateStr(today)
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    const tomorrowStr = localDateStr(tomorrow)
 
     const items = []
 
@@ -103,7 +108,8 @@ export function AppProvider({ children }) {
 
       // Overdue
       if (r.end_date < todayStr) {
-        const diffDays = Math.floor((today - new Date(r.end_date)) / 86400000)
+        // เทียบวันแบบ date-string (UTC midnight ทั้งคู่) ได้จำนวนวันเป็น integer เป๊ะ
+        const diffDays = Math.round((new Date(todayStr) - new Date(r.end_date)) / 86400000)
         items.push({
           id: `overdue-${r.id}`,
           type: 'overdue',

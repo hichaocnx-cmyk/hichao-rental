@@ -10,7 +10,11 @@ const fmtDate = iso => {
   return `${parseInt(d)} ${MONTHS_TH[parseInt(m)-1]} ${y}`
 }
 
-const TODAY = new Date().toISOString().slice(0, 10)
+// วันที่แบบ local time (เวลาไทย) — ไม่ใช้ toISOString() เพราะเป็น UTC (เพี้ยนช่วง 00:00–07:00 น.)
+const TODAY = (() => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})()
 const EMPTY = { date: TODAY, amount: '', category: '', note: '' }
 
 const BAR_COLORS = [
