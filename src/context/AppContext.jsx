@@ -90,6 +90,9 @@ export function AppProvider({ children }) {
       revenueBreakdown,
       monthExpenseTotal,
       monthProfit: monthProfitBase - monthExpenseTotal,
+      // จำนวนการเช่า/ลูกค้า เฉพาะเดือนนี้ (ลูกค้านับไม่ซ้ำคน)
+      monthRentalCount: thisMonthRentals.length,
+      monthCustomerCount: new Set(thisMonthRentals.map(r => r.customer_id).filter(Boolean)).size,
       expByCategory: Object.entries(expByCategory).sort((a, b) => b[1] - a[1]).slice(0, 5),
     }
   }, [cameras, rentals, expenses])
