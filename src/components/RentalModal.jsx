@@ -55,6 +55,13 @@ const calcDaysFromDates = (start, end) => {
 const rangesOverlap = (startA, endA, startB, endB) =>
   startA <= endB && startB <= endA
 
+// แสดงวันที่แบบ วัน/เดือน/ปี (เช่น 18/07/2026)
+const fmtDMY = iso => {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
 // แปลงเวลาที่พิมพ์เองเป็น HH:MM — รองรับ "13:00", "13.00", "1300", "9:30", "13:00:00"
 // คืน null = ช่องว่าง, undefined = รูปแบบผิด
 const normalizeTime = (s) => {
@@ -413,7 +420,14 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelCls}>วันรับ <span className="text-red-400">*</span></label>
-                  <input type="date" name="start_date" value={form.start_date} onChange={set} required className={inputCls} />
+                  {/* input จริงซ่อนตัวหนังสือไว้ (ยังกดเปิดปฏิทินได้) แล้วโชว์ วัน/เดือน/ปี ทับแทน */}
+                  <div className="relative">
+                    <input type="date" name="start_date" value={form.start_date} onChange={set} required
+                      className={inputCls} style={{ color: 'transparent' }} />
+                    <span className="absolute inset-y-0 left-3 flex items-center text-sm text-gray-900 pointer-events-none">
+                      {form.start_date ? fmtDMY(form.start_date) : <span className="text-gray-400">วว/ดด/ปปปป</span>}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <label className={labelCls}>เวลารับ</label>
@@ -424,7 +438,13 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelCls}>วันคืน <span className="text-red-400">*</span></label>
-                  <input type="date" name="end_date" value={form.end_date} onChange={set} min={form.start_date} required className={inputCls} />
+                  <div className="relative">
+                    <input type="date" name="end_date" value={form.end_date} onChange={set} min={form.start_date} required
+                      className={inputCls} style={{ color: 'transparent' }} />
+                    <span className="absolute inset-y-0 left-3 flex items-center text-sm text-gray-900 pointer-events-none">
+                      {form.end_date ? fmtDMY(form.end_date) : <span className="text-gray-400">วว/ดด/ปปปป</span>}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <label className={labelCls}>เวลาคืน</label>
