@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { deleteCamera } from '../lib/cameras'
+import { deleteCamera, recompressAllImages } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import CameraModal from '../components/CameraModal'
@@ -14,16 +14,20 @@ function getThumbUrl(url, width = 400) {
 }
 
 // รูปโหลด lazy + fade-in เมื่อโหลดเสร็จ
+// หมายเหตุ: Image Transformation (/render/image/) ใช้ไม่ได้ในแผนฟรี
+// → ถ้า thumbnail โหลดพัง fallback กลับไปใช้รูปต้นฉบับอัตโนมัติ
 function LazyImg({ src, alt, className }) {
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
   const thumb = getThumbUrl(src)
   return (
     <img
-      src={thumb || src}
+      src={failed ? src : (thumb || src)}
       alt={alt}
       loading="lazy"
       decoding="async"
       onLoad={() => setLoaded(true)}
+      onError={() => { if (!failed) setFailed(true) }}
       className={`${className} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
     />
   )
@@ -61,6 +65,7 @@ export default function CamerasPage() {
   const [modal, setModal]             = useState({ open: false, camera: null })
   const [deleting, setDeleting]       = useState(null)
   const [selected, setSelected]       = useState(null) // camera detail sheet
+  const [compressing, setCompressing] = useState(null) // { done, total } ระหว่างบีบอัดรูปเก่า
 
   // เมื่อ cameras อัปเดตจาก reload → sync selected ให้ใช้ข้อมูลใหม่
   useEffect(() => {
@@ -101,6 +106,23 @@ export default function CamerasPage() {
     }
   }
 
+  // บีบอัดรูปเก่าทั้งหมดใน Storage (ลดโควตา bandwidth ของ Supabase)
+  const handleRecompress = async () => {
+    const ok = await confirm({
+      title: 'บีบอัดรูปเก่าทั้งหมด?',
+      message: 'รูปที่ใหญ่เกิน 300KB จะถูกย่อและบันทึกทับของเดิม (ภาพยังชัดสำหรับการแสดงผลปกติ) ใช้เวลาสักครู่',
+      confirmLabel: 'เริ่มบีบอัด',
+      cancelLabel: 'ยกเลิก',
+    })
+    if (!ok) return
+    setCompressing({ done: 0, total: 0 })
+    try {
+      const r = await recompressAllImages((done, total) => setCompressing({ done, total }))
+      toast.success(`เสร็จแล้ว! บีบอัด ${r.done} รูป ประหยัด ${r.savedMB} MB (ข้าม ${r.skipped} · พลาด ${r.failed})`)
+    } catch (e) { toast.error('บีบอัดไม่สำเร็จ: ' + e.message) }
+    finally { setCompressing(null) }
+  }
+
   // summary counts
   const counts = cameras.reduce((acc, c) => {
     acc[c.status] = (acc[c.status] || 0) + 1
@@ -116,13 +138,27 @@ export default function CamerasPage() {
           <h2 className="text-xl font-semibold text-gray-900">กล้องทั้งหมด</h2>
           <p className="text-xs text-gray-400 mt-0.5">{cameras.length} อุปกรณ์ในระบบ</p>
         </div>
-        <button onClick={() => setModal({ open: true, camera: null })}
-          className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-brand-100">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          เพิ่มกล้อง
-        </button>
+        <div className="flex items-center gap-2">
+          {/* บีบอัดรูปเก่า (เครื่องมือลด bandwidth) */}
+          <button onClick={handleRecompress} disabled={!!compressing}
+            title="ย่อรูปเก่าใน Storage เพื่อลดโควตา bandwidth"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-60">
+            {compressing
+              ? <><div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="hidden sm:inline">{compressing.done}/{compressing.total || '…'}</span></>
+              : <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+                </svg>
+                <span className="hidden sm:inline">บีบอัดรูปเก่า</span></>}
+          </button>
+          <button onClick={() => setModal({ open: true, camera: null })}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-brand-100">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            เพิ่มกล้อง
+          </button>
+        </div>
       </div>
 
       {/* ── Summary strip ─────────────────────────────────────── */}

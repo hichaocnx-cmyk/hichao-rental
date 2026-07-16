@@ -67,15 +67,45 @@ async function compressImage(file, maxSide = 1000, quality = 0.82) {
   }
 }
 
-// Upload รูปกล้อง (ย่อรูปอัตโนมัติก่อนอัปโหลด)
+// Upload รูปกล้อง (ย่อรูปอัตโนมัติ + cache 1 ปี ลด egress)
 export async function uploadCameraImage(file, cameraId) {
   const compressed = await compressImage(file)
   const ext = compressed.name.split('.').pop()
   const path = `${cameraId}-${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, compressed, { upsert: true })
+  const { error } = await supabase.storage.from(BUCKET)
+    .upload(path, compressed, { upsert: true, cacheControl: '31536000' })
   if (error) throw error
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
   return data.publicUrl
+}
+
+// ── บีบอัดรูปเก่าทั้งหมดใน Storage (เครื่องมือแอดมิน กดครั้งเดียวจบ) ──
+// โหลดรูปต้นฉบับ → ย่อ → อัปโหลดทับ path เดิม (URL ในระบบไม่เปลี่ยน)
+export async function recompressAllImages(onProgress) {
+  const { data: cams, error } = await supabase.from('cameras').select('id,name,image_url')
+  if (error) throw error
+  const targets = (cams || []).filter(c => c.image_url && c.image_url.includes(`${BUCKET}/`))
+  let done = 0, skipped = 0, failed = 0, savedBytes = 0, processed = 0
+
+  for (const c of targets) {
+    try {
+      const path = c.image_url.split(`${BUCKET}/`)[1].split('?')[0]
+      // ?orig=... ทำให้ URL ไม่ตรงกับ cache ของ service worker → ได้ไฟล์จริงจาก server
+      const res = await fetch(`${c.image_url}?orig=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) { failed++; continue }
+      const blob = await res.blob()
+      if (blob.size < 300 * 1024) { skipped++; continue } // เล็กอยู่แล้ว ข้าม
+      const file = new File([blob], path.split('/').pop() || 'img.jpg', { type: blob.type || 'image/jpeg' })
+      const small = await compressImage(file)
+      if (small === file || small.size >= blob.size) { skipped++; continue }
+      const { error: upErr } = await supabase.storage.from(BUCKET)
+        .upload(path, small, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' })
+      if (upErr) { failed++; continue }
+      done++; savedBytes += (blob.size - small.size)
+    } catch { failed++ }
+    finally { processed++; onProgress?.(processed, targets.length) }
+  }
+  return { done, skipped, failed, total: targets.length, savedMB: +(savedBytes / 1048576).toFixed(1) }
 }
 
 // สถิติสำหรับ Dashboard
