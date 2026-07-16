@@ -55,6 +55,21 @@ const calcDaysFromDates = (start, end) => {
 const rangesOverlap = (startA, endA, startB, endB) =>
   startA <= endB && startB <= endA
 
+// แปลงเวลาที่พิมพ์เองเป็น HH:MM — รองรับ "13:00", "13.00", "1300", "9:30", "13:00:00"
+// คืน null = ช่องว่าง, undefined = รูปแบบผิด
+const normalizeTime = (s) => {
+  if (!s || !String(s).trim()) return null
+  let t = String(s).trim().replace(/\s+/g, '').replace(/[.]/g, ':')
+  t = t.replace(/^(\d{1,2}:\d{2}):\d{2}$/, '$1')        // ตัดวินาทีทิ้ง
+  if (/^\d{3,4}$/.test(t)) t = t.slice(0, -2) + ':' + t.slice(-2)  // 1330 → 13:30
+  if (/^\d{1,2}$/.test(t)) t = t + ':00'                 // 13 → 13:00
+  const m = t.match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return undefined
+  const h = +m[1], mi = +m[2]
+  if (h > 23 || mi > 59) return undefined
+  return `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`
+}
+
 const fmtConflictDate = (start, end) => {
   const fmt = iso => {
     if (!iso) return '-'
@@ -165,6 +180,10 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       if (!form.camera_id) throw new Error('กรุณาเลือกกล้อง')
       if (!form.start_date || !form.end_date) throw new Error('กรุณาเลือกวันที่')
       if (new Date(form.end_date) < new Date(form.start_date)) throw new Error('วันคืนต้องไม่ก่อนวันรับ')
+      const pickupTime = normalizeTime(form.pickup_time)
+      const returnTime = normalizeTime(form.return_time)
+      if (pickupTime === undefined) throw new Error('รูปแบบเวลารับไม่ถูกต้อง — พิมพ์เช่น 13:00 หรือ 1330')
+      if (returnTime === undefined) throw new Error('รูปแบบเวลาคืนไม่ถูกต้อง — พิมพ์เช่น 13:00 หรือ 1330')
       const conflict = findDateConflict()
       if (conflict) {
         const cam = conflict.camera?.name || selectedCamera?.name || 'กล้องนี้'
@@ -192,8 +211,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         customer_id:     customerId,
         start_date:      form.start_date,
         end_date:        form.end_date,
-        pickup_time:     form.pickup_time || null,
-        return_time:     form.return_time || null,
+        pickup_time:     pickupTime,
+        return_time:     returnTime,
         pickup_location: form.pickup_location.trim() || null,
         return_location: form.return_location.trim() || null,
         price_per_day:   pricePerDay,
@@ -222,8 +241,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         `📷 ${camName}\n` +
         `👤 ${custName}\n` +
         `📞 ${custPhone}\n` +
-        `\n📅 รับกล้อง: ${fmtDate(form.start_date)}  เวลา ${fmtTime(form.pickup_time)}\n` +
-        `📅 คืนกล้อง: ${fmtDate(form.end_date)}  เวลา ${fmtTime(form.return_time)}\n` +
+        `\n📅 รับกล้อง: ${fmtDate(form.start_date)}  เวลา ${fmtTime(pickupTime)}\n` +
+        `📅 คืนกล้อง: ${fmtDate(form.end_date)}  เวลา ${fmtTime(returnTime)}\n` +
         `📍 สถานที่รับ: ${form.pickup_location || '—'}\n` +
         `📍 สถานที่คืน: ${form.return_location || '—'}\n` +
         `\n🗓 ระยะเช่า: ${days} วัน\n` +
@@ -398,7 +417,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 </div>
                 <div>
                   <label className={labelCls}>เวลารับ</label>
-                  <input type="time" name="pickup_time" value={form.pickup_time} onChange={set} className={inputCls} />
+                  <input type="text" name="pickup_time" value={form.pickup_time} onChange={set}
+                    placeholder="เช่น 10:00" maxLength={8} className={inputCls} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -408,11 +428,12 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 </div>
                 <div>
                   <label className={labelCls}>เวลาคืน</label>
-                  <input type="time" name="return_time" value={form.return_time} onChange={set} className={inputCls} />
+                  <input type="text" name="return_time" value={form.return_time} onChange={set}
+                    placeholder="เช่น 10:00" maxLength={8} className={inputCls} />
                 </div>
               </div>
               <p className="text-[10px] text-gray-400">
-                ⏱ กรอกเวลาเอง (แนะนำคืนเวลาเดียวกับรับ = ครบ 24 ชม./วัน) — เวลาที่กรอกจะแสดงในหนังสือสัญญาและใบเสร็จ
+                ⏱ พิมพ์เวลาเองได้เลย เช่น 13:00 / 13.30 / 1330 (แนะนำคืนเวลาเดียวกับรับ = ครบ 24 ชม./วัน) — เวลาที่กรอกจะแสดงในหนังสือสัญญาและใบเสร็จ
               </p>
             </div>
           </section>
