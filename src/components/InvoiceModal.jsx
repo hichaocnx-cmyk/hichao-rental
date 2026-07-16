@@ -15,8 +15,8 @@ const fmtTime = (t) => {
 
 const calcDays = (start, end) => {
   if (!start || !end) return 0
-  // นับแบบ "คืน": รับวันหนึ่ง คืนอีกวัน (ข้ามคืน) = 1 วัน ไม่ใช่ 2 วัน
-  return Math.max(1, Math.ceil((new Date(end) - new Date(start)) / 86400000))
+  // นับรวมวันแรก: วันรับนับเป็นวันที่ 1 เลย → เช่า 16-19 = 4 วัน
+  return Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1)
 }
 
 async function toBase64(url) {

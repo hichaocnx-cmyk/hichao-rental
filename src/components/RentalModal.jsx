@@ -47,8 +47,8 @@ const calcDaysFromDates = (start, end) => {
   if (!start || !end) return 1
   const s = new Date(start + 'T00:00:00')
   const e = new Date(end   + 'T00:00:00')
-  // นับแบบ "คืน": รับวันหนึ่ง คืนอีกวัน (ข้ามคืน) = 1 วัน ไม่ใช่ 2 วัน
-  const d = Math.round((e - s) / 86400000)
+  // นับรวมวันแรก: วันรับนับเป็นวันที่ 1 เลย → เช่า 16-19 = 4 วัน
+  const d = Math.round((e - s) / 86400000) + 1
   return d >= 1 ? d : 1
 }
 
@@ -124,9 +124,9 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   // ตอนสร้างใหม่: start_date หรือ days เปลี่ยน → คำนวณ end_date
   useEffect(() => {
     if (!isEdit && form.start_date && form.days) {
-      // N วัน = N คืน: รับวันนี้ คืนอีก N วันถัดไป (เช่น 1 วัน = รับวันนี้ คืนพรุ่งนี้)
+      // นับรวมวันแรก: N วัน = คืนวันที่ start + (N-1) เช่น 4 วัน รับ 16 → คืน 19
       const n = parseInt(form.days)
-      const newEnd = addDays(form.start_date, n)
+      const newEnd = addDays(form.start_date, n - 1)
       setForm(f => ({ ...f, end_date: newEnd }))
     }
   }, [form.start_date, form.days])
@@ -433,7 +433,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 </div>
               </div>
               <p className="text-[10px] text-gray-400">
-                ⏱ พิมพ์เวลาเองได้เลย เช่น 13:00 / 13.30 / 1330 (แนะนำคืนเวลาเดียวกับรับ = ครบ 24 ชม./วัน) — เวลาที่กรอกจะแสดงในหนังสือสัญญาและใบเสร็จ
+                ⏱ พิมพ์เวลาเองได้เลย เช่น 13:00 / 13.30 / 1330 — เวลาที่กรอกจะแสดงในหนังสือสัญญาและใบเสร็จ (นับวันแบบรวมวันแรก: รับ 16 คืน 19 = 4 วัน)
               </p>
             </div>
           </section>

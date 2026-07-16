@@ -18,8 +18,8 @@ const fmtDate = (ds) => {
 const fmtTime = (t) => (t ? `${t.slice(0,5)} น.` : '')
 const calcDays = (start, end) => {
   if (!start || !end) return 0
-  // นับแบบ "คืน": รับวันหนึ่ง คืนอีกวัน (ข้ามคืน) = 1 วัน ไม่ใช่ 2 วัน
-  return Math.max(1, Math.ceil((new Date(end) - new Date(start)) / 86400000))
+  // นับรวมวันแรก: วันรับนับเป็นวันที่ 1 เลย → เช่า 16-19 = 4 วัน
+  return Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1)
 }
 const baht = (n) => '฿' + Number(n || 0).toLocaleString()
 
@@ -108,12 +108,9 @@ export default function ContractModal({ rental, onClose }) {
     if (cam.image_url) toBase64(cam.image_url).then(d => { if (on && d) setCamB64(d) })
     toBase64('/logo.png').then(d => { if (on && d) setLogoB64(d) })
     toBase64('/signature-lessor.png').then(d => { if (on && d) setLessorSigB64(d) })
-    if (!document.getElementById('hc-sarabun')) {
-      const l = document.createElement('link')
-      l.id = 'hc-sarabun'; l.rel = 'stylesheet'
-      l.href = 'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap'
-      document.head.appendChild(l)
-    }
+    // หมายเหตุ: ไม่ใช้ webfont (Sarabun) ในเอกสารแล้ว — ตอนแปลงเป็นรูป webfont จะไม่ติดไปด้วย
+    // ทำให้ metric ฟอนต์ตอนวางเลย์เอาต์ vs ตอนเรนเดอร์ไม่ตรงกัน → ตัวหนังสือทับซ้อนกัน
+    // ใช้ฟอนต์ระบบ (มีทั้งตอน layout และตอน render) ปัญหาทับซ้อนจึงหายไป
     return () => { on = false }
   }, [cam.image_url])
 
@@ -220,9 +217,9 @@ export default function ContractModal({ rental, onClose }) {
   // ── styles เอกสาร ────────────────────────────────────────────────
   const card  = { background:'#fafafa', border:'1px solid #eef0f3', borderRadius:12, padding:'14px 16px' }
   const h3    = { fontSize:12, color:BRAND, fontWeight:800, marginBottom:8, letterSpacing:'.3px' }
-  const row   = { display:'flex', gap:8, marginBottom:4, fontSize:13 }
-  const kCol  = { width:118, color:'#6b7280', flexShrink:0 }
-  const vCol  = { fontWeight:600, color:INK }
+  const row   = { display:'flex', gap:8, marginBottom:4, fontSize:13, alignItems:'flex-start' }
+  const kCol  = { width:100, color:'#6b7280', flexShrink:0 }
+  const vCol  = { fontWeight:600, color:INK, flex:1, minWidth:0, overflowWrap:'break-word' }
   const sec   = { fontSize:14, fontWeight:800, color:INK, margin:'18px 0 6px', display:'flex', alignItems:'center', gap:8 }
   const secBar= { width:4, height:16, background:BRAND, borderRadius:3, display:'inline-block' }
   const td    = { padding:'6px 10px', borderBottom:'1px solid #f1f3f5', fontSize:13 }
@@ -350,16 +347,17 @@ export default function ContractModal({ rental, onClose }) {
       <div style={{ position:'fixed', left:0, top:0, zIndex:-1, opacity:0, pointerEvents:'none' }} aria-hidden="true">
         <div ref={docRef} style={{
           width:760, background:'#ffffff', padding:'40px 44px',
-          fontFamily:"'Sarabun','Sukhumvit Set','Prompt',sans-serif", color:INK, fontSize:13, lineHeight:1.55,
+          fontFamily:"'Sukhumvit Set','Leelawadee UI','Leelawadee','Noto Sans Thai','Tahoma',sans-serif",
+          color:INK, fontSize:13, lineHeight:1.6,
         }}>
           {/* header + logo */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
             borderBottom:`2px solid ${BRAND}`, paddingBottom:14, marginBottom:16 }}>
             {logoB64
-              ? <img src={logoB64} alt="" style={{ height:56, width:'auto', objectFit:'contain' }} />
-              : <div style={{ height:56, width:56 }} />}
-            <div style={{ textAlign:'right' }}>
-              <div style={{ fontSize:16, fontWeight:800 }}>{LESSOR.name}</div>
+              ? <img src={logoB64} alt="" style={{ height:56, width:'auto', objectFit:'contain', flexShrink:0 }} />
+              : <div style={{ height:56, width:56, flexShrink:0 }} />}
+            <div style={{ textAlign:'right', flex:1, minWidth:0, marginLeft:16 }}>
+              <div style={{ fontSize:15, fontWeight:800, whiteSpace:'nowrap' }}>{LESSOR.name}</div>
               <div style={{ fontSize:12, color:'#6b7280' }}>{LESSOR.address}</div>
               <div style={{ fontSize:12, color:'#6b7280' }}>โทร {LESSOR.phone}</div>
             </div>
@@ -368,9 +366,9 @@ export default function ContractModal({ rental, onClose }) {
           <div style={{ textAlign:'center', marginBottom:6 }}>
             <div style={{ fontSize:21, fontWeight:800, letterSpacing:'.3px' }}>หนังสือสัญญาเช่าอุปกรณ์ถ่ายภาพ</div>
           </div>
-          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'#6b7280', marginBottom:14 }}>
-            <span>เลขที่สัญญา {contractNo}</span>
-            <span>ทำที่ {LESSOR.address} · วันที่ {todayStr}</span>
+          <div style={{ display:'flex', justifyContent:'space-between', gap:12, fontSize:12, color:'#6b7280', marginBottom:14 }}>
+            <span style={{ whiteSpace:'nowrap' }}>เลขที่สัญญา {contractNo}</span>
+            <span style={{ whiteSpace:'nowrap' }}>ทำที่ {LESSOR.address} · วันที่ {todayStr}</span>
           </div>
 
           {/* parties: two columns */}
@@ -411,7 +409,8 @@ export default function ContractModal({ rental, onClose }) {
           <div style={sec}><span style={secBar} />ค่าใช้จ่าย</div>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <tbody>
-              <tr><td style={td}>ค่าเช่า ({baht(pricePerDay)} × {days} วัน)</td><td style={tdR}>{baht(rentalPrice)}</td></tr>
+              {/* แสดง "฿X × N วัน" เฉพาะเมื่อคูณแล้วตรงกับยอดจริง — กันเลขไม่ตรง (เช่นรายการเก่าที่แก้วันภายหลัง) */}
+              <tr><td style={td}>ค่าเช่า ({pricePerDay > 0 && pricePerDay * days === rentalPrice ? `${baht(pricePerDay)} × ${days} วัน` : `รวม ${days} วัน`})</td><td style={tdR}>{baht(rentalPrice)}</td></tr>
               {discount > 0 && (
                 <tr><td style={td}>ส่วนลด</td><td style={{ ...tdR, color:'#7c3aed' }}>−{baht(discount)}</td></tr>
               )}

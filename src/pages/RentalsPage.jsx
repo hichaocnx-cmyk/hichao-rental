@@ -56,7 +56,8 @@ const fmtDateFull = iso => {
 // ── Rental Status Timeline ──────────────────────────────────────
 function RentalTimeline({ r }) {
   const s = r.status
-  const calcDaysLocal = () => Math.max(1, Math.ceil((new Date(r.end_date) - new Date(r.start_date)) / 86400000))
+  // นับรวมวันแรก: รับ 16 คืน 19 = 4 วัน
+  const calcDaysLocal = () => Math.max(1, Math.round((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1)
 
   // step: { label, sub, detail, done, active }
   const steps = [
@@ -444,7 +445,8 @@ export default function RentalsPage() {
     finally { setLineSending(s => ({ ...s, all: false })) }
   }
 
-  const calcDays = (r) => Math.max(1, Math.ceil((new Date(r.end_date) - new Date(r.start_date)) / 86400000))
+  // นับรวมวันแรก: รับ 16 คืน 19 = 4 วัน
+  const calcDays = (r) => Math.max(1, Math.round((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1)
   const urgentNoti = notifications.filter(n => n.urgent)
   const showBanner = urgentNoti.length > 0 && !bannerDismissed
 
