@@ -62,6 +62,9 @@ const fmtDMY = iso => {
   return `${d}/${m}/${y}`
 }
 
+// เบอร์โทรแบบตัวเลขล้วน ใช้เทียบหาลูกค้าเดิม (081-234-5678 = 0812345678)
+const normPhone = p => (p || '').replace(/\D/g, '')
+
 // แปลงเวลาที่พิมพ์เองเป็น HH:MM — รองรับ "13:00", "13.00", "1300", "9:30", "13:00:00"
 // คืน null = ช่องว่าง, undefined = รูปแบบผิด
 const normalizeTime = (s) => {
@@ -153,6 +156,11 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const selectedCamera = cameras.find(c => c.id === form.camera_id)
     || (isEdit ? { name: rental.camera?.name, price_per_day: rental.price_per_day, insurance: rental.insurance } : null)
 
+  // ลูกค้าเดิมที่เบอร์โทรตรงกัน (กันสร้างลูกค้าซ้ำ) — เช็คเมื่อพิมพ์เบอร์ครบ 9 หลักขึ้นไป
+  const matchedCustomer = !isEdit && normPhone(newCustomer.phone).length >= 9
+    ? customers.find(c => normPhone(c.phone) === normPhone(newCustomer.phone))
+    : null
+
   const days = parseInt(form.days) || 1
 
   // ราคาเช่า: ใช้ตารางราคาถ้ามี, ไม่มีใช้ price_per_day × วัน
@@ -201,11 +209,16 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       let customerId = form.customer_id
       if (!isEdit) {
         if (!newCustomer.name.trim()) throw new Error('กรุณาใส่ชื่อลูกค้า')
-        const created = await createCustomer({
-          name: newCustomer.name.trim(),
-          phone: newCustomer.phone.trim() || null,
-        })
-        customerId = created.id
+        if (matchedCustomer) {
+          // เบอร์นี้เป็นลูกค้าเดิม → ใช้คนเดิม ไม่สร้างซ้ำ (ประวัติการเช่ารวมอยู่ที่คนเดียว)
+          customerId = matchedCustomer.id
+        } else {
+          const created = await createCustomer({
+            name: newCustomer.name.trim(),
+            phone: newCustomer.phone.trim() || null,
+          })
+          customerId = created.id
+        }
       }
       if (!customerId) throw new Error('กรุณากรอกข้อมูลลูกค้า')
 
@@ -409,6 +422,14 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                   <input name="phone" value={newCustomer.phone} onChange={setNC} type="tel"
                     placeholder="0812345678" inputMode="tel" className={inputCls} />
                 </div>
+                {matchedCustomer && (
+                  <div className="flex items-start gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                    <svg className="w-4 h-4 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    <span>เบอร์นี้เป็นลูกค้าเดิม: <strong>{matchedCustomer.name}</strong> — ระบบจะใช้ข้อมูลเดิม ไม่สร้างซ้ำ</span>
+                  </div>
+                )}
               </div>
             )}
           </section>
