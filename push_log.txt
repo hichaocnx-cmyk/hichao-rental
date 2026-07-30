@@ -5,11 +5,6 @@ START
 > node scripts/check.cjs
 
 ✅ ผ่านการตรวจ (43 ไฟล์) — ไม่มี syntax error / ใช้ตัวแปรก่อนประกาศ
-npm notice
-npm notice New major version of npm available! 11.13.0 -> 12.0.2
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
-npm notice To update run: npm install -g npm@12.0.2
-npm notice
 === BUILD === 
 
 > hichao-rental@1.0.0 build
@@ -28,5 +23,5 @@ computing gzip size...
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[32m✓ built in 3.71s[39m
+[32m✓ built in 2.90s[39m
 === COMMIT === 
