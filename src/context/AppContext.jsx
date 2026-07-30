@@ -12,22 +12,42 @@ const AppContext = createContext(null)
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
+// ── cache ใน sessionStorage (stale-while-revalidate) ────────────
+// เดิม refresh หน้าหรือเปิด PWA ใหม่ = ยิง 4 SELECT ใหม่ทุกครั้ง ต้องรอ skeleton
+// ตอนนี้แสดงข้อมูลรอบก่อนทันที แล้วค่อยดึงของใหม่เงียบๆ ข้างหลัง
+// sessionStorage = อยู่แค่แท็บนี้ ปิดแท็บก็หาย จึงไม่มีข้อมูลค้างข้ามวัน
+const CACHE_KEY = 'hichao_cache_v1'
+
+function readCache() {
+  try { return JSON.parse(sessionStorage.getItem(CACHE_KEY)) || null }
+  catch { return null }
+}
+
+function writeCache(payload) {
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload)) }
+  catch { /* เต็ม/โหมดส่วนตัว — ข้ามไป ไม่ critical */ }
+}
+
 export function AppProvider({ children }) {
-  const [cameras, setCameras] = useState([])
-  const [customers, setCustomers] = useState([])
-  const [rentals, setRentals] = useState([])
-  const [expenses, setExpenses] = useState([])
-  const [loading, setLoading] = useState(true)
+  const cached = readCache()
+
+  const [cameras, setCameras] = useState(cached?.cameras || [])
+  const [customers, setCustomers] = useState(cached?.customers || [])
+  const [rentals, setRentals] = useState(cached?.rentals || [])
+  const [expenses, setExpenses] = useState(cached?.expenses || [])
+  // มี cache แล้วไม่ต้องโชว์ skeleton — เห็นข้อมูลทันที
+  const [loading, setLoading] = useState(!cached)
   const [readIds, setReadIds] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('noti_read') || '[]')) }
     catch { return new Set() }
   })
 
   const loadAll = useCallback(async () => {
-    setLoading(true)
+    if (!readCache()) setLoading(true)
     try {
       const [c, cu, r, ex] = await Promise.all([getCameras(), getCustomers(), getRentals(), getExpenses()])
       setCameras(c); setCustomers(cu); setRentals(r); setExpenses(ex)
+      writeCache({ cameras: c, customers: cu, rentals: r, expenses: ex })
     } catch (e) { console.error('AppContext load error:', e) }
     finally { setLoading(false) }
   }, [])
@@ -39,21 +59,42 @@ export function AppProvider({ children }) {
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  // ── Realtime subscriptions ─────────────────────────────────────
+  // อัปเดต cache ทุกครั้งที่ข้อมูลเปลี่ยน (รวมที่มาจาก realtime)
   useEffect(() => {
+    if (loading) return
+    writeCache({ cameras, customers, rentals, expenses })
+  }, [cameras, customers, rentals, expenses, loading])
+
+  // ── Realtime subscriptions ─────────────────────────────────────
+  // subscribe แค่ 2 ตารางที่เปลี่ยนจากฝั่ง server จริงๆ:
+  //   rentals / cameras — pg_cron เปลี่ยนสถานะเองตลอด 24 ชม.
+  // ตัด customers / expenses ออก เพราะเปลี่ยนจากในแอปเท่านั้น
+  // (แก้เสร็จเรียก reloadCustomers/reloadExpenses ตรงๆ อยู่แล้ว)
+  // → ลดโควตา Realtime message (แผนฟรี 2M/เดือน) และ refetch ที่ไม่จำเป็น
+  //
+  // debounce 800ms: cron อัปเดตหลายแถวรวดเดียว เดิมยิง refetch ทั้งตารางต่อ 1 event
+  // → ดึงข้อมูลซ้ำสิบๆ ครั้งใน 1 วินาที ตอนนี้รวมเป็นครั้งเดียว
+  useEffect(() => {
+    const timers = {}
+    const debouncedReload = (key, fetcher, setter) => () => {
+      clearTimeout(timers[key])
+      timers[key] = setTimeout(() => {
+        fetcher().then(setter).catch(console.error)
+      }, 800)
+    }
+
     const channel = supabase
       .channel('realtime-all')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rentals' },
-        () => getRentals().then(setRentals).catch(console.error))
+        debouncedReload('rentals', getRentals, setRentals))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cameras' },
-        () => getCameras().then(setCameras).catch(console.error))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' },
-        () => getCustomers().then(setCustomers).catch(console.error))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' },
-        () => getExpenses().then(setExpenses).catch(console.error))
+        debouncedReload('cameras', getCameras, setCameras))
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      Object.values(timers).forEach(clearTimeout)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Computed stats

@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import useClickSound from './hooks/useClickSound'
-import NekoCat from './components/NekoCat'
 import { AuthProvider } from './context/AuthContext'
 import { AppProvider } from './context/AppContext'
 import { ToastProvider } from './context/ToastContext'
@@ -16,6 +15,7 @@ import ReportPage from './pages/ReportPage'
 import NotificationsPage from './pages/NotificationsPage'
 import CalendarPage from './pages/CalendarPage'
 import RecipesPage from './pages/RecipesPage'
+import ServiceBanner from './components/ServiceBanner'
 
 export default function App() {
   useClickSound()
@@ -24,6 +24,7 @@ export default function App() {
       <AuthProvider>
         <AppProvider>
           <ToastProvider>
+          <ServiceBanner />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
@@ -41,7 +42,6 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           </ToastProvider>
-          <NekoCat />
         </AppProvider>
       </AuthProvider>
     </BrowserRouter>

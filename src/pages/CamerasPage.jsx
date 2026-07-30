@@ -1,36 +1,18 @@
 import { useState, useEffect } from 'react'
-import { deleteCamera, recompressAllImages } from '../lib/cameras'
+import { deleteCamera, backfillThumbnails } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import CameraModal from '../components/CameraModal'
 import { CamerasSkeleton } from '../components/Skeleton'
 import { useToast, useConfirm } from '../context/ToastContext'
-
-// แปลง Supabase storage URL → image transform URL (thumbnail)
-function getThumbUrl(url, width = 400) {
-  if (!url) return null
-  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-    + `?width=${width}&quality=75&resize=cover`
-}
+import Thumb from '../components/Thumb'
 
 // รูปโหลด lazy + fade-in เมื่อโหลดเสร็จ
-// หมายเหตุ: Image Transformation (/render/image/) ใช้ไม่ได้ในแผนฟรี
-// → ถ้า thumbnail โหลดพัง fallback กลับไปใช้รูปต้นฉบับอัตโนมัติ
+// ใช้ thumbnail จริงที่เก็บใน bucket (camera-images/thumb/...)
+// ไม่ใช้ /storage/v1/render/image/ อีกแล้ว เพราะแผนฟรีไม่รองรับ
+// → เดิมยิงไปแล้วพัง 1 ครั้ง แล้วโหลดรูปเต็มอีก 1 ครั้ง = เสีย egress 2 เท่า
 function LazyImg({ src, alt, className }) {
-  const [loaded, setLoaded] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const thumb = getThumbUrl(src)
-  return (
-    <img
-      src={failed ? src : (thumb || src)}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      onLoad={() => setLoaded(true)}
-      onError={() => { if (!failed) setFailed(true) }}
-      className={`${className} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-    />
-  )
+  return <Thumb src={src} alt={alt} className={className} fade />
 }
 
 const STATUS_CFG = {
@@ -106,20 +88,23 @@ export default function CamerasPage() {
     }
   }
 
-  // บีบอัดรูปเก่าทั้งหมดใน Storage (ลดโควตา bandwidth ของ Supabase)
+  // สร้าง thumbnail ให้รูปเก่าที่ยังไม่มี (ลดโควตา bandwidth ของ Supabase)
   const handleRecompress = async () => {
     const ok = await confirm({
-      title: 'บีบอัดรูปเก่าทั้งหมด?',
-      message: 'รูปที่ใหญ่เกิน 300KB จะถูกย่อและบันทึกทับของเดิม (ภาพยังชัดสำหรับการแสดงผลปกติ) ใช้เวลาสักครู่',
-      confirmLabel: 'เริ่มบีบอัด',
+      title: 'จัดระเบียบรูปเก่าทั้งหมด?',
+      message: 'ต่อ 1 รูป ระบบจะสร้างรูปย่อ 320px + ตั้ง cache 1 ปีให้รูปต้นฉบับ '
+             + '(รูปเก่าตั้ง cache ไว้แค่ 1 ชั่วโมง จึงถูกดาวน์โหลดซ้ำเรื่อยๆ) '
+             + '· รูปที่จัดระเบียบแล้วจะถูกข้าม · กดครั้งเดียวพอ',
+      confirmLabel: 'เริ่มจัดระเบียบ',
       cancelLabel: 'ยกเลิก',
     })
     if (!ok) return
     setCompressing({ done: 0, total: 0 })
     try {
-      const r = await recompressAllImages((done, total) => setCompressing({ done, total }))
-      toast.success(`เสร็จแล้ว! บีบอัด ${r.done} รูป ประหยัด ${r.savedMB} MB (ข้าม ${r.skipped} · พลาด ${r.failed})`)
-    } catch (e) { toast.error('บีบอัดไม่สำเร็จ: ' + e.message) }
+      const r = await backfillThumbnails((done, total) => setCompressing({ done, total }))
+      toast.success(`เสร็จแล้ว! จัดระเบียบ ${r.done} รูป ประหยัดพื้นที่ ${r.savedMB} MB `
+        + `(ข้าม ${r.skipped} · พลาด ${r.failed})`)
+    } catch (e) { toast.error('จัดระเบียบรูปไม่สำเร็จ: ' + e.message) }
     finally { setCompressing(null) }
   }
 

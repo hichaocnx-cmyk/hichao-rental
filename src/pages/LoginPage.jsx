@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { friendlyError } from '../lib/supabaseClient'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -21,7 +22,7 @@ export default function LoginPage() {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.message || 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Email และ Password')
+      setError(friendlyError(err) || 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Email และ Password')
     } finally {
       setLoading(false)
     }

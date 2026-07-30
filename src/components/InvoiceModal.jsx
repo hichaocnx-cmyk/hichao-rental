@@ -1,3 +1,5 @@
+import { imageToDataUrl } from '../lib/images'
+
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
   'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 
@@ -19,19 +21,8 @@ const calcDays = (start, end) => {
   return Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1)
 }
 
-async function toBase64(url) {
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
-  }
-}
+// โหลดรูปเป็น dataURL — ใช้ thumbnail ก่อน (ใบเสร็จแสดงรูปแค่ 56x56 px)
+const toBase64 = imageToDataUrl
 
 export default function InvoiceModal({ rental, onClose }) {
   const days        = calcDays(rental.start_date, rental.end_date)

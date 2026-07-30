@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
+import { imageToDataUrl } from '../lib/images'
 
 // ── ข้อมูลผู้ให้เช่า (แก้ไขได้ตรงนี้) ───────────────────────────────
 const LESSOR = {
@@ -23,17 +24,9 @@ const calcDays = (start, end) => {
 }
 const baht = (n) => '฿' + Number(n || 0).toLocaleString()
 
-async function toBase64(url) {
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    return await new Promise((resolve) => {
-      const r = new FileReader()
-      r.onloadend = () => resolve(r.result)
-      r.readAsDataURL(blob)
-    })
-  } catch { return null }
-}
+// โหลดรูปเป็น dataURL — ใช้ thumbnail ก่อน (สัญญาแสดงรูปแค่ 70x70 px)
+// เพื่อไม่ให้ทุกครั้งที่เปิดสัญญาไปดึงรูปต้นฉบับ = กิน Cached Egress ซ้ำๆ
+const toBase64 = imageToDataUrl
 
 function loadHtmlToImage() {
   if (window.htmlToImage) return Promise.resolve(window.htmlToImage)

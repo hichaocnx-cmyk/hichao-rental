@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
+import Thumb from '../components/Thumb'
 
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 const DAYS_TH = ['อา','จ','อ','พ','พฤ','ศ','ส']
@@ -276,7 +277,7 @@ export default function CalendarPage() {
 
                   {/* Camera image */}
                   {r.camera?.image_url ? (
-                    <img src={r.camera.image_url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0 self-start mt-0.5" alt="" />
+                    <Thumb src={r.camera.image_url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0 self-start mt-0.5" />
                   ) : (
                     <div className="w-10 h-10 rounded-xl flex-shrink-0 self-start mt-0.5 flex items-center justify-center"
                       style={{ backgroundColor: r.color.bg }}>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { updateRental, deleteRental } from '../lib/rentals'
 import { updateCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
@@ -9,6 +9,7 @@ import InvoiceModal from '../components/InvoiceModal'
 import ContractModal from '../components/ContractModal'
 import { RentalsSkeleton } from '../components/Skeleton'
 import { useToast, useConfirm } from '../context/ToastContext'
+import Thumb from '../components/Thumb'
 
 // ── Calendar constants ──────────────────────────────────────────
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
@@ -203,67 +204,18 @@ export default function RentalsPage() {
   //    ทำงานตลอด 24 ชม. ไม่ต้องเปิดหน้าเว็บค้างไว้ และกันส่งซ้ำด้วย flag
   //    pickup_reminded / return_reminded ในตาราง rentals
 
-  // ── Auto ส่ง/คืนกล้อง ตามเวลา (กันรันซ้ำระหว่างรอ reload) ──────
-  const autoBusyRef = useRef(new Set())
-
-  // ── Auto-deliver / Auto-return ตามเวลา pickup/return ─────────────
-  useEffect(() => {
-    // สร้าง Date จาก 'YYYY-MM-DD' + 'HH:MM[:SS]' ตามเวลาท้องถิ่น
-    const dueAt = (dateStr, timeStr) => {
-      if (!dateStr) return null
-      const [y, mo, d] = dateStr.split('-').map(Number)
-      const [h = 0, mi = 0] = (timeStr || '00:00').split(':').map(Number)
-      return new Date(y, mo - 1, d, h, mi, 0)
-    }
-
-    const autoProcess = async () => {
-      const now = new Date()
-      let changed = false
-      for (const r of rentals) {
-        if (!r || autoBusyRef.current.has(r.id)) continue
-
-        // booked -> active (ส่งกล้อง) เมื่อถึงเวลา pickup (ไม่ได้ตั้งเวลา = ต้นวัน start_date)
-        if (r.status === 'booked' && r.camera_id) {
-          const due = dueAt(r.start_date, r.pickup_time || '00:00')
-          if (due && now >= due) {
-            autoBusyRef.current.add(r.id)
-            try {
-              await updateRental(r.id, { status: 'active' })
-              await updateCamera(r.camera_id, { status: 'rented' })
-              changed = true
-              toast.success(`ส่งกล้อง ${r.camera?.name || ''} อัตโนมัติแล้ว`)
-              // LINE แจ้งเตือน auto ส่งจากฝั่ง server (pg_cron) เพื่อกันส่งซ้ำ
-            } catch (e) { console.warn('auto-deliver failed', e) }
-            finally { autoBusyRef.current.delete(r.id) }
-            continue
-          }
-        }
-
-        // active -> returned (คืนกล้อง) เมื่อถึงเวลา return (ไม่ได้ตั้งเวลา = สิ้นวัน end_date)
-        if (r.status === 'active' && r.camera_id) {
-          const due = dueAt(r.end_date, r.return_time || '23:59')
-          if (due && now >= due) {
-            autoBusyRef.current.add(r.id)
-            try {
-              const upd = { status: 'returned' }
-              if (Number(r.insurance) > 0) upd.insurance_returned = true
-              await updateRental(r.id, upd)
-              await updateCamera(r.camera_id, { status: 'available' })
-              changed = true
-              toast.success(`คืน ${r.camera?.name || ''} อัตโนมัติแล้ว`)
-              // LINE แจ้งเตือน auto ส่งจากฝั่ง server (pg_cron) เพื่อกันส่งซ้ำ
-            } catch (e) { console.warn('auto-return failed', e) }
-            finally { autoBusyRef.current.delete(r.id) }
-          }
-        }
-      }
-      if (changed) await reload()
-    }
-
-    autoProcess()
-    const t = setInterval(autoProcess, 60000)
-    return () => clearInterval(t)
-  }, [rentals])
+  // ── Auto ส่ง/คืนกล้อง ตามเวลา — ย้ายไปฝั่ง server ทั้งหมดแล้ว ────
+  // เดิมหน้านี้มี setInterval ทุก 60 วิ วน rentals แล้วเปลี่ยนสถานะ
+  // booked → active → returned เอง ซึ่ง "ซ้ำ" กับ auto_update_rental_status()
+  // ที่ pg_cron รันทุกนาทีอยู่แล้ว (supabase/migration_003.sql + 005.sql)
+  //
+  // ปัญหาของการทำซ้ำ:
+  //   · ทุกแท็บที่เปิดหน้านี้เขียน DB แข่งกับ cron และแข่งกันเอง
+  //   · ทุกการเขียนยิง realtime broadcast → ทุกเครื่องดึงข้อมูลใหม่ทั้งตาราง
+  //   · เปลืองทั้ง Egress, Realtime message quota และเสี่ยง race condition
+  //
+  // ตอนนี้ปล่อยให้ server เป็นเจ้าของ logic นี้คนเดียว
+  // หน้าเว็บรับผลผ่าน realtime subscription ใน AppContext เท่านั้น
 
   // Modals
   const [rentalModal, setRentalModal]   = useState(null)
@@ -718,7 +670,7 @@ export default function RentalsPage() {
                       <div className="flex items-start gap-3 p-4" onClick={() => setExpanded(isExpanded ? null : r.id)}>
                         {/* Camera image */}
                         {r.camera?.image_url
-                          ? <img src={r.camera.image_url} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" alt="" />
+                          ? <Thumb src={r.camera.image_url} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                           : <div className="w-14 h-14 bg-brand-50 rounded-xl flex items-center justify-center flex-shrink-0">
                               <CamIcon className="w-6 h-6 text-brand-300" />
                             </div>
@@ -854,7 +806,7 @@ export default function RentalsPage() {
                         <div className="flex items-start gap-3 px-4 py-3.5 hover:bg-gray-50/60 cursor-pointer transition-colors"
                           onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
                           {r.camera?.image_url
-                            ? <img src={r.camera.image_url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0 mt-0.5" alt="" />
+                            ? <Thumb src={r.camera.image_url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0 mt-0.5" />
                             : <div className="w-10 h-10 bg-brand-50 rounded-xl flex-shrink-0 mt-0.5 flex items-center justify-center">
                                 <CamIcon className="w-5 h-5 text-brand-300" />
                               </div>
