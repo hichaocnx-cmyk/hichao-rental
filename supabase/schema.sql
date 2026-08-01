@@ -9,6 +9,11 @@ create extension if not exists "uuid-ossp";
 -- ============================================================
 -- TABLE: cameras
 -- ============================================================
+-- ⚠️ หมายเหตุ (1 ส.ค. 2569): คอลัมน์ serial_number ด้านล่าง "ไม่มีอยู่จริง"
+--    ในฐานข้อมูล production ตอนนี้ — ไฟล์นี้กับ DB จริงไม่ตรงกัน
+--    เคยลอกรายชื่อคอลัมน์จากไฟล์นี้ไปใช้ใน select() แล้ว PostgREST ตอบ 400
+--    ก่อนเชื่อไฟล์นี้ ให้เช็คของจริงก่อนด้วย:
+--      select column_name from information_schema.columns where table_name='cameras';
 create table if not exists cameras (
   id              uuid primary key default uuid_generate_v4(),
   name            text not null,

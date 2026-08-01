@@ -54,17 +54,35 @@ export function AppProvider({ children }) {
     catch { return new Set() }
   })
 
+  // ⚠️ ใช้ allSettled ไม่ใช่ all — ห้ามเปลี่ยนกลับ
+  // เดิมใช้ Promise.all: ถ้าตารางใดตารางหนึ่งพัง (เช่นพิมพ์ชื่อคอลัมน์ผิด
+  // แล้ว PostgREST ตอบ 400) ทั้งก้อนจะ reject → ไม่มี setState สักตัว
+  // → ทุกหน้าว่างเปล่าพร้อมกัน ทั้งที่อีก 3 ตารางดึงมาได้ปกติ
+  // allSettled ทำให้ความพังจำกัดอยู่แค่ตารางนั้น หน้าอื่นยังใช้งานได้
   const loadAll = useCallback(async () => {
     if (!readCache()) setLoading(true)
-    try {
-      const [c, cu, r, ex] = await Promise.all([getCameras(), getCustomers(), getRentals(), getExpenses()])
-      setCameras(c); setCustomers(cu); setRentals(r); setExpenses(ex)
-      writeCache({ cameras: c, customers: cu, rentals: r, expenses: ex })
-    } catch (e) {
-      // พังแล้วไม่เขียน cache ทับ ของเดิมที่ใช้ได้จะได้ไม่หาย
-      console.error('AppContext load error:', e?.message || e)
-    }
-    finally { setLoading(false) }
+
+    const jobs = [
+      ['cameras',   getCameras,   setCameras],
+      ['customers', getCustomers, setCustomers],
+      ['rentals',   getRentals,   setRentals],
+      ['expenses',  getExpenses,  setExpenses],
+    ]
+    const results = await Promise.allSettled(jobs.map(([, fetcher]) => fetcher()))
+
+    const fresh = {}
+    const failed = []
+    results.forEach((res, i) => {
+      const [key, , setter] = jobs[i]
+      if (res.status === 'fulfilled') { setter(res.value); fresh[key] = res.value }
+      else { failed.push(`${key}: ${res.reason?.message || res.reason}`) }
+    })
+
+    if (failed.length) console.error('AppContext load error →', failed.join(' | '))
+    // เขียน cache เฉพาะตอนได้ครบทุกตาราง กันไม่ให้ cache ที่ใช้ได้ถูกทับด้วยของไม่ครบ
+    if (!failed.length) writeCache(fresh)
+
+    setLoading(false)
   }, [])
 
   const reloadCameras = useCallback(async () => { setCameras(await getCameras()) }, [])

@@ -15,10 +15,16 @@ import { supabase } from './supabaseClient'
 // ถ้าจะลบทิ้งให้ export เก็บก่อนด้วย migration/04_export_storage.html
 
 // ดึงกล้องทั้งหมด
+// ⚠️ ใช้ select('*') โดยตั้งใจ — อย่าเปลี่ยนเป็นรายชื่อคอลัมน์
+// เคยเปลี่ยนเป็น list คอลัมน์ (ลอกมาจาก supabase/schema.sql) แล้วพบว่า
+// schema.sql ไม่ตรงกับฐานข้อมูลจริง: 'serial_number' มีในไฟล์แต่ไม่มีในตาราง
+// PostgREST ตอบ 400 "column cameras.serial_number does not exist"
+// → getCameras() พัง → Promise.all ใน AppContext reject → ทั้งแอปว่างเปล่า
+// ประหยัดได้แค่ไม่กี่ไบต์ แต่แลกกับความเสี่ยง schema drift ไม่คุ้มเลย
 export async function getCameras() {
   const { data, error } = await supabase
     .from('cameras')
-    .select('id,name,brand,model,serial_number,price_per_day,insurance,deposit,status,notes,created_at,updated_at')
+    .select('*')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data

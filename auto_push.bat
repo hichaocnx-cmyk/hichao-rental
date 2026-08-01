@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Fix empty data on mobile: AppProvider mounts above the router and fetched before AuthProvider restored the session, so RLS silently returned 200 [] with no error. Gate loading on auth, clear state and cache on logout, and only open realtime when signed in" >> push_log.txt 2>&1
+git commit -m "Fix every page rendering empty: getCameras selected cameras.serial_number, a column that exists in schema.sql but not in the real DB, so PostgREST returned 400 and Promise.all rejected the whole load. Revert to select(*) and switch loadAll to allSettled so one bad table can no longer blank the app" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )
