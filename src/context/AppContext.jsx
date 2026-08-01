@@ -4,6 +4,7 @@ import { getCustomers } from '../lib/customers'
 import { getRentals } from '../lib/rentals'
 import { getExpenses } from '../lib/expenses'
 import { supabase } from '../lib/supabaseClient'
+import { useAuth } from './AuthContext'
 
 const AppContext = createContext(null)
 
@@ -28,7 +29,18 @@ function writeCache(payload) {
   catch { /* เต็ม/โหมดส่วนตัว — ข้ามไป ไม่ critical */ }
 }
 
+function clearCache() {
+  try { sessionStorage.removeItem(CACHE_KEY) } catch { /* ไม่ critical */ }
+}
+
 export function AppProvider({ children }) {
+  // ⚠️ ต้องรอ auth ให้เสร็จก่อนโหลดข้อมูล — ห้ามลบ
+  // AppProvider ถูกวางไว้เหนือ <Routes> จึง mount ตั้งแต่ยังไม่ล็อกอิน
+  // ถ้ายิง query ตอน session ยังกู้ไม่เสร็จ Supabase จะมองเป็น anon
+  // แล้ว RLS (auth.role() = 'authenticated') คืน 200 [] "เงียบๆ" ไม่ error
+  // → ทุกหน้าว่างเปล่าโดยไม่มีอะไรฟ้อง และไม่มีการโหลดซ้ำ
+  // บนเดสก์ท็อปมักชนะ race เลยดูปกติ แต่มือถือ (เย็นกว่า/เน็ตช้ากว่า) แพ้ประจำ
+  const { user, loading: authLoading } = useAuth()
   const cached = readCache()
 
   const [cameras, setCameras] = useState(cached?.cameras || [])
@@ -48,7 +60,10 @@ export function AppProvider({ children }) {
       const [c, cu, r, ex] = await Promise.all([getCameras(), getCustomers(), getRentals(), getExpenses()])
       setCameras(c); setCustomers(cu); setRentals(r); setExpenses(ex)
       writeCache({ cameras: c, customers: cu, rentals: r, expenses: ex })
-    } catch (e) { console.error('AppContext load error:', e) }
+    } catch (e) {
+      // พังแล้วไม่เขียน cache ทับ ของเดิมที่ใช้ได้จะได้ไม่หาย
+      console.error('AppContext load error:', e?.message || e)
+    }
     finally { setLoading(false) }
   }, [])
 
@@ -57,13 +72,22 @@ export function AppProvider({ children }) {
   const reloadRentals = useCallback(async () => { setRentals(await getRentals()) }, [])
   const reloadExpenses = useCallback(async () => { setExpenses(await getExpenses()) }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => {
+    if (authLoading) return            // ยังไม่รู้ว่ามี session ไหม — รอก่อน
+    if (!user) {                       // ยังไม่ล็อกอิน / เพิ่งออกจากระบบ
+      setCameras([]); setCustomers([]); setRentals([]); setExpenses([])
+      clearCache()                     // กันข้อมูลค้างข้ามบัญชี
+      setLoading(false)
+      return
+    }
+    loadAll()
+  }, [authLoading, user?.id, loadAll])
 
   // อัปเดต cache ทุกครั้งที่ข้อมูลเปลี่ยน (รวมที่มาจาก realtime)
   useEffect(() => {
-    if (loading) return
+    if (loading || !user) return
     writeCache({ cameras, customers, rentals, expenses })
-  }, [cameras, customers, rentals, expenses, loading])
+  }, [cameras, customers, rentals, expenses, loading, user])
 
   // ── Realtime subscriptions ─────────────────────────────────────
   // subscribe แค่ 2 ตารางที่เปลี่ยนจากฝั่ง server จริงๆ:
@@ -75,6 +99,7 @@ export function AppProvider({ children }) {
   // debounce 800ms: cron อัปเดตหลายแถวรวดเดียว เดิมยิง refetch ทั้งตารางต่อ 1 event
   // → ดึงข้อมูลซ้ำสิบๆ ครั้งใน 1 วินาที ตอนนี้รวมเป็นครั้งเดียว
   useEffect(() => {
+    if (!user) return                  // ยังไม่ล็อกอิน ไม่ต้องเปิด websocket
     const timers = {}
     const debouncedReload = (key, fetcher, setter) => () => {
       clearTimeout(timers[key])
@@ -95,7 +120,7 @@ export function AppProvider({ children }) {
       Object.values(timers).forEach(clearTimeout)
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [user?.id])
 
   // Computed stats
   const stats = useMemo(() => {
