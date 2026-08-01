@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { createCamera, updateCamera, uploadCameraImage } from '../lib/cameras'
+import { useState } from 'react'
+import { createCamera, updateCamera } from '../lib/cameras'
 
 const DEFAULT_FORM = { name: '', brand: '', model: '', price_per_day: '', deposit: '', insurance: '', status: 'available', notes: '' }
 
@@ -15,20 +15,10 @@ export default function CameraModal({ camera, onClose, onSaved }) {
     status: camera.status || 'available',
     notes: camera.notes || '',
   } : DEFAULT_FORM)
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(camera?.image_url || null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const fileRef = useRef()
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
-
-  const handleImage = e => {
-    const file = e.target.files[0]
-    if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
-  }
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -44,23 +34,10 @@ export default function CameraModal({ camera, onClose, onSaved }) {
         insurance: parseFloat(form.insurance) || 0,
         status: form.status,
         notes: form.notes.trim() || null,
-        image_url: camera?.image_url || null,
       }
 
-      let savedId = camera?.id
-      if (isEdit) {
-        const saved = await updateCamera(camera.id, payload)
-        savedId = saved.id
-      } else {
-        const saved = await createCamera(payload)
-        savedId = saved.id
-      }
-
-      // Upload image ถ้ามี
-      if (imageFile && savedId) {
-        const url = await uploadCameraImage(imageFile, savedId)
-        await updateCamera(savedId, { image_url: url })
-      }
+      if (isEdit) await updateCamera(camera.id, payload)
+      else        await createCamera(payload)
 
       onSaved()
     } catch (err) {
@@ -87,28 +64,6 @@ export default function CameraModal({ camera, onClose, onSaved }) {
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
           )}
-
-          {/* Image upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">รูปกล้อง</label>
-            <div
-              onClick={() => fileRef.current.click()}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors"
-            >
-              {imagePreview ? (
-                <img src={imagePreview} alt="preview" className="w-full h-36 object-contain rounded-lg" />
-              ) : (
-                <div className="py-4">
-                  <svg className="w-10 h-10 text-gray-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                  </svg>
-                  <p className="text-sm text-gray-500">คลิกเพื่ออัปโหลดรูป</p>
-                  <p className="text-xs text-gray-400 mt-1">PNG, JPG ขนาดไม่เกิน 5MB</p>
-                </div>
-              )}
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
-          </div>
 
           {/* Name */}
           <div>

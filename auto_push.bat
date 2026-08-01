@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Add VPS migration toolkit (export/import SQL, self-host schema, storage export tool); document measured root cause: 8 raw PNGs totalling 63MB with 1-hour cache-control" >> push_log.txt 2>&1
+git commit -m "Replace camera photos with emoji: drop Storage entirely (upload, thumbnails, image cache, backfill tool). Measured cause: 8 raw PNGs = 63MB with 1h cache-control. Cached Egress now 0." >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )

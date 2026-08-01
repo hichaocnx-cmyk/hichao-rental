@@ -9,7 +9,7 @@ import InvoiceModal from '../components/InvoiceModal'
 import ContractModal from '../components/ContractModal'
 import { RentalsSkeleton } from '../components/Skeleton'
 import { useToast, useConfirm } from '../context/ToastContext'
-import Thumb from '../components/Thumb'
+import CameraIcon from '../components/CameraIcon'
 
 // ── Calendar constants ──────────────────────────────────────────
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
@@ -668,13 +668,8 @@ export default function RentalsPage() {
 
                       {/* Card top — camera + info */}
                       <div className="flex items-start gap-3 p-4" onClick={() => setExpanded(isExpanded ? null : r.id)}>
-                        {/* Camera image */}
-                        {r.camera?.image_url
-                          ? <Thumb src={r.camera.image_url} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                          : <div className="w-14 h-14 bg-brand-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                              <CamIcon className="w-6 h-6 text-brand-300" />
-                            </div>
-                        }
+                        {/* Camera icon */}
+                        <CameraIcon className="w-14 h-14 rounded-xl flex-shrink-0" size="text-2xl" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -805,12 +800,7 @@ export default function RentalsPage() {
                         {/* Row */}
                         <div className="flex items-start gap-3 px-4 py-3.5 hover:bg-gray-50/60 cursor-pointer transition-colors"
                           onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
-                          {r.camera?.image_url
-                            ? <Thumb src={r.camera.image_url} className="w-10 h-10 rounded-xl object-cover flex-shrink-0 mt-0.5" />
-                            : <div className="w-10 h-10 bg-brand-50 rounded-xl flex-shrink-0 mt-0.5 flex items-center justify-center">
-                                <CamIcon className="w-5 h-5 text-brand-300" />
-                              </div>
-                          }
+                          <CameraIcon className="w-10 h-10 rounded-xl flex-shrink-0 mt-0.5" size="text-xl" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-medium text-gray-900 text-sm">{r.camera?.name || '—'}</p>

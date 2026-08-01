@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from 'react'
-import { imageToDataUrl } from '../lib/images'
 
 // ── ข้อมูลผู้ให้เช่า (แก้ไขได้ตรงนี้) ───────────────────────────────
 const LESSOR = {
@@ -24,9 +23,20 @@ const calcDays = (start, end) => {
 }
 const baht = (n) => '฿' + Number(n || 0).toLocaleString()
 
-// โหลดรูปเป็น dataURL — ใช้ thumbnail ก่อน (สัญญาแสดงรูปแค่ 70x70 px)
-// เพื่อไม่ให้ทุกครั้งที่เปิดสัญญาไปดึงรูปต้นฉบับ = กิน Cached Egress ซ้ำๆ
-const toBase64 = imageToDataUrl
+// โหลดรูป (โลโก้/ลายเซ็น) เป็น dataURL — ไฟล์ static บนโดเมนเดียวกัน
+// ต้องแปลงเป็น base64 เพราะ html-to-image เรนเดอร์ผ่าน canvas
+async function toBase64(url) {
+  try {
+    const res = await fetch(url, { cache: 'force-cache' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const r = new FileReader()
+      r.onloadend = () => resolve(r.result)
+      r.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
 
 function loadHtmlToImage() {
   if (window.htmlToImage) return Promise.resolve(window.htmlToImage)
@@ -57,7 +67,6 @@ export default function ContractModal({ rental, onClose }) {
   const drawing   = useRef(false)
   const [hasSig, setHasSig]       = useState(false)
   const [sigImg, setSigImg]       = useState('')
-  const [camB64, setCamB64]       = useState('')
   const [logoB64, setLogoB64]     = useState('')
   const [lessorSigB64, setLessorSigB64] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -98,14 +107,13 @@ export default function ContractModal({ rental, onClose }) {
   // preload รูปกล้อง + โลโก้ เป็น base64 (กัน canvas ปนเปื้อน cross-origin)
   useEffect(() => {
     let on = true
-    if (cam.image_url) toBase64(cam.image_url).then(d => { if (on && d) setCamB64(d) })
     toBase64('/logo.png').then(d => { if (on && d) setLogoB64(d) })
     toBase64('/signature-lessor.png').then(d => { if (on && d) setLessorSigB64(d) })
     // หมายเหตุ: ไม่ใช้ webfont (Sarabun) ในเอกสารแล้ว — ตอนแปลงเป็นรูป webfont จะไม่ติดไปด้วย
     // ทำให้ metric ฟอนต์ตอนวางเลย์เอาต์ vs ตอนเรนเดอร์ไม่ตรงกัน → ตัวหนังสือทับซ้อนกัน
     // ใช้ฟอนต์ระบบ (มีทั้งตอน layout และตอน render) ปัญหาทับซ้อนจึงหายไป
     return () => { on = false }
-  }, [cam.image_url])
+  }, [])
 
   useEffect(() => () => { if (resultUrl) URL.revokeObjectURL(resultUrl) }, [resultUrl])
 
@@ -385,9 +393,9 @@ export default function ContractModal({ rental, onClose }) {
           <div style={sec}><span style={secBar} />รายการอุปกรณ์ที่เช่า</div>
           <div style={card}>
             <div style={{ display:'flex', gap:14, alignItems:'center' }}>
-              {camB64
-                ? <img src={camB64} alt="" style={{ width:70, height:70, objectFit:'cover', borderRadius:10, border:'1px solid #e5e7eb' }} />
-                : <div style={{ width:70, height:70, borderRadius:10, background:'#f3f4f6' }} />}
+              <div style={{ width:70, height:70, borderRadius:10, background:'#f3f4f6',
+                            border:'1px solid #e5e7eb', display:'flex',
+                            alignItems:'center', justifyContent:'center', fontSize:34, lineHeight:1 }}>📷</div>
               <div style={{ flex:1 }}>
                 <div style={row}><span style={kCol}>อุปกรณ์</span><span style={vCol}>{cam.name || '—'}{cam.brand ? ' · ' + cam.brand : ''}</span></div>
                 <div style={row}><span style={kCol}>รับวันที่</span><span style={vCol}>{fmtDate(rental.start_date)} {fmtTime(rental.pickup_time)}</span></div>

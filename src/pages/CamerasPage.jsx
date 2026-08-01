@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react'
-import { deleteCamera, backfillThumbnails } from '../lib/cameras'
+import { deleteCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import CameraModal from '../components/CameraModal'
 import { CamerasSkeleton } from '../components/Skeleton'
 import { useToast, useConfirm } from '../context/ToastContext'
-import Thumb from '../components/Thumb'
-
-// รูปโหลด lazy + fade-in เมื่อโหลดเสร็จ
-// ใช้ thumbnail จริงที่เก็บใน bucket (camera-images/thumb/...)
-// ไม่ใช้ /storage/v1/render/image/ อีกแล้ว เพราะแผนฟรีไม่รองรับ
-// → เดิมยิงไปแล้วพัง 1 ครั้ง แล้วโหลดรูปเต็มอีก 1 ครั้ง = เสีย egress 2 เท่า
-function LazyImg({ src, alt, className }) {
-  return <Thumb src={src} alt={alt} className={className} fade />
-}
+import CameraIcon from '../components/CameraIcon'
 
 const STATUS_CFG = {
   available:   { label: 'ว่าง',        cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', card: 'border-emerald-100' },
@@ -29,15 +21,6 @@ const FILTER_TABS = [
   { value: 'maintenance', label: 'ซ่อม' },
 ]
 
-function CamPlaceholder() {
-  return (
-    <svg className="w-10 h-10 text-brand-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-    </svg>
-  )
-}
-
 export default function CamerasPage() {
   const { cameras, loading, reloadCameras } = useApp()
   const toast = useToast()
@@ -47,7 +30,6 @@ export default function CamerasPage() {
   const [modal, setModal]             = useState({ open: false, camera: null })
   const [deleting, setDeleting]       = useState(null)
   const [selected, setSelected]       = useState(null) // camera detail sheet
-  const [compressing, setCompressing] = useState(null) // { done, total } ระหว่างบีบอัดรูปเก่า
 
   // เมื่อ cameras อัปเดตจาก reload → sync selected ให้ใช้ข้อมูลใหม่
   useEffect(() => {
@@ -77,7 +59,7 @@ export default function CamerasPage() {
     if (!ok) return
     setDeleting(camera.id)
     try {
-      await deleteCamera(camera.id, camera.image_url)
+      await deleteCamera(camera.id)
       await reloadCameras()
       if (selected?.id === camera.id) setSelected(null)
       toast.success(`ลบ ${camera.name} แล้ว`)
@@ -86,26 +68,6 @@ export default function CamerasPage() {
     } finally {
       setDeleting(null)
     }
-  }
-
-  // สร้าง thumbnail ให้รูปเก่าที่ยังไม่มี (ลดโควตา bandwidth ของ Supabase)
-  const handleRecompress = async () => {
-    const ok = await confirm({
-      title: 'จัดระเบียบรูปเก่าทั้งหมด?',
-      message: 'ต่อ 1 รูป ระบบจะสร้างรูปย่อ 320px + ตั้ง cache 1 ปีให้รูปต้นฉบับ '
-             + '(รูปเก่าตั้ง cache ไว้แค่ 1 ชั่วโมง จึงถูกดาวน์โหลดซ้ำเรื่อยๆ) '
-             + '· รูปที่จัดระเบียบแล้วจะถูกข้าม · กดครั้งเดียวพอ',
-      confirmLabel: 'เริ่มจัดระเบียบ',
-      cancelLabel: 'ยกเลิก',
-    })
-    if (!ok) return
-    setCompressing({ done: 0, total: 0 })
-    try {
-      const r = await backfillThumbnails((done, total) => setCompressing({ done, total }))
-      toast.success(`เสร็จแล้ว! จัดระเบียบ ${r.done} รูป ประหยัดพื้นที่ ${r.savedMB} MB `
-        + `(ข้าม ${r.skipped} · พลาด ${r.failed})`)
-    } catch (e) { toast.error('จัดระเบียบรูปไม่สำเร็จ: ' + e.message) }
-    finally { setCompressing(null) }
   }
 
   // summary counts
@@ -124,18 +86,6 @@ export default function CamerasPage() {
           <p className="text-xs text-gray-400 mt-0.5">{cameras.length} อุปกรณ์ในระบบ</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* บีบอัดรูปเก่า (เครื่องมือลด bandwidth) */}
-          <button onClick={handleRecompress} disabled={!!compressing}
-            title="ย่อรูปเก่าใน Storage เพื่อลดโควตา bandwidth"
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-60">
-            {compressing
-              ? <><div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                  <span className="hidden sm:inline">{compressing.done}/{compressing.total || '…'}</span></>
-              : <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
-                </svg>
-                <span className="hidden sm:inline">บีบอัดรูปเก่า</span></>}
-          </button>
           <button onClick={() => setModal({ open: true, camera: null })}
             className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm shadow-brand-100">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -219,13 +169,8 @@ export default function CamerasPage() {
                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors
                   ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}>
 
-                {/* Thumbnail */}
-                <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
-                  {camera.image_url
-                    ? <LazyImg src={camera.image_url} alt={camera.name} className="absolute inset-0 w-full h-full object-contain p-1" />
-                    : <div className="w-full h-full flex items-center justify-center"><CamPlaceholder /></div>
-                  }
-                </div>
+                {/* Camera icon */}
+                <CameraIcon className="w-12 h-12 rounded-xl flex-shrink-0" size="text-2xl" />
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
@@ -273,10 +218,7 @@ export default function CamerasPage() {
           <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl p-5 pb-8">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
             <div className="flex items-start gap-4 mb-4">
-              {selected.image_url
-                ? <LazyImg src={selected.image_url} alt={selected.name} className="w-28 h-28 rounded-2xl object-contain flex-shrink-0 bg-gray-50 p-1" />
-                : <div className="w-28 h-28 bg-brand-50 rounded-2xl flex items-center justify-center flex-shrink-0"><CamPlaceholder /></div>
-              }
+              <CameraIcon className="w-28 h-28 rounded-2xl flex-shrink-0" size="text-6xl" />
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-base leading-tight">{selected.name}</p>
                 {selected.brand && <p className="text-xs text-gray-400 mt-0.5">{selected.brand}{selected.model ? ` · ${selected.model}` : ''}</p>}

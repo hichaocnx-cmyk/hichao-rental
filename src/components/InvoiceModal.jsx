@@ -1,5 +1,3 @@
-import { imageToDataUrl } from '../lib/images'
-
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
   'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 
@@ -21,8 +19,6 @@ const calcDays = (start, end) => {
   return Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1)
 }
 
-// โหลดรูปเป็น dataURL — ใช้ thumbnail ก่อน (ใบเสร็จแสดงรูปแค่ 56x56 px)
-const toBase64 = imageToDataUrl
 
 export default function InvoiceModal({ rental, onClose }) {
   const days        = calcDays(rental.start_date, rental.end_date)
@@ -38,14 +34,9 @@ export default function InvoiceModal({ rental, onClose }) {
   const createdStr  = `${createdDate.getDate()} ${MONTHS_TH[createdDate.getMonth()]} ${createdDate.getFullYear() + 543}`
 
   const handlePrint = async () => {
-    let cameraImgSrc = ''
-    if (rental.camera?.image_url) {
-      cameraImgSrc = await toBase64(rental.camera.image_url) || ''
-    }
-
-    const cameraImg = cameraImgSrc
-      ? `<img src="${cameraImgSrc}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`
-      : `<div style="width:56px;height:56px;background:#f3f4f6;border-radius:8px;flex-shrink:0;"></div>`
+    const cameraImg = `<div style="width:56px;height:56px;background:#f3f4f6;border-radius:8px;`
+      + `border:1px solid #e5e7eb;flex-shrink:0;display:flex;align-items:center;`
+      + `justify-content:center;font-size:28px;line-height:1;">&#128247;</div>`
 
     const html = `<!DOCTYPE html>
 <html lang="th">

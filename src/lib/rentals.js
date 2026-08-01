@@ -17,7 +17,7 @@ function cutoffDate() {
 export async function getRentals() {
   const { data, error } = await supabase
     .from('rentals')
-    .select(`*, camera:cameras(id,name,brand,image_url), customer:customers(id,name,phone)`)
+    .select(`*, camera:cameras(id,name,brand), customer:customers(id,name,phone)`)
     .or(`start_date.gte.${cutoffDate()},status.in.(active,booked)`)
     .order('created_at', { ascending: false })
   if (error) throw error

@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import Thumb from './Thumb'
 
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 const DAYS_TH = ['อา','จ','อ','พ','พฤ','ศ','ส']
@@ -133,7 +132,9 @@ export default function CalendarView() {
                 {selectedRentals.map(r => (
                   <div key={r.id} className={`rounded-xl p-3 ${COLORS_LIGHT[r.colorIdx]}`}>
                     <div className="flex items-start gap-2">
-                      {r.camera?.image_url ? <Thumb src={r.camera.image_url} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" /> : <div className={`w-8 h-8 rounded-lg flex-shrink-0 ${COLORS[r.colorIdx]} opacity-40`} />}
+                      <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${COLORS[r.colorIdx]} opacity-60`}>
+                        <span className="text-base leading-none select-none" aria-hidden="true">📷</span>
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm truncate">{r.camera?.name}</p>
                         <p className="text-xs mt-0.5 opacity-80">{r.customer?.name}</p>
