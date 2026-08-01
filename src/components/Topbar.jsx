@@ -209,7 +209,9 @@ export default function Topbar({ onMenuClick, title = 'Dashboard' }) {
                                 <p className="text-[11px] text-gray-500 mt-0.5 truncate">
                                   {n.rental?.customer?.name || '—'}
                                 </p>
-                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                {/* gray-400 บนพื้นขาว = contrast 2.54 อ่านยากมากที่ขนาด 10px
+                                    gray-500 ได้ 4.83 ผ่านเกณฑ์ (>= 4.5) และยังดูรองอยู่ */}
+                                <p className="text-[10px] text-gray-500 mt-0.5">
                                   คืน {fmtDate(n.date)}
                                   {n.rental?.return_time ? ` · ${n.rental.return_time.slice(0,5)}` : ''}
                                 </p>

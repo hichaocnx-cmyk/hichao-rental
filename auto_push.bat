@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Fix notification dropdown rendering behind page content: glass-theme backdrop-filter made header a stacking context trapping its z-50 dropdown; give header position relative + z-20" >> push_log.txt 2>&1
+git commit -m "Fix notification dropdown in dark mode: header dropdown matched neither the 'main' nor '.fixed' dark rules so it kept a white background under light text (contrast 1.2 to 14.7); also cover bg-red-50/bg-brand-100 and raise date line to gray-500 (2.54 to 4.83)" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )

@@ -267,3 +267,17 @@ html.dark .fixed .bg-white.rounded-xl,
 html.dark .fixed .bg-white.rounded-t-2xl {
   background: #1b1626 !important; border: 1px solid rgba(255,255,255,.10) !important;
 }
+
+/* Dropdown แจ้งเตือน (กระดิ่งบน Topbar)
+   มันอยู่ใน <header> จึงไม่เข้าเงื่อนไขทั้ง 'main ...' (การ์ด)
+   และ '.fixed ...' (modal) ที่เขียนไว้ด้านบน — พื้นหลังเลยค้างเป็นขาวล้วน
+   ขณะที่กฎ 'html.dark .text-gray-900' บังคับตัวหนังสือเป็นสีอ่อน
+   ผลคือขาวบนขาว contrast 1.2 (เกณฑ์อ่านออกต้อง >= 4.5) อ่านไม่ออกเลย */
+html.dark header .bg-white.rounded-2xl {
+  background: #1b1626 !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+}
+
+/* สีที่ dark mode ยังไม่ได้ครอบ (ใช้ในแถบ "เกินกำหนด" และ badge) */
+html.dark .bg-red-50    { background: rgba(239,68,68,.16) !important; }
+html.dark .bg-brand-100 { background: rgba(255,107,157,.20) !important; }
