@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Clear leftover localStorage from removed features (NekoCat nc_* keys, sent_queue_noti); versioned cleanup so future removals can reuse it" >> push_log.txt 2>&1
+git commit -m "Fix notification dropdown rendering behind page content: glass-theme backdrop-filter made header a stacking context trapping its z-50 dropdown; give header position relative + z-20" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )

@@ -160,6 +160,19 @@ header.h-16 {
   backdrop-filter: blur(18px) saturate(170%);
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   border-bottom: 1px solid rgba(255,255,255,.55) !important;
+
+  /* ⚠️ ห้ามลบ 2 บรรทัดนี้ — ผูกกับ backdrop-filter ด้านบนโดยตรง
+     backdrop-filter ทำให้ element กลายเป็น "stacking context" ใหม่
+     เดิม header เป็น position:static + z-index:auto จึงถูกวาดที่ชั้น 0
+     เท่ากับการ์ดใน main (ที่มี backdrop-filter เหมือนกัน) แต่ main อยู่
+     หลัง header ใน DOM → การ์ดเลยทับ header
+     ผลคือ dropdown แจ้งเตือน (z-50) ถูกขังอยู่ใน stacking context ของ
+     header ยกตัวเองข้ามการ์ดใน main ไม่ได้ → กดกระดิ่งแล้วเนื้อหาทับกัน
+     แก้ด้วยการทำให้ header เป็น positioned + z สูงกว่าการ์ด
+     ค่า 20 เลือกให้ > การ์ดใน main (ชั้น 0/10) แต่ < modal (z-50)
+     และ < bottom nav (z-40) — modal จึงยังคลุม header ได้ตามเดิม */
+  position: relative;
+  z-index: 20;
 }
 aside,
 nav.lg\:hidden {
