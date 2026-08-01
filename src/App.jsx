@@ -14,7 +14,6 @@ import ExpensesPage from './pages/ExpensesPage'
 import ReportPage from './pages/ReportPage'
 import NotificationsPage from './pages/NotificationsPage'
 import CalendarPage from './pages/CalendarPage'
-import RecipesPage from './pages/RecipesPage'
 import ServiceBanner from './components/ServiceBanner'
 
 export default function App() {
@@ -37,7 +36,6 @@ export default function App() {
               <Route path="report" element={<ReportPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
-              <Route path="recipes" element={<RecipesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
