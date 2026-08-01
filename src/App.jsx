@@ -11,7 +11,6 @@ import CamerasPage from './pages/CamerasPage'
 import CustomersPage from './pages/CustomersPage'
 import RentalsPage from './pages/RentalsPage'
 import ExpensesPage from './pages/ExpensesPage'
-import ReportPage from './pages/ReportPage'
 import NotificationsPage from './pages/NotificationsPage'
 import CalendarPage from './pages/CalendarPage'
 import ServiceBanner from './components/ServiceBanner'
@@ -33,7 +32,6 @@ export default function App() {
               <Route path="rentals" element={<RentalsPage />} />
               <Route path="customers" element={<CustomersPage />} />
               <Route path="expenses" element={<ExpensesPage />} />
-              <Route path="report" element={<ReportPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
             </Route>

@@ -7,7 +7,6 @@ import { useApp } from '../context/AppContext'
 const PAGE_TITLES = {
   '/dashboard':     'หน้าหลัก',
   '/cameras':       'กล้อง',
-  '/report':        'รายงาน',
   '/expenses':      'การเงิน',
   '/rentals':       'การเช่า',
   '/customers':     'ลูกค้า',

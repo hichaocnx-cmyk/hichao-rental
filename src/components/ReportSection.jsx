@@ -1,6 +1,19 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { ReportSkeleton } from '../components/Skeleton'
+
+// ══════════════════════════════════════════════════════════════
+// ReportSection — เดิมคือหน้า "รายงาน" แยกต่างหาก (src/pages/ReportPage.jsx)
+// ย้ายมาเป็นส่วนหนึ่งของหน้าหลักแล้ว หน้ารายงานถูกลบทิ้ง
+//
+// ตอนย้ายได้ยุบกราฟที่ซ้ำกับหน้าหลักเดิมด้วย:
+//   · "แนวโน้มรายได้ 6 เดือน" (รายรับอย่างเดียว)
+//     → ใช้กราฟนี้แทน เพราะโชว์ทั้งรายรับและรายจ่าย + เลือกช่วงได้
+//   · "กล้องทำเงินสูงสุด" (เรียงตามเงิน)
+//     → ยุบรวมกับ "กล้องที่ถูกเช่ามากสุด" ซึ่งโชว์ทั้งจำนวนครั้งและรายได้อยู่แล้ว
+//
+// ส่วน "รายจ่ายเดือนนี้" (โดนัท) ยังอยู่ในหน้าหลักตามเดิม เพราะผูกกับ
+// การ์ดสถิติของเดือนปัจจุบัน ไม่ได้ผูกกับตัวเลือกช่วง 3/6 เดือนของบล็อกนี้
+// ══════════════════════════════════════════════════════════════
 
 // ── Helpers ────────────────────────────────────────────────────
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
@@ -148,9 +161,9 @@ function BarChart({ data, maxVal }) {
   )
 }
 
-// ── Main Page ──────────────────────────────────────────────────
-export default function ReportPage() {
-  const { rentals, expenses, cameras, loading } = useApp()
+// ── ส่วนรายงานย้อนหลัง (ฝังในหน้าหลัก) ──────────────────────────
+export default function ReportSection() {
+  const { rentals, expenses } = useApp()
   const [period, setPeriod] = useState(6)
 
   const months = useMemo(() => getLastNMonths(period), [period])
@@ -161,7 +174,7 @@ export default function ReportPage() {
         r.status !== 'cancelled' && (r.start_date || '').startsWith(m.prefix)
       )
       const mExpenses = expenses.filter(e => (e.date || '').startsWith(m.prefix))
-      // รายรับ = เงินที่รับแล้วจริง (นิยามเดียวกับหน้าหลัก):
+      // รายรับ = เงินที่รับแล้วจริง (นิยามเดียวกับการ์ดสถิติด้านบน):
       // คืนแล้ว/กำลังเช่า = ค่าเช่าเต็ม+ค่าส่ง, จองแล้ว = เฉพาะมัดจำที่รับมา
       const revenue = mRentals.reduce((s, r) => {
         const full = Number(r.total_price || 0) + Number(r.delivery_fee || 0)
@@ -184,6 +197,15 @@ export default function ReportPage() {
   const totalPending  = monthlyData.reduce((s, d) => s + d.pending, 0)
   const currentMonth  = monthlyData[monthlyData.length - 1]
 
+  const expCategoryCount = useMemo(() => {
+    const prefixes = months.map(m => m.prefix)
+    const set = new Set(
+      expenses.filter(e => prefixes.some(p => (e.date || '').startsWith(p)))
+              .map(e => e.category)
+    )
+    return set.size
+  }, [expenses, months])
+
   const cameraRankings = useMemo(() => {
     const prefixes = new Set(months.map(m => m.prefix))
     const map = {}
@@ -198,25 +220,16 @@ export default function ReportPage() {
     return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5)
   }, [rentals, months])
 
-  const expCategories = useMemo(() => {
-    const map = {}
-    const prefixes = months.map(m => m.prefix)
-    expenses
-      .filter(e => prefixes.some(p => (e.date || '').startsWith(p)))
-      .forEach(e => { map[e.category] = (map[e.category] || 0) + Number(e.amount || 0) })
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  }, [expenses, months])
-
-  if (loading) return <ReportSkeleton />
+  const expCategories = { length: expCategoryCount }   // ใช้แค่จำนวนหมวดในการ์ดสรุป
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {/* ── หัวข้อ + ตัวเลือกช่วง ─────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">รายงาน</h2>
-          <p className="text-xs text-gray-400 mt-0.5">ข้อมูลรายรับ-รายจ่ายและสถิติ</p>
+          <h3 className="text-base font-semibold text-gray-900">รายงานย้อนหลัง</h3>
+          <p className="text-xs text-gray-400 mt-0.5">รายรับ-รายจ่ายและสถิติการเช่า</p>
         </div>
         <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
           {[3, 6].map(p => (
@@ -230,7 +243,7 @@ export default function ReportPage() {
         </div>
       </div>
 
-      {/* ── Stats strip ────────────────────────────────────────── */}
+      {/* ── การ์ดสรุปตามช่วงที่เลือก ──────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {[
           {
@@ -275,7 +288,7 @@ export default function ReportPage() {
         ))}
       </div>
 
-      {/* ── Bar Chart ──────────────────────────────────────────── */}
+      {/* ── กราฟรายรับ-รายจ่ายรายเดือน ────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="mb-4">
           <h3 className="text-sm font-semibold text-gray-800">รายรับ-รายจ่าย รายเดือน</h3>
@@ -296,10 +309,7 @@ export default function ReportPage() {
         )}
       </div>
 
-      {/* ── Bottom two columns ─────────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-
-        {/* Top cameras */}
+      {/* ── กล้องยอดนิยม (รวมจำนวนครั้ง + รายได้ไว้ด้วยกัน) ──── */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-4">กล้องที่ถูกเช่ามากสุด</h3>
           {cameraRankings.length === 0 ? (
@@ -336,46 +346,6 @@ export default function ReportPage() {
             </div>
           )}
         </div>
-
-        {/* Expense breakdown */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">รายจ่ายแยกหมวดหมู่</h3>
-          {expCategories.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <svg className="w-8 h-8 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125 1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75" />
-              </svg>
-              <p className="text-gray-400 text-sm">ยังไม่มีรายจ่ายในช่วงนี้</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {expCategories.map(([cat, amt], i) => {
-                const pct = totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0
-                const COLORS = ['#FF6B9D','#fb923c','#facc15','#34d399','#60a5fa']
-                return (
-                  <div key={cat}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ background: COLORS[i % COLORS.length] }} />
-                        <p className="text-sm text-gray-700">{cat || 'อื่นๆ'}</p>
-                      </div>
-                      <div className="flex-shrink-0 ml-2">
-                        <span className="text-xs font-bold text-gray-700">{fmtMoney(amt)}</span>
-                        <span className="text-xs text-gray-400 ml-1.5">{pct}%</span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, background: COLORS[i % COLORS.length] }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
 
     </div>
   )
