@@ -52,8 +52,24 @@ const calcDaysFromDates = (start, end) => {
   return d >= 1 ? d : 1
 }
 
+// ── ช่วงที่กล้อง "ถูกครอบครองจริง" = [วันรับ, วันคืน) ปลายเปิด ──
+// เช่า 18 → 19 = ครอบครองแค่วันที่ 18
+// ดังนั้นคืนวันที่ 19 เช้า แล้วส่งต่อคนถัดไปรับวันที่ 19 บ่าย = จองได้
+//
+// addDay กันเคสเช่าวันเดียว (รับ-คืนวันเดียวกัน) ถ้าไม่กันจะกลายเป็นช่วงว่าง
+// แล้วจองซ้อนได้ไม่จำกัด → 19 → 19 ต้องอ่านว่า [19, 20) = เต็มวันที่ 19
+//
+// ⚠️ กฎนี้ต้องตรงกับ constraint rentals_no_camera_overlap ใน migration_010.sql
+//    ถ้าแก้ที่นี่ ต้องไปแก้ที่ SQL ด้วย ไม่งั้นหน้าเว็บกับฐานข้อมูลจะเถียงกัน
+const addDay = iso => {
+  const d = new Date(iso + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+const occupiedEnd = (start, end) => (end > start ? end : addDay(start))
+
 const rangesOverlap = (startA, endA, startB, endB) =>
-  startA <= endB && startB <= endA
+  startA < occupiedEnd(startB, endB) && startB < occupiedEnd(startA, endA)
 
 // แสดงวันที่แบบ วัน/เดือน/ปี (เช่น 18/07/2026)
 const fmtDMY = iso => {
@@ -179,15 +195,18 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const totalPrice   = Math.max(0, rentalPrice - discountAmt)
   const dueOnPickup  = Math.max(0, totalPrice - depositAmt + insuranceAmt + deliveryFee)
 
-  const findDateConflict = () => {
+  const findDateConflict = (list = existingRentals) => {
     if (!form.camera_id || !form.start_date || !form.end_date) return null
-    return existingRentals.find(r =>
+    return list.find(r =>
       r.id !== rental?.id &&
       r.camera_id === form.camera_id &&
       (r.status === 'booked' || r.status === 'active') &&
       rangesOverlap(form.start_date, form.end_date, r.start_date, r.end_date)
     )
   }
+
+  // คิวชนที่คำนวณสดๆ ระหว่างกรอกฟอร์ม (ใช้แสดงคำเตือน ไม่ได้บล็อกการกด)
+  const liveConflict = findDateConflict()
 
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setSaving(true)
@@ -199,7 +218,15 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       const returnTime = normalizeTime(form.return_time)
       if (pickupTime === undefined) throw new Error('รูปแบบเวลารับไม่ถูกต้อง — พิมพ์เช่น 13:00 หรือ 1330')
       if (returnTime === undefined) throw new Error('รูปแบบเวลาคืนไม่ถูกต้อง — พิมพ์เช่น 13:00 หรือ 1330')
-      const conflict = findDateConflict()
+      // เช็คด้วยข้อมูล "สด" ก่อนบันทึก — ไม่ใช่ภาพนิ่งตอนเปิดฟอร์ม
+      // เปิดฟอร์มค้างไว้แล้วมีคนจองแทรก ถ้าใช้ของเดิมจะเช็คไม่เจอ
+      let latest = existingRentals
+      try {
+        latest = await getRentals()
+        setExistingRentals(latest)
+      } catch { /* ดึงไม่ได้ก็ใช้ของเดิมไปก่อน — ยังมี constraint ใน DB กันอีกชั้น */ }
+
+      const conflict = findDateConflict(latest)
       if (conflict) {
         const cam = conflict.camera?.name || selectedCamera?.name || 'กล้องนี้'
         const cust = conflict.customer?.name ? ` (${conflict.customer.name})` : ''
@@ -302,7 +329,17 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
       onSaved(savedId, !isEdit)
-    } catch (err) { setError(err.message) }
+    } catch (err) {
+      // ฐานข้อมูลปฏิเสธเพราะคิวชน (constraint rentals_no_camera_overlap)
+      // เกิดได้ตอนมีคนจองแทรกในจังหวะเดียวกัน — แปลให้อ่านรู้เรื่อง
+      const raw = err?.message || ''
+      if (/rentals_no_camera_overlap|exclusion constraint/i.test(raw)) {
+        setError(`${selectedCamera?.name || 'กล้องนี้'} ถูกจองในช่วงวันที่นี้ไปแล้ว `
+          + '(มีคนจองแทรกพอดี) — กรุณาปิดหน้านี้แล้วเปิดใหม่เพื่อดูคิวล่าสุด')
+      } else {
+        setError(raw)
+      }
+    }
     finally { setSaving(false) }
   }
 
@@ -476,6 +513,21 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
               <p className="text-[10px] text-gray-400">
                 ⏱ พิมพ์เวลาเองได้เลย เช่น 13:00 / 13.30 / 1330 — เวลาที่กรอกจะแสดงในหนังสือสัญญาและใบเสร็จ (นับวันแบบรวมวันแรก: รับ 16 คืน 19 = 4 วัน)
               </p>
+
+              {/* เตือนคิวชนทันทีที่เลือกกล้อง+วันครบ ไม่ต้องรอกดบันทึกถึงจะรู้ */}
+              {liveConflict && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
+                  <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                  </svg>
+                  <div className="text-xs text-red-700 leading-relaxed">
+                    <span className="font-semibold">คิวชน — จองช่วงนี้ไม่ได้</span><br />
+                    {selectedCamera?.name || 'กล้องนี้'} ถูกจองไว้แล้ว{' '}
+                    {fmtConflictDate(liveConflict.start_date, liveConflict.end_date)}
+                    {liveConflict.customer?.name ? ` โดย ${liveConflict.customer.name}` : ''}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
