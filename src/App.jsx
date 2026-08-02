@@ -14,10 +14,13 @@ import ExpensesPage from './pages/ExpensesPage'
 import NotificationsPage from './pages/NotificationsPage'
 import CalendarPage from './pages/CalendarPage'
 import ServiceBanner from './components/ServiceBanner'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
   useClickSound()
   return (
+    // ชั้นนอกสุด — ดัก error ที่เกิดใน provider/router ด้วย (เต็มจอ)
+    <ErrorBoundary>
     <BrowserRouter>
       <AuthProvider>
         <AppProvider>
@@ -41,5 +44,6 @@ export default function App() {
         </AppProvider>
       </AuthProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

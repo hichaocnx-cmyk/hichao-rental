@@ -3,6 +3,8 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useApp } from '../context/AppContext'
+import DataErrorBanner from './DataErrorBanner'
+import ErrorBoundary from './ErrorBoundary'
 
 const PAGE_TITLES = {
   '/dashboard':     'หน้าหลัก',
@@ -65,10 +67,18 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
         <Topbar onMenuClick={() => setSidebarOpen(true)} title={pageTitle} />
 
+        {/* เตือนเมื่อโหลดข้อมูลบางตารางไม่สำเร็จ — กันระบบพังเงียบ */}
+        <DataErrorBanner />
+
         <main className="flex-1 overflow-y-auto p-4 pb-20 lg:pb-6 lg:p-6">
-          <div key={location.pathname} className="page-enter">
-            <Outlet />
-          </div>
+          {/* ErrorBoundary ชั้นใน: หน้าใดพังก็พังแค่หน้านั้น
+              เมนู/แถบบนยังอยู่ กดไปหน้าอื่นต่อได้ทันที
+              key={pathname} ทำให้ error รีเซ็ตเองเมื่อเปลี่ยนหน้า */}
+          <ErrorBoundary key={location.pathname} compact>
+            <div className="page-enter">
+              <Outlet />
+            </div>
+          </ErrorBoundary>
         </main>
 
         {/* Mobile bottom nav */}

@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Fix rental card action buttons overflowing and mismatched heights on narrow screens: primary action now takes its own full-width row, the three secondary actions sit in an equal 3-column grid, heights locked with h-11/h-10 and labels set to nowrap" >> push_log.txt 2>&1
+git commit -m "Add safety net: ErrorBoundary (outer full-screen + per-route compact) so a JS error no longer blanks the app, and DataErrorBanner surfacing tables that failed to load with a retry button instead of failing silently; delete 199 lines of dead code" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )

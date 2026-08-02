@@ -19,6 +19,14 @@ const localDateStr = (d = new Date()) =>
 // sessionStorage = อยู่แค่แท็บนี้ ปิดแท็บก็หาย จึงไม่มีข้อมูลค้างข้ามวัน
 const CACHE_KEY = 'hichao_cache_v1'
 
+// ชื่อไทยของแต่ละตาราง — ใช้ในแถบเตือนตอนโหลดไม่สำเร็จ
+const TABLE_LABELS = {
+  cameras: 'กล้อง',
+  customers: 'ลูกค้า',
+  rentals: 'รายการเช่า',
+  expenses: 'รายรับ-รายจ่าย',
+}
+
 function readCache() {
   try { return JSON.parse(sessionStorage.getItem(CACHE_KEY)) || null }
   catch { return null }
@@ -49,6 +57,8 @@ export function AppProvider({ children }) {
   const [expenses, setExpenses] = useState(cached?.expenses || [])
   // มี cache แล้วไม่ต้องโชว์ skeleton — เห็นข้อมูลทันที
   const [loading, setLoading] = useState(!cached)
+  // ตารางที่โหลดไม่สำเร็จรอบล่าสุด — ใช้โชว์แถบเตือน ไม่ให้ระบบล้มเงียบ
+  const [loadErrors, setLoadErrors] = useState([])
   const [readIds, setReadIds] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('noti_read') || '[]')) }
     catch { return new Set() }
@@ -75,13 +85,20 @@ export function AppProvider({ children }) {
     results.forEach((res, i) => {
       const [key, , setter] = jobs[i]
       if (res.status === 'fulfilled') { setter(res.value); fresh[key] = res.value }
-      else { failed.push(`${key}: ${res.reason?.message || res.reason}`) }
+      else {
+        failed.push({
+          key,
+          label: TABLE_LABELS[key] || key,
+          detail: `${key}: ${res.reason?.message || res.reason}`,
+        })
+      }
     })
 
-    if (failed.length) console.error('AppContext load error →', failed.join(' | '))
+    if (failed.length) console.error('AppContext load error →', failed.map(f => f.detail).join(' | '))
     // เขียน cache เฉพาะตอนได้ครบทุกตาราง กันไม่ให้ cache ที่ใช้ได้ถูกทับด้วยของไม่ครบ
     if (!failed.length) writeCache(fresh)
 
+    setLoadErrors(failed)
     setLoading(false)
   }, [])
 
@@ -94,6 +111,7 @@ export function AppProvider({ children }) {
     if (authLoading) return            // ยังไม่รู้ว่ามี session ไหม — รอก่อน
     if (!user) {                       // ยังไม่ล็อกอิน / เพิ่งออกจากระบบ
       setCameras([]); setCustomers([]); setRentals([]); setExpenses([])
+      setLoadErrors([])
       clearCache()                     // กันข้อมูลค้างข้ามบัญชี
       setLoading(false)
       return
@@ -263,7 +281,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      cameras, customers, rentals, expenses, loading, stats,
+      cameras, customers, rentals, expenses, loading, stats, loadErrors,
       notifications, unreadCount, readIds, markRead, markAllRead,
       reload: loadAll, reloadCameras, reloadCustomers, reloadRentals, reloadExpenses,
     }}>
