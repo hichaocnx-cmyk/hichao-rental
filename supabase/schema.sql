@@ -55,8 +55,11 @@ create table if not exists rentals (
   customer_id      uuid references customers(id) on delete set null,
   start_date       date not null,
   end_date         date not null,
-  pickup_time      time,
-  return_time      time,
+  -- ⚠️ ของจริงในฐานข้อมูลเป็น text ไม่ใช่ time (ตรวจเมื่อ 2 ส.ค. 2569)
+  -- ความไม่ตรงนี้ทำให้ cron ทำงานไม่ได้ทั้ง auto_update_rental_status
+  -- และ send_queue_reminders (พัง 8,400 ครั้ง) — ดู migration_011.sql
+  pickup_time      text,
+  return_time      text,
   pickup_location  text,
   return_location  text,
   price_per_day    numeric(10,2) not null default 0,
