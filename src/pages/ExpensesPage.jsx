@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
-import { getExpenses, createExpense, updateExpense, deleteExpense } from '../lib/expenses'
+import { useState, useMemo } from 'react'
+import { createExpense, updateExpense, deleteExpense } from '../lib/expenses'
 import { useToast, useConfirm } from '../context/ToastContext'
+import { useApp } from '../context/AppContext'
 
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 
@@ -24,8 +25,10 @@ const BAR_COLORS = [
 export default function ExpensesPage() {
   const toast = useToast()
   const confirm = useConfirm()
-  const [expenses, setExpenses]     = useState([])
-  const [loading, setLoading]       = useState(true)
+  // ใช้ข้อมูลจาก AppContext ที่โหลดไว้ตั้งแต่เปิดแอป
+  // เดิมหน้านี้ยิง getExpenses() เองซ้ำอีกรอบทุกครั้งที่เข้า ทั้งที่มีข้อมูลอยู่แล้ว
+  // และพอแก้รายการแล้ว state สองที่ไม่ตรงกัน — ตัวเลขหน้าหลักกับหน้านี้เพี้ยนได้
+  const { expenses, loading, reloadExpenses } = useApp()
   const [form, setForm]             = useState(EMPTY)
   const [editId, setEditId]         = useState(null)
   const [showForm, setShowForm]     = useState(false)
@@ -34,14 +37,6 @@ export default function ExpensesPage() {
   const [filterMonth, setFilterMonth] = useState(() => TODAY.slice(0, 7))
   const [search, setSearch]         = useState('')
   const [newCategory, setNewCategory] = useState('')
-
-  const load = async () => {
-    setLoading(true)
-    try { setExpenses(await getExpenses()) } catch(e) { console.error(e) }
-    finally { setLoading(false) }
-  }
-
-  useEffect(() => { load() }, [])
 
   const set = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -118,7 +113,7 @@ export default function ExpensesPage() {
       const payload = { date: form.date, amount: Number(form.amount), category, note: form.note.trim() || null }
       if (editId) await updateExpense(editId, payload)
       else await createExpense(payload)
-      await load(); closeForm()
+      await reloadExpenses(); closeForm()
     } catch(err) { setError(err.message) }
     finally { setSaving(false) }
   }
@@ -127,7 +122,7 @@ export default function ExpensesPage() {
     const ok = await confirm({ title: 'ลบรายการรายจ่าย?', confirmLabel: 'ลบเลย', variant: 'danger' })
     if (!ok) return
     try {
-      await deleteExpense(id); await load()
+      await deleteExpense(id); await reloadExpenses()
       toast.success('ลบรายการแล้ว')
     } catch(e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
   }

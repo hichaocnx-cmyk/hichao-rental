@@ -180,7 +180,8 @@ function CamIcon({ className = 'w-5 h-5' }) {
 }
 
 export default function RentalsPage() {
-  const { rentals, loading, reload, notifications, unreadCount, readIds, markRead, markAllRead } = useApp()
+  const { rentals, cameras, loading, reload, notifications, unreadCount, readIds, markRead, markAllRead,
+          patchRental, patchCamera, removeRentalLocal } = useApp()
   const toast = useToast()
   const confirm = useConfirm()
 
@@ -286,13 +287,27 @@ export default function RentalsPage() {
       cancelLabel: 'ยกเลิก',
     })
     if (!ok) return
+
+    // ── optimistic update ──────────────────────────────────────
+    // อัปเดตหน้าจอก่อนเลย แล้วค่อยยิงไป server
+    // ถ้าพลาดจะย้อนค่าเดิมคืนให้ พร้อมบอกผู้ใช้ว่าย้อนแล้ว
+    // (เดิมต้องรอ server + reload ทั้งตาราง ~49 KB ก่อนจอถึงจะขยับ)
+    const prevRental = { status: rental.status }
+    const prevCameraStatus = cameras.find(c => c.id === rental.camera_id)?.status
+
+    patchRental(rental.id, { status: 'active' })
+    if (rental.camera_id) patchCamera(rental.camera_id, { status: 'rented' })
+    celebrate()
+
     try {
       await updateRental(rental.id, { status: 'active' })
-      await updateCamera(rental.camera_id, { status: 'rented' })
-      await reload()
-      celebrate()
+      if (rental.camera_id) await updateCamera(rental.camera_id, { status: 'rented' })
       toast.success(`ส่งกล้อง ${rental.camera?.name} ให้ลูกค้าแล้ว`)
-    } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
+    } catch (e) {
+      patchRental(rental.id, prevRental)
+      if (rental.camera_id && prevCameraStatus) patchCamera(rental.camera_id, { status: prevCameraStatus })
+      toast.error('บันทึกไม่สำเร็จ ย้อนกลับให้แล้ว: ' + e.message)
+    }
   }
 
   const handleReturn = async (rental) => {
@@ -303,16 +318,28 @@ export default function RentalsPage() {
       cancelLabel: 'ยกเลิก',
     })
     if (!ok) return
+
+    const returnUpdate = { status: 'returned' }
+    if (Number(rental.insurance) > 0) returnUpdate.insurance_returned = true
+
+    const prevRental = { status: rental.status, insurance_returned: rental.insurance_returned }
+    const prevCameraStatus = cameras.find(c => c.id === rental.camera_id)?.status
+
+    patchRental(rental.id, returnUpdate)
+    if (rental.camera_id) patchCamera(rental.camera_id, { status: 'available' })
+    setActiveTab('returned')
+    celebrate()
+
     try {
-      const returnUpdate = { status: 'returned' }
-      if (Number(rental.insurance) > 0) returnUpdate.insurance_returned = true
       await updateRental(rental.id, returnUpdate)
-      await updateCamera(rental.camera_id, { status: 'available' })
-      await reload()
-      setActiveTab('returned')
-      celebrate()
+      if (rental.camera_id) await updateCamera(rental.camera_id, { status: 'available' })
       toast.success(`รับ ${rental.camera?.name} คืนเรียบร้อย`)
-    } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
+    } catch (e) {
+      patchRental(rental.id, prevRental)
+      if (rental.camera_id && prevCameraStatus) patchCamera(rental.camera_id, { status: prevCameraStatus })
+      setActiveTab('current')
+      toast.error('บันทึกไม่สำเร็จ ย้อนกลับให้แล้ว: ' + e.message)
+    }
   }
 
   const handleSendDailySummary = async () => {
@@ -361,11 +388,24 @@ export default function RentalsPage() {
       ),
     })
     if (!ok) return
+
+    const prevCameraStatus = cameras.find(c => c.id === rental.camera_id)?.status
+    const freeCamera = rental.status === 'active' && rental.camera_id
+
+    removeRentalLocal(rental.id)
+    if (freeCamera) patchCamera(rental.camera_id, { status: 'available' })
+
     try {
-      if (rental.status === 'active' && rental.camera_id) await updateCamera(rental.camera_id, { status: 'available' })
-      await deleteRental(rental.id); await reload()
+      if (freeCamera) await updateCamera(rental.camera_id, { status: 'available' })
+      await deleteRental(rental.id)
       toast.success('ลบรายการเช่าแล้ว')
-    } catch (e) { toast.error('เกิดข้อผิดพลาด: ' + e.message) }
+    } catch (e) {
+      // ลบไม่สำเร็จ — ดึงข้อมูลจริงกลับมาทั้งชุด เพราะแถวที่หายไปแล้ว
+      // สร้างคืนจากหน่วยความจำไม่ได้อย่างมั่นใจ (join camera/customer)
+      if (freeCamera && prevCameraStatus) patchCamera(rental.camera_id, { status: prevCameraStatus })
+      await reload()
+      toast.error('ลบไม่สำเร็จ ดึงข้อมูลกลับมาแล้ว: ' + e.message)
+    }
   }
 
   const handleSendLine = async (n) => {

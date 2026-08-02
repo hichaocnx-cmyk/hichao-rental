@@ -102,6 +102,20 @@ export function AppProvider({ children }) {
     setLoading(false)
   }, [])
 
+  // ── แก้ทีละแถวใน state (ไม่ยิง network) ────────────────────────
+  // ใช้ 2 ที่: optimistic update ตอนผู้ใช้กดปุ่ม และ realtime ตอน server เปลี่ยนข้อมูล
+  // merge ไม่ใช่ replace เพราะแถว rentals ในหน่วยความจำมี camera/customer
+  // ที่ join มาด้วย ซึ่ง payload ของ realtime ไม่มีติดมา
+  const patchRental = useCallback((id, patch) => {
+    setRentals(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)))
+  }, [])
+  const patchCamera = useCallback((id, patch) => {
+    setCameras(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)))
+  }, [])
+  const removeRentalLocal = useCallback((id) => {
+    setRentals(prev => prev.filter(r => r.id !== id))
+  }, [])
+
   const reloadCameras = useCallback(async () => { setCameras(await getCameras()) }, [])
   const reloadCustomers = useCallback(async () => { setCustomers(await getCustomers()) }, [])
   const reloadRentals = useCallback(async () => { setRentals(await getRentals()) }, [])
@@ -137,19 +151,53 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!user) return                  // ยังไม่ล็อกอิน ไม่ต้องเปิด websocket
     const timers = {}
-    const debouncedReload = (key, fetcher, setter) => () => {
+
+    // เผื่อกรณีที่ apply delta ไม่ได้ (แถวใหม่ที่ยังไม่มี join) — ดึงทั้งตาราง
+    const scheduleFullReload = (key, fetcher, setter) => {
       clearTimeout(timers[key])
       timers[key] = setTimeout(() => {
         fetcher().then(setter).catch(console.error)
       }, 800)
     }
 
+    // ⚠️ ห้ามเปลี่ยนกลับไปดึงทั้งตารางทุก event
+    // เดิม: 1 event = GET rentals ใหม่ทั้งตาราง (~49 KB ที่ 57 รายการ)
+    // ซึ่ง pg_cron เปลี่ยนสถานะให้ตลอด 24 ชม. และทุกครั้งที่เรากดปุ่มเองก็ยิงซ้ำอีก
+    // ตอนนี้ใช้ payload.new ที่ส่งมากับ event เลย = 0 ไบต์เพิ่ม
+    const onRentalChange = (payload) => {
+      const { eventType, new: row, old } = payload
+      if (eventType === 'DELETE') { setRentals(prev => prev.filter(r => r.id !== old?.id)); return }
+      if (!row?.id) return
+      setRentals(prev => {
+        const i = prev.findIndex(r => r.id === row.id)
+        if (i === -1) {
+          // แถวใหม่ — ต้องดึงเพื่อเอา camera/customer ที่ join มาด้วย
+          scheduleFullReload('rentals', getRentals, setRentals)
+          return prev
+        }
+        const next = [...prev]
+        next[i] = { ...next[i], ...row }   // เก็บ join เดิมไว้
+        return next
+      })
+    }
+
+    const onCameraChange = (payload) => {
+      const { eventType, new: row, old } = payload
+      if (eventType === 'DELETE') { setCameras(prev => prev.filter(c => c.id !== old?.id)); return }
+      if (!row?.id) return
+      setCameras(prev => {
+        const i = prev.findIndex(c => c.id === row.id)
+        if (i === -1) { scheduleFullReload('cameras', getCameras, setCameras); return prev }
+        const next = [...prev]
+        next[i] = { ...next[i], ...row }
+        return next
+      })
+    }
+
     const channel = supabase
       .channel('realtime-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rentals' },
-        debouncedReload('rentals', getRentals, setRentals))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cameras' },
-        debouncedReload('cameras', getCameras, setCameras))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rentals' }, onRentalChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cameras' }, onCameraChange)
       .subscribe()
 
     return () => {
@@ -284,6 +332,7 @@ export function AppProvider({ children }) {
       cameras, customers, rentals, expenses, loading, stats, loadErrors,
       notifications, unreadCount, readIds, markRead, markAllRead,
       reload: loadAll, reloadCameras, reloadCustomers, reloadRentals, reloadExpenses,
+      patchRental, patchCamera, removeRentalLocal,
     }}>
       {children}
     </AppContext.Provider>
