@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Repair automatic deliver/return: the auto-rental-status cron job was missing entirely and the function crashed every run because pickup_time/return_time are text in the database, not time as schema.sql claimed. Recreate the job, cast properly, correct schema.sql. Also applied the overlap exclusion constraint on production" >> push_log.txt 2>&1
+git commit -m "Overlapping bookings are now allowed and only warned about, per shop workflow: drop the exclusion constraint on production (migration_012), stop throwing on conflict, soften the in-form notice to amber with a hint that saving is fine, and warn again in a toast after saving" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )

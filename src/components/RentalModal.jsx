@@ -4,6 +4,7 @@ import { getCustomers, createCustomer } from '../lib/customers'
 import { getRentals, createRental, updateRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 import { celebrate } from '../lib/confetti'
+import { useToast } from '../context/ToastContext'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
 
@@ -106,6 +107,7 @@ const fmtConflictDate = (start, end) => {
 }
 
 export default function RentalModal({ rental = null, onClose, onSaved }) {
+  const toast = useToast()
   const isEdit = !!rental
 
   const initDays = isEdit ? calcDaysFromDates(rental.start_date, rental.end_date) : 1
@@ -224,14 +226,12 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       try {
         latest = await getRentals()
         setExistingRentals(latest)
-      } catch { /* ดึงไม่ได้ก็ใช้ของเดิมไปก่อน — ยังมี constraint ใน DB กันอีกชั้น */ }
+      } catch { /* ดึงไม่ได้ก็ใช้ของเดิมไปก่อน */ }
 
+      // ⚠️ คิวชน = "เตือน" ไม่ใช่ "บล็อก" (ตามที่ร้านเลือกไว้)
+      // บางครั้งต้องจองทับจริง เช่น ลูกค้าคืนเร็วกว่ากำหนด หรือนัดส่งต่อกันเอง
+      // เก็บผลไว้แจ้งหลังบันทึกสำเร็จ แทนการโยน error ขวางไว้
       const conflict = findDateConflict(latest)
-      if (conflict) {
-        const cam = conflict.camera?.name || selectedCamera?.name || 'กล้องนี้'
-        const cust = conflict.customer?.name ? ` (${conflict.customer.name})` : ''
-        throw new Error(`${cam} มีคิวชนวันที่ ${fmtConflictDate(conflict.start_date, conflict.end_date)}${cust}`)
-      }
 
       let customerId = form.customer_id
       if (!isEdit) {
@@ -328,18 +328,15 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         celebrate()
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
-      onSaved(savedId, !isEdit)
-    } catch (err) {
-      // ฐานข้อมูลปฏิเสธเพราะคิวชน (constraint rentals_no_camera_overlap)
-      // เกิดได้ตอนมีคนจองแทรกในจังหวะเดียวกัน — แปลให้อ่านรู้เรื่อง
-      const raw = err?.message || ''
-      if (/rentals_no_camera_overlap|exclusion constraint/i.test(raw)) {
-        setError(`${selectedCamera?.name || 'กล้องนี้'} ถูกจองในช่วงวันที่นี้ไปแล้ว `
-          + '(มีคนจองแทรกพอดี) — กรุณาปิดหน้านี้แล้วเปิดใหม่เพื่อดูคิวล่าสุด')
-      } else {
-        setError(raw)
+      if (conflict) {
+        const cam = conflict.camera?.name || selectedCamera?.name || 'กล้องนี้'
+        const cust = conflict.customer?.name ? ` (${conflict.customer.name})` : ''
+        toast.warning(`บันทึกแล้ว — แต่ ${cam} มีคิวทับช่วง `
+          + `${fmtConflictDate(conflict.start_date, conflict.end_date)}${cust}`, 7000)
       }
-    }
+
+      onSaved(savedId, !isEdit)
+    } catch (err) { setError(err?.message || 'บันทึกไม่สำเร็จ') }
     finally { setSaving(false) }
   }
 
@@ -516,15 +513,17 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
               {/* เตือนคิวชนทันทีที่เลือกกล้อง+วันครบ ไม่ต้องรอกดบันทึกถึงจะรู้ */}
               {liveConflict && (
-                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
-                  <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                   </svg>
-                  <div className="text-xs text-red-700 leading-relaxed">
-                    <span className="font-semibold">คิวชน — จองช่วงนี้ไม่ได้</span><br />
-                    {selectedCamera?.name || 'กล้องนี้'} ถูกจองไว้แล้ว{' '}
+                  <div className="text-xs text-amber-800 leading-relaxed">
+                    <span className="font-semibold">ระวัง — ช่วงนี้มีคิวอยู่แล้ว</span><br />
+                    {selectedCamera?.name || 'กล้องนี้'} ถูกจองไว้{' '}
                     {fmtConflictDate(liveConflict.start_date, liveConflict.end_date)}
                     {liveConflict.customer?.name ? ` โดย ${liveConflict.customer.name}` : ''}
+                    <br />
+                    <span className="text-amber-600">กดบันทึกต่อได้ตามปกติ ถ้าตั้งใจจองทับ</span>
                   </div>
                 </div>
               )}
