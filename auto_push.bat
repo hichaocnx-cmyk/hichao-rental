@@ -10,7 +10,7 @@ call npm.cmd run build >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=BUILD_FAILED >> push_log.txt & exit )
 echo === COMMIT === >> push_log.txt
 git add -A >> push_log.txt 2>&1
-git commit -m "Overlapping bookings are now allowed and only warned about, per shop workflow: drop the exclusion constraint on production (migration_012), stop throwing on conflict, soften the in-form notice to amber with a hint that saving is fine, and warn again in a toast after saving" >> push_log.txt 2>&1
+git commit -m "Backup: record when the last one ran and show it under the sidebar button, amber past 7 days and red past 14 so it is hard to forget; refuse to write a file when every table comes back empty (an expired session returns 0 rows silently); add BACKUP.md covering the Google Drive setup" >> push_log.txt 2>&1
 echo === PUSH === >> push_log.txt
 git push origin main >> push_log.txt 2>&1
 if errorlevel 1 ( echo RESULT=PUSH_FAILED >> push_log.txt ) else ( echo RESULT=PUSH_OK >> push_log.txt )

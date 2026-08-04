@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
-import { exportBackup } from '../lib/backup'
+import { exportBackup, getLastBackup, backupUrgency, backupLabel } from '../lib/backup'
 
 const navItems = [
   {
@@ -68,17 +68,30 @@ export default function Sidebar({ open, onClose }) {
   const { logout, user } = useAuth()
   const toast = useToast()
   const [backingUp, setBackingUp] = useState(false)
+  // เวลาสำรองล่าสุด — เก็บใน state เพื่อให้ป้ายอัปเดตทันทีหลังกด
+  const [lastBackup, setLastBackup] = useState(() => getLastBackup())
+
   const handleBackup = async () => {
     if (backingUp) return
     setBackingUp(true)
     try {
       const c = await exportBackup()
+      setLastBackup(getLastBackup())
       toast.success(`สำรองข้อมูลแล้ว · กล้อง ${c.cameras} · ลูกค้า ${c.customers} · เช่า ${c.rentals} · รายจ่าย ${c.expenses}`)
     } catch (e) {
       toast.error('สำรองข้อมูลไม่สำเร็จ: ' + e.message)
     } finally {
       setBackingUp(false)
     }
+  }
+
+  // สี/ข้อความของป้ายเตือน
+  const urgency = backupUrgency(lastBackup)
+  const BADGE = {
+    never:  'text-red-500',
+    danger: 'text-red-500',
+    warn:   'text-amber-600',
+    ok:     'text-gray-400',
   }
   const { unreadCount } = useApp()
 
@@ -171,6 +184,19 @@ export default function Sidebar({ open, onClose }) {
             )}
             {backingUp ? 'กำลังสำรอง...' : 'สำรองข้อมูล'}
           </button>
+
+          {/* ป้ายบอกว่าสำรองล่าสุดเมื่อไหร่ — แก้ปัญหา "ลืมกด"
+              เกิน 7 วันเป็นเหลือง เกิน 14 วันเป็นแดง */}
+          {!backingUp && (
+            <p className={`px-3 -mt-1 mb-1 text-[10px] flex items-center gap-1 ${BADGE[urgency]}`}>
+              {urgency !== 'ok' && (
+                <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+              )}
+              {backupLabel(lastBackup)}
+            </p>
+          )}
           <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
