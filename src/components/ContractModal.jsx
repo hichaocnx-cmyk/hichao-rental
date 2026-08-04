@@ -404,7 +404,7 @@ export default function ContractModal({ rental, onClose }) {
             </div>
           </div>
 
-          {/* fees — คำนวณให้ตรงกับระบบ (RentalModal/InvoiceModal):
+          {/* fees — คำนวณให้ตรงกับระบบ (RentalModal):
               ค่าเช่า → หักส่วนลด → ค่าเช่าสุทธิ (= rental.total_price)
               → หักมัดจำ + บวกประกัน + บวกค่าส่ง → ยอดชำระวันรับอุปกรณ์ (= rental.due_on_pickup) */}
           <div style={sec}><span style={secBar} />ค่าใช้จ่าย</div>
