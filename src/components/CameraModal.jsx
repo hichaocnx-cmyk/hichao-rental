@@ -69,8 +69,29 @@ export default function CameraModal({ camera, onClose, onSaved }) {
         price_ladder: Object.keys(ladderPayload).length ? ladderPayload : null,
       }
 
-      if (isEdit) await updateCamera(camera.id, payload)
-      else        await createCamera(payload)
+      const save = async (body) => {
+        if (isEdit) await updateCamera(camera.id, body)
+        else        await createCamera(body)
+      }
+
+      try {
+        await save(payload)
+      } catch (err) {
+        // ฐานข้อมูลยังไม่มีคอลัมน์ price_ladder (ยังไม่ได้รัน migration_014)
+        // → บันทึกข้อมูลกล้องส่วนที่เหลือให้สำเร็จไว้ก่อน แล้วค่อยบอกว่าตารางราคายังไม่ถูกเก็บ
+        // ลบ try/catch ชั้นนี้ทิ้งได้เมื่อรัน migration_014 บน production แล้ว
+        const msg = String(err?.message || '') + String(err?.details || '')
+        const columnMissing = msg.includes('price_ladder') &&
+          /column|schema cache|does not exist/i.test(msg)
+        if (!columnMissing) throw err
+
+        const { price_ladder, ...withoutLadder } = payload
+        await save(withoutLadder)
+        setError('บันทึกข้อมูลกล้องแล้ว แต่ยังเก็บ "ตารางราคาขั้นบันได" ไม่ได้ ' +
+          'เพราะฐานข้อมูลยังไม่มีคอลัมน์ price_ladder — ให้รัน supabase/migration_014.sql ก่อน')
+        setSaving(false)
+        return
+      }
 
       onSaved()
     } catch (err) {

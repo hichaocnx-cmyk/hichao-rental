@@ -12,19 +12,48 @@ const EMPTY_CUSTOMER = { name: '', phone: '' }
 // เก็บที่ cameras.price_ladder (แก้ไขได้จากหน้า "กล้องทั้งหมด" → แก้ไขกล้อง
 // ไม่ต้องแก้โค้ด/deploy ใหม่แล้ว) รูปแบบ {"1":600,"2":1200,...,"10":4100}
 // คีย์ = จำนวนวัน, ค่า = ราคารวมของจำนวนวันนั้น (ไม่ใช่ราคาต่อวัน)
-// กล้องที่ไม่ได้ตั้งไว้ (price_ladder ว่าง) → getLadderPrice คืน null เสมอ
-// แล้ว getRentalPrice() จะ fallback ไปคิด price_per_day × จำนวนวันแทน
-const getLadderPrice = (camera, days) => {
+// กล้องที่ไม่ได้ตั้งไว้ (price_ladder ว่าง) → ตกไปใช้ LEGACY_PRICES ด้านล่างก่อน
+// ถ้ายังไม่เข้าเงื่อนไขไหนเลย getLadderPrice คืน null แล้ว getRentalPrice()
+// จะ fallback ไปคิด price_per_day × จำนวนวันแทน
+
+// ── ตารางราคาเดิม (ชั่วคราว) ──────────────────────────────────
+// นี่คือตารางที่เคย hardcode ไว้ในไฟล์นี้ เก็บไว้เป็น "ตาข่ายกันตก" เฉพาะกรณี
+// ที่กล้องยังไม่มี price_ladder ในฐานข้อมูล (เช่น ยังไม่ได้รัน migration_014)
+// เพื่อไม่ให้ราคาเช่าเพี้ยนไปคิดเป็น price_per_day × จำนวนวันระหว่างช่วงเปลี่ยนผ่าน
+// เมื่อกล้องทุกตัวมีตารางของตัวเองในฐานข้อมูลแล้ว ลบบล็อกนี้ทิ้งได้เลย
+const LEGACY_PRICES = {
+  griii:  { 1:600,  2:1200, 3:1500, 4:2000, 5:2500, 6:3000, 7:3200, 8:3600, 9:3900, 10:4100 },
+  griiix: { 1:700,  2:1400, 3:2000, 4:2200, 5:2500, 6:3000, 7:3500, 8:3800, 9:3990, 10:4200 },
+  griv:   { 1:790,  2:1500, 3:2000, 4:2500, 5:3000, 6:3500, 7:3990, 8:4200, 9:4400, 10:4500 },
+  canon:  { 1:299,  2:499,  3:699,  4:850,  5:1000, 6:1200, 7:1400 },
+  osmo:   { 1:450,  2:900,  3:1200, 4:1600, 5:1900, 6:2200, 7:2500, 8:2800, 9:3000, 10:3300 },
+}
+
+const legacyKey = (name) => {
+  const n = name?.toLowerCase() || ''
+  if (n.includes('gr iiix') || n.includes('gr3x') || n.includes('griiix')) return 'griiix'
+  if (n.includes('gr iv')   || n.includes('gr4')  || n.includes('griv'))   return 'griv'
+  if (n.includes('gr iii')  || n.includes('gr3')  || n.includes('griii'))  return 'griii'
+  if (n.includes('ixy'))                                                   return 'canon'
+  if (n.includes('osmo') || n.includes('pocket'))                          return 'osmo'
+  return null
+}
+
+const ladderOf = (camera) => {
   const ladder = camera?.price_ladder
-  if (!ladder || typeof ladder !== 'object') return null
-  const v = ladder[String(days)]
+  if (ladder && typeof ladder === 'object' && Object.keys(ladder).length > 0) return ladder
+  const key = legacyKey(camera?.name)
+  return key ? LEGACY_PRICES[key] : null
+}
+
+const getLadderPrice = (camera, days) => {
+  const ladder = ladderOf(camera)
+  if (!ladder) return null
+  const v = ladder[String(days)] ?? ladder[days]
   return v == null ? null : Number(v)
 }
 
-const hasLadder = (camera) => {
-  const ladder = camera?.price_ladder
-  return !!ladder && typeof ladder === 'object' && Object.keys(ladder).length > 0
-}
+const hasLadder = (camera) => ladderOf(camera) !== null
 
 const addDays = (dateStr, n) => {
   if (!dateStr) return ''
