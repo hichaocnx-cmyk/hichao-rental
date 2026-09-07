@@ -242,6 +242,21 @@ export default function CamerasPage() {
                 <p className="text-base font-bold text-gray-700 mt-0.5">฿{Number(selected.insurance || 0).toLocaleString()}</p>
               </div>
             </div>
+            {selected.price_ladder && Object.keys(selected.price_ladder).length > 0 && (
+              <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                <p className="text-xs text-gray-400 mb-2">ตารางราคาขั้นบันได</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.entries(selected.price_ladder)
+                    .sort((a, b) => Number(a[0]) - Number(b[0]))
+                    .map(([day, price]) => (
+                      <div key={day} className="text-center">
+                        <p className="text-[10px] text-gray-400">{day} วัน</p>
+                        <p className="text-xs font-semibold text-gray-700">฿{Number(price).toLocaleString()}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
             {selected.notes && (
               <div className="bg-gray-50 rounded-xl p-3 mb-4">
                 <p className="text-xs text-gray-400 mb-1">หมายเหตุ</p>

@@ -3,6 +3,26 @@ import { createCamera, updateCamera } from '../lib/cameras'
 
 const DEFAULT_FORM = { name: '', brand: '', model: '', price_per_day: '', deposit: '', insurance: '', status: 'available', notes: '' }
 
+// ── ตารางราคาขั้นบันได (สูงสุด 10 วัน) ──────────────────────────
+// เก็บใน cameras.price_ladder เป็น {"1":600,"2":1200,...,"10":4100}
+// คีย์ = จำนวนวัน, ค่า = "ราคารวม" ของจำนวนวันนั้น (ไม่ใช่ราคาต่อวัน)
+// เว้นวันไหนว่างไว้ได้ — ถ้าไม่ตั้งเลยสักวัน ระบบจะคิดราคาจาก
+// "ราคาเช่า/วัน" ด้านบน × จำนวนวันแทนอัตโนมัติตอนสร้างรายการเช่า
+const LADDER_DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+const EMPTY_LADDER = Object.fromEntries(LADDER_DAYS.map(d => [d, '']))
+
+function buildInitialLadder(camera) {
+  const base = { ...EMPTY_LADDER }
+  const existing = camera?.price_ladder
+  if (existing && typeof existing === 'object') {
+    for (const d of LADDER_DAYS) {
+      const v = existing[String(d)]
+      if (v != null) base[d] = String(v)
+    }
+  }
+  return base
+}
+
 export default function CameraModal({ camera, onClose, onSaved }) {
   const isEdit = !!camera
   const [form, setForm] = useState(isEdit ? {
@@ -15,16 +35,27 @@ export default function CameraModal({ camera, onClose, onSaved }) {
     status: camera.status || 'available',
     notes: camera.notes || '',
   } : DEFAULT_FORM)
+  const [ladder, setLadder] = useState(() => buildInitialLadder(camera))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  const handleLadderChange = (day, value) => setLadder(l => ({ ...l, [day]: value }))
 
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
     setSaving(true)
     try {
+      // เก็บเฉพาะวันที่กรอกเป็นตัวเลข > 0 — วันที่เว้นว่างไว้ = ไม่ตั้งราคาขั้นบันไดวันนั้น
+      const ladderPayload = {}
+      for (const d of LADDER_DAYS) {
+        const raw = ladder[d]
+        if (raw === '' || raw == null) continue
+        const num = parseFloat(raw)
+        if (!Number.isNaN(num) && num > 0) ladderPayload[String(d)] = num
+      }
+
       const payload = {
         name: form.name.trim(),
         brand: form.brand.trim(),
@@ -34,6 +65,8 @@ export default function CameraModal({ camera, onClose, onSaved }) {
         insurance: parseFloat(form.insurance) || 0,
         status: form.status,
         notes: form.notes.trim() || null,
+        // ไม่มีวันไหนตั้งเลย → null (ไม่ใช้ตารางราคา ระบบคิดจาก price_per_day × จำนวนวันแทน)
+        price_ladder: Object.keys(ladderPayload).length ? ladderPayload : null,
       }
 
       if (isEdit) await updateCamera(camera.id, payload)
@@ -99,6 +132,35 @@ export default function CameraModal({ camera, onClose, onSaved }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">ค่าประกัน (฿)</label>
             <input name="insurance" type="number" min="0" value={form.insurance} onChange={handleChange} placeholder="0" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+          </div>
+
+          {/* ตารางราคาขั้นบันได */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">ตารางราคาขั้นบันได (ไม่บังคับ)</label>
+              <button type="button" onClick={() => setLadder({ ...EMPTY_LADDER })}
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                ล้างตาราง
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-2">
+              ใส่ "ราคารวม" ของแต่ละจำนวนวัน (ไม่ใช่ราคา/วัน) เว้นช่องไหนว่างไว้ได้ —
+              ถ้าไม่ตั้งเลยสักวัน ระบบจะคิดจาก "ราคาเช่า/วัน" ด้านบน × จำนวนวันแทนอัตโนมัติ
+            </p>
+            <div className="grid grid-cols-5 gap-2">
+              {LADDER_DAYS.map(d => (
+                <div key={d}>
+                  <label className="block text-[10px] text-gray-400 mb-1 text-center">{d} วัน</label>
+                  <input
+                    type="number" min="0" inputMode="numeric"
+                    value={ladder[d]}
+                    onChange={e => handleLadderChange(d, e.target.value)}
+                    placeholder="—"
+                    className="w-full px-2 py-1.5 text-xs text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Status */}
