@@ -5,3 +5,7 @@ dist
 
 deploy_log.txt
 deploy_push.bat
+
+# ไฟล์ช่วยงานชั่วคราว (Claude สร้าง) - ไม่ต้องขึ้น repo
+_*.bat
+Claude outputs/

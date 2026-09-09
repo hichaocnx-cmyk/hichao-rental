@@ -206,18 +206,6 @@ export default function CustomersPage() {
                         <p className="font-medium text-gray-800">{c.line_id}</p>
                       </div>
                     )}
-                    {c.id_card && (
-                      <div className="bg-white rounded-xl px-3 py-2 border border-gray-100">
-                        <p className="text-[10px] text-gray-400 mb-0.5">เลขบัตร</p>
-                        <p className="font-medium text-gray-800">{c.id_card.slice(0,3)}•••{c.id_card.slice(-2)}</p>
-                      </div>
-                    )}
-                    {c.address && (
-                      <div className="bg-white rounded-xl px-3 py-2 border border-gray-100 col-span-2">
-                        <p className="text-[10px] text-gray-400 mb-0.5">ที่อยู่</p>
-                        <p className="font-medium text-gray-800 text-xs">{c.address}</p>
-                      </div>
-                    )}
                   </div>
 
                   {/* Recent rentals */}

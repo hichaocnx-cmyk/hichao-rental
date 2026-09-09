@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
-import { exportBackup, getLastBackup, backupUrgency, backupLabel } from '../lib/backup'
+import { exportBackup, fetchLastBackup, backupUrgency, backupLabel } from '../lib/backup'
 
 const navItems = [
   {
@@ -68,15 +68,23 @@ export default function Sidebar({ open, onClose }) {
   const { logout, user } = useAuth()
   const toast = useToast()
   const [backingUp, setBackingUp] = useState(false)
-  // เวลาสำรองล่าสุด — เก็บใน state เพื่อให้ป้ายอัปเดตทันทีหลังกด
-  const [lastBackup, setLastBackup] = useState(() => getLastBackup())
+  // เวลาสำรองล่าสุด — อ่านจาก backup_log ใน DB (เห็นทั้งอัตโนมัติ + กดเอง
+  // จากเครื่อง/เบราว์เซอร์ไหนก็ได้ ไม่เหมือนเดิมที่เคยอ่านจาก localStorage
+  // เครื่องเดียว ทำให้สลับเครื่องแล้วป้ายกลับไปเป็น "ยังไม่เคยสำรอง")
+  // undefined = ยังโหลดไม่เสร็จ (ไม่โชว์ป้ายเลย กันป้าย "ยังไม่เคยสำรอง" กระพริบ
+  // ก่อนของจริงมาถึง), null = โหลดเสร็จแล้วแต่ไม่เคยมี backup จริงๆ
+  const [lastBackup, setLastBackup] = useState(undefined)
+
+  useEffect(() => {
+    fetchLastBackup().then(setLastBackup)
+  }, [])
 
   const handleBackup = async () => {
     if (backingUp) return
     setBackingUp(true)
     try {
       const c = await exportBackup()
-      setLastBackup(getLastBackup())
+      setLastBackup(await fetchLastBackup())
       toast.success(`สำรองข้อมูลแล้ว · กล้อง ${c.cameras} · ลูกค้า ${c.customers} · เช่า ${c.rentals} · รายจ่าย ${c.expenses}`)
     } catch (e) {
       toast.error('สำรองข้อมูลไม่สำเร็จ: ' + e.message)
@@ -187,7 +195,7 @@ export default function Sidebar({ open, onClose }) {
 
           {/* ป้ายบอกว่าสำรองล่าสุดเมื่อไหร่ — แก้ปัญหา "ลืมกด"
               เกิน 7 วันเป็นเหลือง เกิน 14 วันเป็นแดง */}
-          {!backingUp && (
+          {!backingUp && lastBackup !== undefined && (
             <p className={`px-3 -mt-1 mb-1 text-[10px] flex items-center gap-1 ${BADGE[urgency]}`}>
               {urgency !== 'ok' && (
                 <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -259,9 +259,8 @@ export default function ContractModal({ rental, onClose }) {
             <div className="bg-gray-50 rounded-xl p-3.5">
               <p className="text-xs font-bold text-brand-500 mb-2">ผู้เช่า</p>
               <RowL k="ชื่อ" v={cust.name} />
-              <RowL k="บัตรประชาชน" v={cust.id_card} />
               <RowL k="โทร" v={cust.phone} />
-              <RowL k="ที่อยู่" v={cust.address} />
+              <RowL k="LINE" v={cust.line_id} />
             </div>
             <div className="bg-gray-50 rounded-xl p-3.5">
               <p className="text-xs font-bold text-brand-500 mb-2">อุปกรณ์ & ระยะเวลา</p>
@@ -272,9 +271,9 @@ export default function ContractModal({ rental, onClose }) {
               <RowL k="ยอดชำระวันรับ" v={baht(dueOnPickup)} />
             </div>
 
-            {(!cust.id_card || !cust.address) && (
+            {!cust.phone && (
               <div className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                ⚠️ ลูกค้ายังไม่มี{!cust.id_card ? ' เลขบัตรประชาชน' : ''}{(!cust.id_card && !cust.address) ? ' /' : ''}{!cust.address ? ' ที่อยู่' : ''} — แนะนำเพิ่มในข้อมูลลูกค้าให้ครบก่อน
+                ⚠️ ลูกค้ายังไม่มีเบอร์โทร — แนะนำเพิ่มในข้อมูลลูกค้าก่อนทำสัญญา
               </div>
             )}
 
@@ -383,9 +382,8 @@ export default function ContractModal({ rental, onClose }) {
             <div style={{ ...card, flex:1 }}>
               <div style={h3}>ผู้เช่า</div>
               <div style={row}><span style={kCol}>ชื่อ</span><span style={vCol}>{cust.name || '—'}</span></div>
-              <div style={row}><span style={kCol}>บัตรประชาชน</span><span style={vCol}>{cust.id_card || '—'}</span></div>
               <div style={row}><span style={kCol}>โทร</span><span style={vCol}>{cust.phone || '—'}</span></div>
-              <div style={row}><span style={kCol}>ที่อยู่</span><span style={vCol}>{cust.address || '—'}</span></div>
+              <div style={row}><span style={kCol}>LINE</span><span style={vCol}>{cust.line_id || '—'}</span></div>
             </div>
           </div>
 

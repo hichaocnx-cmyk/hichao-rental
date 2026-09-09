@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { createCustomer, updateCustomer } from '../lib/customers'
 
-const DEFAULT = { name: '', phone: '', line_id: '', id_card: '', address: '', notes: '' }
+// ไม่เก็บเลขบัตรประชาชน/ที่อยู่ของลูกค้าแล้ว (ก.ย. 2569) — ร้านไม่ได้ใช้งานจริง
+// เก็บข้อมูลส่วนบุคคลเท่าที่จำเป็นเท่านั้น ลดความเสี่ยงถ้าข้อมูลรั่ว
+const DEFAULT = { name: '', phone: '', line_id: '', notes: '' }
 
 export default function CustomerModal({ customer, onClose, onSaved }) {
   const isEdit = !!customer
   const [form, setForm] = useState(isEdit ? {
     name: customer.name || '', phone: customer.phone || '', line_id: customer.line_id || '',
-    id_card: customer.id_card || '', address: customer.address || '', notes: customer.notes || ''
+    notes: customer.notes || ''
   } : DEFAULT)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -17,7 +19,7 @@ export default function CustomerModal({ customer, onClose, onSaved }) {
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setSaving(true)
     try {
-      const payload = { name: form.name.trim(), phone: form.phone.trim() || null, line_id: form.line_id.trim() || null, id_card: form.id_card.trim() || null, address: form.address.trim() || null, notes: form.notes.trim() || null }
+      const payload = { name: form.name.trim(), phone: form.phone.trim() || null, line_id: form.line_id.trim() || null, notes: form.notes.trim() || null }
       isEdit ? await updateCustomer(customer.id, payload) : await createCustomer(payload)
       onSaved()
     } catch (err) { setError(err.message) }
@@ -48,14 +50,6 @@ export default function CustomerModal({ customer, onClose, onSaved }) {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">LINE ID</label>
               <input name="line_id" value={form.line_id} onChange={handleChange} placeholder="@lineid" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">เลขบัตรประชาชน</label>
-            <input name="id_card" value={form.id_card} onChange={handleChange} placeholder="1-xxxx-xxxxx-xx-x" maxLength={13} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">ที่อยู่</label>
-            <textarea name="address" value={form.address} onChange={handleChange} rows={2} placeholder="ที่อยู่..." className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">หมายเหตุ</label>
