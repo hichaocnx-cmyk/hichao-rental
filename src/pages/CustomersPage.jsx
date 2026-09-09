@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { deleteCustomer } from '../lib/customers'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
@@ -129,7 +129,8 @@ export default function CustomersPage() {
               const avatarColor = getAvatarColor(c.name)
               const isSelected = selected?.id === c.id
               return (
-                <div key={c.id}
+                <Fragment key={c.id}>
+                <div
                   onClick={() => setSelected(isSelected ? null : c)}
                   className={`flex items-center gap-4 px-4 py-3.5 cursor-pointer transition-colors
                     ${isSelected ? 'bg-brand-50/40' : 'hover:bg-gray-50/60'}`}>
@@ -164,17 +165,14 @@ export default function CustomersPage() {
                     </svg>
                   </div>
                 </div>
-              )
-            })}
 
-            {/* Expanded detail */}
-            {selected && (() => {
-              const c = selected
-              const stats = customerStats[c.id] || { count: 0, total: 0, last: null }
-              const customerRentals = rentals
-                .filter(r => r.customer_id === c.id)
-                .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
-              return (
+                {/* รายละเอียด — แสดงใต้ลูกค้าที่กดเลือกทันที
+                    (เดิมถูกวางไว้นอกลูป จึงไปโผล่ล่างสุดใต้รายชื่อทั้งหมด ต้องเลื่อนหาไกล) */}
+                {isSelected && (() => {
+                  const customerRentals = rentals
+                    .filter(r => r.customer_id === c.id)
+                    .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))
+                  return (
                 <div className="bg-gray-50/60 px-4 pt-4 pb-5 border-t border-brand-100">
                   {/* Stats row */}
                   <div className="grid grid-cols-3 gap-2 mb-4">
@@ -249,8 +247,11 @@ export default function CustomersPage() {
                     </button>
                   </div>
                 </div>
+                  )
+                })()}
+                </Fragment>
               )
-            })()}
+            })}
           </div>
 
           <div className="px-4 py-2.5 border-t border-gray-50 text-xs text-gray-300">
