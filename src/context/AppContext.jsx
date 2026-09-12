@@ -4,6 +4,7 @@ import { getCustomers } from '../lib/customers'
 import { getRentals } from '../lib/rentals'
 import { getExpenses } from '../lib/expenses'
 import { supabase } from '../lib/supabaseClient'
+import { cashReceived } from '../lib/revenue'
 import { useAuth } from './AuthContext'
 
 const AppContext = createContext(null)
@@ -214,13 +215,12 @@ export function AppProvider({ children }) {
     const monthExpenses = expenses.filter(e => (e.date || '').slice(0, 7) === monthKey)
     // รายได้แยกตามสถานะ
     const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && (r.start_date || '').slice(0, 7) === monthKey)
-    const returned     = thisMonthRentals.filter(r => r.status === 'returned')
     const active       = thisMonthRentals.filter(r => r.status === 'active')
     const booked       = thisMonthRentals.filter(r => r.status === 'booked')
     const revenueBreakdown = {
-      rentalIncome:  returned.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
-                    + active.reduce((s,r) => s + Number(r.total_price||0) + Number(r.delivery_fee||0), 0)
-                    + booked.reduce((s,r) => s + Number(r.deposit||0), 0),
+      // เงินค่าเช่าที่รับมาแล้วจริง — ใช้นิยามกลางจาก src/lib/revenue.js
+      // (คืนแล้ว/กำลังเช่า = ค่าเช่า+ค่าส่งเต็ม · จองแล้ว = เฉพาะมัดจำที่เก็บมา)
+      rentalIncome:  thisMonthRentals.reduce((s, r) => s + cashReceived(r), 0),
       heldInsurance: active.reduce((s,r) => s + Number(r.insurance||0), 0),
       deposits:      booked.reduce((s,r) => s + Number(r.deposit||0), 0),
     }
