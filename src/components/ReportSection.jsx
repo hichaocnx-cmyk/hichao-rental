@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { rentalRevenue, cashReceived, pendingAmount } from '../lib/revenue'
 
 // ══════════════════════════════════════════════════════════════
 // ReportSection — เดิมคือหน้า "รายงาน" แยกต่างหาก (src/pages/ReportPage.jsx)
@@ -174,16 +175,10 @@ export default function ReportSection() {
         r.status !== 'cancelled' && (r.start_date || '').startsWith(m.prefix)
       )
       const mExpenses = expenses.filter(e => (e.date || '').startsWith(m.prefix))
-      // รายรับ = เงินที่รับแล้วจริง (นิยามเดียวกับการ์ดสถิติด้านบน):
-      // คืนแล้ว/กำลังเช่า = ค่าเช่าเต็ม+ค่าส่ง, จองแล้ว = เฉพาะมัดจำที่รับมา
-      const revenue = mRentals.reduce((s, r) => {
-        const full = Number(r.total_price || 0) + Number(r.delivery_fee || 0)
-        return s + (r.status === 'booked' ? Number(r.deposit || 0) : full)
-      }, 0)
+      // รายรับ = เงินที่รับแล้วจริง (นิยามกลางอยู่ที่ src/lib/revenue.js)
+      const revenue = mRentals.reduce((s, r) => s + cashReceived(r), 0)
       // ยอดรอรับจากคิวจอง (ส่วนที่ยังไม่ได้เก็บ)
-      const pending = mRentals.reduce((s, r) => r.status === 'booked'
-        ? s + Math.max(0, Number(r.total_price || 0) + Number(r.delivery_fee || 0) - Number(r.deposit || 0))
-        : s, 0)
+      const pending = mRentals.reduce((s, r) => s + pendingAmount(r), 0)
       const exp = mExpenses.reduce((s, e) => s + Number(e.amount || 0), 0)
       return { ...m, revenue, pending, expenses: exp, profit: revenue - exp, count: mRentals.length }
     })
@@ -215,7 +210,8 @@ export default function ReportSection() {
         if (!r.camera_id) return
         if (!map[r.camera_id]) map[r.camera_id] = { count: 0, revenue: 0, camera: r.camera }
         map[r.camera_id].count += 1
-        map[r.camera_id].revenue += Number(r.total_price || 0)
+        // รวมค่าส่งด้วย ให้ตรงกับนิยามรายได้ที่ใช้ในกราฟรายเดือน (เดิมตกค่าส่งไป)
+        map[r.camera_id].revenue += rentalRevenue(r)
       })
     return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5)
   }, [rentals, months])

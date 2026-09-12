@@ -1,6 +1,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import { deleteCustomer } from '../lib/customers'
 import { useApp } from '../context/AppContext'
+import { rentalRevenue, isCountable } from '../lib/revenue'
 import EmptyState from '../components/EmptyState'
 import CustomerModal from '../components/CustomerModal'
 import { CustomersSkeleton } from '../components/Skeleton'
@@ -34,9 +35,12 @@ export default function CustomersPage() {
     const map = {}
     rentals.forEach(r => {
       if (!r.customer_id) return
+      // ข้ามรายการที่ยกเลิก — เดิมนับรวมด้วย ทำให้ "จำนวนครั้ง" และ "ยอดรวม" ของลูกค้าสูงเกินจริง
+      // (หน้ารายงานกรอง cancelled ออกอยู่แล้ว ตรงนี้เลยไม่ตรงกัน)
+      if (!isCountable(r)) return
       if (!map[r.customer_id]) map[r.customer_id] = { count: 0, total: 0, last: null }
       map[r.customer_id].count += 1
-      map[r.customer_id].total += Number(r.total_price || 0)
+      map[r.customer_id].total += rentalRevenue(r)
       if (!map[r.customer_id].last || r.start_date > map[r.customer_id].last) {
         map[r.customer_id].last = r.start_date
       }
