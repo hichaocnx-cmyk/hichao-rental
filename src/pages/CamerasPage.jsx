@@ -57,9 +57,19 @@ export default function CamerasPage() {
   })
 
   const handleDelete = async (camera) => {
+    // ⚠️ FK เป็น "on delete set null" — รายการเช่าเก่าจะเหลือ camera_id ว่าง
+    // หน้ารายงาน "กล้องที่ถูกเช่ามากสุด" ข้ามรายการที่ไม่มีกล้อง → รายได้เดือนเก่าหายไปด้วย
+    // เดิมบอกแค่ "กู้คืนไม่ได้" ไม่ได้บอกว่ากระทบประวัติกี่รายการ
+    const linked = rentals.filter(r => r.camera_id === camera.id)
+    const openCount = linked.filter(r => r.status === 'booked' || r.status === 'active').length
     const ok = await confirm({
       title: `ลบกล้อง "${camera.name}"?`,
-      message: 'ไม่สามารถกู้คืนได้หลังจากลบแล้ว',
+      message: linked.length > 0
+        ? `กล้องตัวนี้ผูกกับรายการเช่า ${linked.length} รายการ`
+          + (openCount > 0 ? ` (ยังไม่จบ ${openCount} รายการ)` : '')
+          + ' — ลบแล้วรายการเหล่านั้นจะไม่มีชื่อกล้องติดอยู่ และรายได้จะหายจากรายงานกล้องยอดนิยม '
+          + 'ถ้าแค่เลิกใช้ชั่วคราว แนะนำเปลี่ยนสถานะเป็น "ซ่อมบำรุง" แทนการลบ'
+        : 'กล้องตัวนี้ยังไม่เคยถูกเช่า ลบได้ปลอดภัย',
       confirmLabel: 'ลบเลย',
       variant: 'danger',
       icon: (

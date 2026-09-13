@@ -203,8 +203,24 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
   const days = parseInt(form.days) || 1
 
+  // ── ราคาของรายการที่บันทึกไปแล้ว ต้องไม่เปลี่ยนเอง ──────────────────
+  // บั๊กเดิม: เปิดรายการเก่ามาแก้แค่หมายเหตุ ระบบก็คิดราคาใหม่จาก "ตารางราคา
+  // ปัจจุบัน" ของกล้อง แล้วเขียนทับลงฐานข้อมูล → ขึ้นราคากลางปีทีเดียว
+  // ประวัติเดือนเก่าเปลี่ยนตามเงียบๆ กราฟย้อนหลังเพี้ยนโดยไม่มีอะไรเตือน
+  // ตอนนี้: คิดราคาใหม่เฉพาะเมื่อ "เปลี่ยนกล้อง หรือเปลี่ยนวันที่" เท่านั้น
+  const pricingInputsChanged = !isEdit || (
+    form.camera_id  !== rental.camera_id  ||
+    form.start_date !== rental.start_date ||
+    form.end_date   !== rental.end_date
+  )
+
   // ราคาเช่า: ใช้ตารางราคาขั้นบันไดของกล้องตัวนี้ถ้ามี, ไม่มีใช้ price_per_day × วัน
   const getRentalPrice = () => {
+    // แก้รายการเดิมโดยไม่แตะกล้อง/วันที่ → คงราคาที่ตกลงกับลูกค้าไว้ตอนนั้น
+    // (total_price เก็บราคาหลังหักส่วนลดแล้ว จึงบวกส่วนลดกลับเพื่อได้ราคาตั้งต้น)
+    if (!pricingInputsChanged) {
+      return Number(rental.total_price || 0) + Number(rental.discount || 0)
+    }
     if (!selectedCamera) return 0
     const tablePrice = getLadderPrice(selectedCamera, days)
     if (tablePrice != null) return tablePrice
@@ -215,7 +231,10 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const depositAmt   = parseFloat(form.deposit)      || 0
   const deliveryFee  = parseFloat(form.delivery_fee) || 0
   const discountAmt  = parseFloat(form.discount)     || 0
-  const insuranceAmt = selectedCamera ? Number(selectedCamera.insurance || 0) : 0
+  // ค่าประกันตรึงไว้เหมือนกัน — ปรับค่าประกันของกล้องทีหลังไม่ควรย้อนไปแก้ของเก่า
+  const insuranceAmt = pricingInputsChanged
+    ? (selectedCamera ? Number(selectedCamera.insurance || 0) : 0)
+    : Number(rental.insurance || 0)
   const totalPrice   = Math.max(0, rentalPrice - discountAmt)
   const dueOnPickup  = Math.max(0, totalPrice - depositAmt + insuranceAmt + deliveryFee)
 
@@ -271,9 +290,11 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       }
       if (!customerId) throw new Error('กรุณากรอกข้อมูลลูกค้า')
 
-      const pricePerDay = hasLadder(selectedCamera)
-        ? (days > 0 ? Math.round(rentalPrice / days) : 0)
-        : Number(selectedCamera?.price_per_day || 0)
+      const pricePerDay = !pricingInputsChanged
+        ? Number(rental.price_per_day || 0)     // ไม่ได้แตะกล้อง/วันที่ → คงของเดิม
+        : hasLadder(selectedCamera)
+          ? (days > 0 ? Math.round(rentalPrice / days) : 0)
+          : Number(selectedCamera?.price_per_day || 0)
 
       const payload = {
         camera_id:       form.camera_id,
@@ -589,6 +610,22 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                   min="0" inputMode="numeric" placeholder="0" className={inputCls} />
               </div>
             </div>
+
+            {/* แก้ไขรายการเดิม: บอกให้ชัดว่าราคาถูกตรึงไว้ หรือกำลังจะคิดใหม่
+                จะได้ไม่มีใครเผลอเปลี่ยนราคาประวัติเก่าโดยไม่รู้ตัวอีก */}
+            {isEdit && (
+              <div className={`mt-3 rounded-xl p-2.5 text-[11px] border flex items-start gap-2
+                ${pricingInputsChanged
+                  ? 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                <span className="flex-shrink-0">{pricingInputsChanged ? '⚠️' : '🔒'}</span>
+                <span>
+                  {pricingInputsChanged
+                    ? 'เปลี่ยนกล้อง/วันที่แล้ว — ราคาจะถูกคิดใหม่ตามราคาปัจจุบันของกล้อง'
+                    : 'ราคาถูกตรึงไว้ตามที่ตกลงกับลูกค้าตอนแรก (แก้อย่างอื่นได้โดยราคาไม่เปลี่ยน)'}
+                </span>
+              </div>
+            )}
 
             {/* สรุปยอด */}
             {rentalPrice > 0 && (

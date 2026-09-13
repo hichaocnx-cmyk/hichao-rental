@@ -271,6 +271,9 @@ export default function RentalsPage() {
     return rentals.filter(r => {
       if (activeTab === 'current' && r.status === 'returned') return false
       if (activeTab === 'returned' && r.status !== 'returned') return false
+      // รายการที่ยกเลิกแล้วไม่ใช่ "งานที่ต้องทำ" — ซ่อนจากแท็บปัจจุบัน
+      // แต่ยังดูได้โดยเลือกตัวกรองสถานะ "ยกเลิก" (ประวัติไม่หายไปไหน)
+      if (activeTab === 'current' && r.status === 'cancelled' && filterStatus !== 'cancelled') return false
       if (selectedDay && !(r.start_date <= selectedDay && r.end_date >= selectedDay)) return false
       if (activeTab === 'current' && filterStatus !== 'all' && r.status !== filterStatus) return false
       if (search) {
@@ -384,10 +387,49 @@ export default function RentalsPage() {
     finally { setSummaryLoading(false) }
   }
 
+  // ── ยกเลิกรายการเช่า (แทนการลบทิ้ง) ───────────────────────────────
+  // สถานะ 'cancelled' มีในฐานข้อมูลและในตัวกรองมาตลอด แต่ไม่มีปุ่มไหนเขียนค่านี้เลย
+  // เวลาลูกค้ายกเลิก ทางเดียวคือกดลบ → มัดจำที่เก็บไปแล้วและหลักฐานการจองหายหมด
+  // ตอนนี้เก็บรายการไว้ ทำเครื่องหมายว่ายกเลิก แล้วปล่อยกล้องให้ว่างรับคิวอื่นได้
+  const handleCancel = async (rental) => {
+    const ok = await confirm({
+      title: 'ยกเลิกรายการเช่านี้?',
+      message: 'รายการจะยังอยู่ในระบบเป็นประวัติ (สถานะ "ยกเลิก") และกล้องจะกลับมาว่างทันที '
+        + 'ไม่นับเป็นรายได้ — ถ้าอยากลบทิ้งถาวรให้ใช้ปุ่มถังขยะแทน',
+      confirmLabel: 'ยกเลิกรายการ',
+      cancelLabel: 'ไม่ใช่ตอนนี้',
+      variant: 'danger',
+      icon: (
+        <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+        </svg>
+      ),
+    })
+    if (!ok) return
+
+    const prevStatus = rental.status
+    const prevCameraStatus = cameras.find(c => c.id === rental.camera_id)?.status
+    const freeCamera = !!rental.camera_id && prevCameraStatus !== 'maintenance'
+
+    patchRental(rental.id, { status: 'cancelled' })
+    if (freeCamera) patchCamera(rental.camera_id, { status: 'available' })
+
+    try {
+      await updateRental(rental.id, { status: 'cancelled' })
+      if (freeCamera) await updateCamera(rental.camera_id, { status: 'available' })
+      toast.success('ยกเลิกรายการแล้ว — กล้องกลับมาว่าง')
+    } catch (e) {
+      patchRental(rental.id, { status: prevStatus })
+      if (freeCamera && prevCameraStatus) patchCamera(rental.camera_id, { status: prevCameraStatus })
+      toast.error('ยกเลิกไม่สำเร็จ ย้อนกลับให้แล้ว: ' + e.message)
+    }
+  }
+
   const handleDelete = async (rental) => {
     const ok = await confirm({
       title: 'ลบรายการเช่า?',
-      message: 'ไม่สามารถกู้คืนได้หลังจากลบแล้ว',
+      message: 'ลบถาวร กู้คืนไม่ได้ และรายการนี้จะหายจากรายงานรายได้ย้อนหลังด้วย — '
+        + 'ถ้าลูกค้าแค่ยกเลิกการจอง แนะนำใช้ปุ่ม "ยกเลิก" แทน จะได้เก็บประวัติไว้',
       confirmLabel: 'ลบเลย',
       cancelLabel: 'ยกเลิก',
       variant: 'danger',
@@ -636,7 +678,7 @@ export default function RentalsPage() {
               รายการปัจจุบัน
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold
                 ${activeTab === 'current' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {rentals.filter(r => r.status !== 'returned').length}
+                {rentals.filter(r => r.status !== 'returned' && r.status !== 'cancelled').length}
               </span>
             </button>
             <button
@@ -847,11 +889,22 @@ export default function RentalsPage() {
                             {r.return_location && <div className="col-span-2"><p className="text-[10px] text-gray-400 mb-0.5">สถานที่คืน</p><p className="font-medium text-gray-700 text-sm">{r.return_location}</p></div>}
                             {r.notes && <div className="col-span-2"><p className="text-[10px] text-gray-400 mb-0.5">หมายเหตุ</p><p className="font-medium text-gray-700 text-sm">{r.notes}</p></div>}
                           </div>
-                          <button onClick={() => handleDelete(r)}
-                            className="w-full flex items-center justify-center gap-1.5 h-10 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                            ลบรายการนี้
-                          </button>
+                          <div className="flex gap-2">
+                            {/* ยกเลิก = เก็บประวัติไว้ · ลบ = หายถาวร — แยกกันให้ชัด
+                                วางยกเลิกไว้ก่อนและเด่นกว่า เพราะเป็นสิ่งที่ควรใช้บ่อยกว่า */}
+                            {r.status !== 'cancelled' && r.status !== 'returned' && (
+                              <button onClick={() => handleCancel(r)}
+                                className="flex-1 flex items-center justify-center gap-1.5 h-11 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-100">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                ยกเลิกรายการ
+                              </button>
+                            )}
+                            <button onClick={() => handleDelete(r)}
+                              className="flex-1 flex items-center justify-center gap-1.5 h-11 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                              ลบถาวร
+                            </button>
+                          </div>
                           </div>
                         </div>
                       )}
@@ -952,10 +1005,18 @@ export default function RentalsPage() {
                                   {lineSent[noti.id] ? 'ส่งแล้ว ✓' : 'ส่ง LINE'}
                                 </button>
                               )}
+                              {r.status !== 'cancelled' && r.status !== 'returned' && (
+                                <button onClick={() => handleCancel(r)}
+                                  className="flex items-center gap-1.5 whitespace-nowrap px-3 h-9 text-sm font-medium text-orange-600 bg-orange-50 border border-orange-100 hover:bg-orange-100 rounded-xl transition-colors ml-auto">
+                                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                  ยกเลิก
+                                </button>
+                              )}
                               <button onClick={() => handleDelete(r)}
-                                className="flex items-center gap-1.5 whitespace-nowrap px-3 h-9 text-sm font-medium text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 rounded-xl transition-colors ml-auto">
+                                className={`flex items-center gap-1.5 whitespace-nowrap px-3 h-9 text-sm font-medium text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 rounded-xl transition-colors
+                                  ${r.status === 'cancelled' || r.status === 'returned' ? 'ml-auto' : ''}`}>
                                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                                ลบ
+                                ลบถาวร
                               </button>
                             </div>
                           </div>

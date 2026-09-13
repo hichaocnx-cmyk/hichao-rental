@@ -110,7 +110,11 @@ export default function ExpensesPage() {
       const category = form.category === '__new__' ? newCategory.trim() : form.category.trim()
       if (!category) throw new Error('กรุณาเลือกหรือใส่หมวดหมู่')
       if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0) throw new Error('กรุณาใส่จำนวนเงินที่ถูกต้อง')
-      const payload = { date: form.date, amount: Number(form.amount), category, note: form.note.trim() || null }
+      // ⚠️ note ในฐานข้อมูลเป็น NOT NULL (migration_001) แต่ช่องนี้ไม่บังคับกรอก
+      // เดิมส่ง null เมื่อเว้นว่าง → บันทึกไม่ผ่าน ขึ้น error ภาษาอังกฤษ
+      // รายจ่ายไม่ถูกบันทึก กำไรเดือนนั้นสูงเกินจริงโดยไม่มีใครรู้
+      // ส่งสตริงว่างแทน (ผ่าน NOT NULL) — ไม่ต้องแก้ฐานข้อมูล
+      const payload = { date: form.date, amount: Number(form.amount), category, note: form.note.trim() }
       if (editId) await updateExpense(editId, payload)
       else await createExpense(payload)
       await reloadExpenses(); closeForm()
