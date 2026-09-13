@@ -187,10 +187,10 @@ export default function RentalsPage() {
   // Calendar state
   const [current, setCurrent]     = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(null)
-  // บนมือถือเริ่มต้นพับปฏิทินไว้ ให้เห็นรายการเช่าก่อน (งานที่ทำบ่อยที่สุด)
-  // เดิมค่านี้เป็น true และไม่มีปุ่มกดเปลี่ยนเลย ปฏิทินจึงค้างบนสุดตลอด
-  // ต้องเลื่อนยาวทุกครั้งกว่าจะถึงรายการ — จอ xl ขึ้นไปไม่ได้รับผลกระทบ (xl:block)
-  const [mobileCalOpen, setMobileCalOpen] = useState(false)
+  // เปิดหน้ามาเห็นปฏิทินเลยทั้งมือถือและคอม (เจ้าของร้านขอไว้ — ดูคิวก่อนเป็นอย่างแรก)
+  // ปุ่ม "ซ่อนปฏิทิน" ข้างช่องค้นหายังมีอยู่ ไว้พับเวลาอยากเลื่อนดูรายการยาวๆ บนมือถือ
+  // (เดิมค่านี้เป็น true แต่ไม่มีปุ่มกดเปลี่ยนเลย พับไม่ได้ — ตอนนี้พับได้แล้ว)
+  const [mobileCalOpen, setMobileCalOpen] = useState(true)
   const calRef = useRef(null)
 
   // ปฏิทินอยู่เหนือรายการใน DOM — กางแล้วถ้าไม่เลื่อนให้ ผู้ใช้จะไม่เห็นว่าอะไรเปลี่ยน
