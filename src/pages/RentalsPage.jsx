@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { updateRental, deleteRental } from '../lib/rentals'
 import { updateCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
@@ -187,7 +187,19 @@ export default function RentalsPage() {
   // Calendar state
   const [current, setCurrent]     = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(null)
-  const [mobileCalOpen, setMobileCalOpen] = useState(true)
+  // บนมือถือเริ่มต้นพับปฏิทินไว้ ให้เห็นรายการเช่าก่อน (งานที่ทำบ่อยที่สุด)
+  // เดิมค่านี้เป็น true และไม่มีปุ่มกดเปลี่ยนเลย ปฏิทินจึงค้างบนสุดตลอด
+  // ต้องเลื่อนยาวทุกครั้งกว่าจะถึงรายการ — จอ xl ขึ้นไปไม่ได้รับผลกระทบ (xl:block)
+  const [mobileCalOpen, setMobileCalOpen] = useState(false)
+  const calRef = useRef(null)
+
+  // ปฏิทินอยู่เหนือรายการใน DOM — กางแล้วถ้าไม่เลื่อนให้ ผู้ใช้จะไม่เห็นว่าอะไรเปลี่ยน
+  const toggleMobileCal = () => {
+    setMobileCalOpen(open => {
+      if (!open) setTimeout(() => calRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+      return !open
+    })
+  }
 
   // Rental list state
   const [search, setSearch]             = useState('')
@@ -608,7 +620,7 @@ export default function RentalsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
 
         {/* ── Calendar (desktop always visible, mobile toggle) ── */}
-        <div className={`xl:col-span-2 xl:block ${mobileCalOpen ? 'block' : 'hidden'}`}>
+        <div ref={calRef} className={`xl:col-span-2 xl:block ${mobileCalOpen ? 'block' : 'hidden'}`}>
           {CalendarView}
         </div>
 
@@ -669,6 +681,21 @@ export default function RentalsPage() {
                 ✕ ล้างวันที่
               </button>
             )}
+
+            {/* ปุ่มพับ/กางปฏิทิน — มือถือเท่านั้น (จอ xl ปฏิทินอยู่คู่กับรายการอยู่แล้ว) */}
+            <button type="button"
+              onClick={toggleMobileCal}
+              aria-expanded={mobileCalOpen}
+              className={`xl:hidden min-h-[44px] px-3 text-xs font-medium rounded-xl flex-shrink-0 whitespace-nowrap
+                border transition-colors flex items-center gap-1.5
+                ${mobileCalOpen
+                  ? 'text-brand-600 bg-brand-50 border-brand-100'
+                  : 'text-gray-500 bg-white border-gray-200 hover:bg-gray-50'}`}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+              </svg>
+              {mobileCalOpen ? 'ซ่อนปฏิทิน' : 'ปฏิทิน'}
+            </button>
           </div>
 
           {/* ── Loading ───────────────────────────────────────── */}
