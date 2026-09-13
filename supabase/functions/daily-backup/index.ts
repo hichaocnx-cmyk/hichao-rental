@@ -5,76 +5,75 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // daily-backup — สำรองข้อมูลทุกตารางขึ้น Google Drive อัตโนมัติ
 // เรียกทุกวันโดย pg_cron (ดู migration_013.sql) ไม่ต้องเปิดแอปเลย
 //
+// ⚠️ ทำไมไม่ใช้ Service Account (แบบที่เคยลองแล้วพัง)
+// ตั้งแต่ปี 2023 Google ไม่ให้ Service Account มีพื้นที่เก็บของตัวเองอีกต่อไป
+// อัปโหลดเข้า Drive ส่วนตัว (บัญชี Gmail ธรรมดา) จะได้ error
+//   "Service Accounts do not have storage quota"
+// ทางแก้สำหรับบัญชี Gmail ธรรมดา = ใช้ OAuth ของเจ้าของบัญชีเอง (refresh token)
+// ไฟล์ที่ได้จึงเป็นของเจ้าของบัญชี และกินโควตา Drive 15GB ของบัญชีนั้น
+//
 // ต้องตั้ง secret ก่อนใช้งาน (Supabase Dashboard > Edge Functions > Secrets):
-//   GOOGLE_SA_EMAIL         — client_email จาก Service Account JSON key
-//   GOOGLE_SA_PRIVATE_KEY   — private_key จาก Service Account JSON key
-//   GOOGLE_DRIVE_FOLDER_ID  — id ของโฟลเดอร์ปลายทางใน Google Drive
+//   GOOGLE_OAUTH_CLIENT_ID      — client_id จากไฟล์ OAuth client JSON
+//   GOOGLE_OAUTH_CLIENT_SECRET  — client_secret จากไฟล์เดียวกัน
+//   GOOGLE_OAUTH_REFRESH_TOKEN  — refresh token (ขึ้นต้นด้วย 1//) จาก OAuth Playground
 //   LINE_CHANNEL_ACCESS_TOKEN / LINE_USER_ID — ใช้ตัวเดียวกับฟังก์ชันอื่นอยู่แล้ว
+//
+// ⚠️ หน้า OAuth consent ต้องอยู่สถานะ "In production" เท่านั้น
+// ถ้าปล่อยเป็น "Testing" refresh token จะหมดอายุทุก 7 วัน แล้วสำรองจะพังทุกสัปดาห์
+//
+// สิทธิ์ที่ขอคือ drive.file = เข้าถึงได้เฉพาะไฟล์/โฟลเดอร์ที่แอปนี้สร้างเองเท่านั้น
+// ไฟล์อื่นใน Google Drive ของเจ้าของบัญชีแตะไม่ได้เลย — แคบที่สุดเท่าที่งานนี้ต้องใช้
 // วิธีตั้งค่าแบบละเอียด ดู BACKUP-AUTO-SETUP.md
 // ══════════════════════════════════════════════════════════════
 
 const TABLES = ['cameras', 'customers', 'rentals', 'expenses']
 
-// ── base64url helper (ใช้ทั้งเข้ารหัส JWT header/payload และ signature) ──
-function base64url(input: string | ArrayBuffer): string {
-  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input)
-  let str = ''
-  for (const b of bytes) str += String.fromCharCode(b)
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
+// ชื่อโฟลเดอร์ปลายทางใน Google Drive — ฟังก์ชันจะหาให้เจอเอง ถ้ายังไม่มีก็สร้างให้
+// (ใช้ชื่อแทน folder id เพราะ scope drive.file มองเห็นเฉพาะของที่ตัวเองสร้าง
+//  โฟลเดอร์ที่คนสร้างเองด้วยมือจะ "มองไม่เห็น" ต่อให้รู้ id ก็ตาม)
+const FOLDER_NAME = 'HICHAO-CNX Backup'
 
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const clean = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s+/g, '')
-  const binary = atob(clean)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes.buffer
-}
-
-// ── ขอ access token จาก Google ด้วย Service Account (JWT Bearer flow) ──
-// ไม่พึ่ง SDK ใดๆ — เซ็น JWT เองด้วย Web Crypto (มีอยู่แล้วใน Deno runtime)
-async function getGoogleAccessToken(saEmail: string, privateKeyPem: string): Promise<string> {
-  const header = { alg: 'RS256', typ: 'JWT' }
-  const now = Math.floor(Date.now() / 1000)
-  const claim = {
-    iss: saEmail,
-    // ขอบเขตกว้าง (ไฟล์ทั้งหมด) แต่ตัว service account เองไม่มีไฟล์อะไรอยู่แล้ว
-    // เข้าถึงได้แค่โฟลเดอร์ที่เรา "แชร์" ให้มันเห็นเท่านั้น
-    scope: 'https://www.googleapis.com/auth/drive',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-  }
-  const signingInput = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(claim))}`
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(privateKeyPem),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    new TextEncoder().encode(signingInput)
-  )
-  const jwt = `${signingInput}.${base64url(signature)}`
-
+// ── แลก refresh token เป็น access token อายุสั้น (ทำใหม่ทุกครั้งที่รัน) ──
+async function getAccessToken(clientId: string, clientSecret: string, refreshToken: string): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
     }),
   })
   const json = await res.json()
-  if (!res.ok) throw new Error(`Google OAuth: ${json.error_description || json.error || res.status}`)
+  if (!res.ok) {
+    // invalid_grant = refresh token ถูกเพิกถอน/หมดอายุ (มักเพราะ consent screen ยังเป็น Testing)
+    throw new Error(`Google OAuth: ${json.error_description || json.error || res.status}`)
+  }
   return json.access_token
+}
+
+// ── หาโฟลเดอร์ปลายทาง ถ้ายังไม่มีให้สร้างใหม่ ──
+async function ensureFolder(accessToken: string): Promise<string> {
+  const q = encodeURIComponent(
+    `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`
+  )
+  const findRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  )
+  const found = await findRes.json()
+  if (!findRes.ok) throw new Error(`Drive find folder: ${found.error?.message || findRes.status}`)
+  if (found.files?.length) return found.files[0].id
+
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
+  })
+  const created = await createRes.json()
+  if (!createRes.ok) throw new Error(`Drive create folder: ${created.error?.message || createRes.status}`)
+  return created.id
 }
 
 // ── อัปโหลดไฟล์ JSON เข้าโฟลเดอร์ปลายทาง (สร้าง metadata ก่อน แล้วค่อยใส่เนื้อหา) ──
@@ -161,19 +160,19 @@ serve(async (_req) => {
       `-${p(nowTH.getUTCHours())}${p(nowTH.getUTCMinutes())}`
     const fileName = `hichao-backup-auto-${stamp}.json`
 
-    const SA_EMAIL = Deno.env.get('GOOGLE_SA_EMAIL')
-    const RAW_KEY = Deno.env.get('GOOGLE_SA_PRIVATE_KEY')
-    const FOLDER_ID = Deno.env.get('GOOGLE_DRIVE_FOLDER_ID')
-    if (!SA_EMAIL || !RAW_KEY || !FOLDER_ID) {
+    const CLIENT_ID = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID')
+    const CLIENT_SECRET = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET')
+    const REFRESH_TOKEN = Deno.env.get('GOOGLE_OAUTH_REFRESH_TOKEN')
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
       throw new Error(
-        'ยังไม่ได้ตั้งค่า GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY / GOOGLE_DRIVE_FOLDER_ID — ดู BACKUP-AUTO-SETUP.md'
+        'ยังไม่ได้ตั้งค่า GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / ' +
+          'GOOGLE_OAUTH_REFRESH_TOKEN — ดู BACKUP-AUTO-SETUP.md'
       )
     }
-    // private key ที่ตั้งผ่าน CLI มักถูกเก็บเป็นบรรทัดเดียวมี \n เป็นตัวอักษร ต้องแปลงกลับเป็นขึ้นบรรทัดจริง
-    const privateKeyPem = RAW_KEY.includes('\\n') ? RAW_KEY.replace(/\\n/g, '\n') : RAW_KEY
 
-    const accessToken = await getGoogleAccessToken(SA_EMAIL, privateKeyPem)
-    const driveFileId = await uploadToDrive(accessToken, FOLDER_ID, fileName, JSON.stringify(payload, null, 2))
+    const accessToken = await getAccessToken(CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)
+    const folderId = await ensureFolder(accessToken)
+    const driveFileId = await uploadToDrive(accessToken, folderId, fileName, JSON.stringify(payload, null, 2))
 
     // บันทึกประวัติ — ตารางเดียวกับที่การกดสำรองเองในแอปเขียน (เห็นรวมกันในที่เดียว)
     await supabase.from('backup_log').insert({
@@ -191,7 +190,7 @@ serve(async (_req) => {
     )
 
     return new Response(
-      JSON.stringify({ ok: true, counts, fileName, driveFileId }),
+      JSON.stringify({ ok: true, counts, fileName, driveFileId, folderId }),
       { headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   } catch (e) {
