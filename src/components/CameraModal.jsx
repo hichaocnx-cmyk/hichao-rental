@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { createCamera, updateCamera } from '../lib/cameras'
+import { LADDER_DAYS, MAX_LADDER_DAYS } from '../lib/ladder'
 
 const DEFAULT_FORM = { name: '', brand: '', model: '', price_per_day: '', deposit: '', insurance: '', status: 'available', notes: '' }
 
-// ── ตารางราคาขั้นบันได (สูงสุด 10 วัน) ──────────────────────────
-// เก็บใน cameras.price_ladder เป็น {"1":600,"2":1200,...,"10":4100}
+// ── ตารางราคาขั้นบันได ─────────────────────────────────────────
+// เก็บใน cameras.price_ladder เป็น {"1":600,"2":1200,...,"15":6000}
 // คีย์ = จำนวนวัน, ค่า = "ราคารวม" ของจำนวนวันนั้น (ไม่ใช่ราคาต่อวัน)
 // เว้นวันไหนว่างไว้ได้ — ถ้าไม่ตั้งเลยสักวัน ระบบจะคิดราคาจาก
 // "ราคาเช่า/วัน" ด้านบน × จำนวนวันแทนอัตโนมัติตอนสร้างรายการเช่า
-const LADDER_DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+// จำนวนวันสูงสุดอยู่ที่ src/lib/ladder.js (ใช้ร่วมกับ RentalModal)
 const EMPTY_LADDER = Object.fromEntries(LADDER_DAYS.map(d => [d, '']))
 
 function buildInitialLadder(camera) {
@@ -165,8 +166,9 @@ export default function CameraModal({ camera, onClose, onSaved }) {
               </button>
             </div>
             <p className="text-xs text-gray-400 mb-2">
-              ใส่ "ราคารวม" ของแต่ละจำนวนวัน (ไม่ใช่ราคา/วัน) เว้นช่องไหนว่างไว้ได้ —
-              ถ้าไม่ตั้งเลยสักวัน ระบบจะคิดจาก "ราคาเช่า/วัน" ด้านบน × จำนวนวันแทนอัตโนมัติ
+              ใส่ "ราคารวม" ของแต่ละจำนวนวัน (ไม่ใช่ราคา/วัน) ตั้งได้ถึง {MAX_LADDER_DAYS} วัน
+              เว้นช่องไหนว่างไว้ได้ — ถ้าไม่ตั้งเลยสักวัน ระบบจะคิดจาก "ราคาเช่า/วัน" ด้านบน
+              × จำนวนวันแทนอัตโนมัติ
             </p>
             <div className="grid grid-cols-5 gap-2">
               {LADDER_DAYS.map(d => (

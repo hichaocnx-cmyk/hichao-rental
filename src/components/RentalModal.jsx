@@ -4,6 +4,7 @@ import { getCustomers, createCustomer } from '../lib/customers'
 import { getRentals, createRental, updateRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 import { celebrate } from '../lib/confetti'
+import { LADDER_DAYS } from '../lib/ladder'
 import { useToast } from '../context/ToastContext'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
@@ -437,11 +438,11 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 ))}
               </select>
 
-              {/* Day picker — 5×2 grid */}
+              {/* Day picker — 5 ช่องต่อแถว (จำนวนวันสูงสุดอยู่ที่ src/lib/ladder.js) */}
               <div>
                 <label className={labelCls}>จำนวนวันเช่า</label>
                 <div className="grid grid-cols-5 gap-1.5">
-                  {[1,2,3,4,5,6,7,8,9,10].map(d => {
+                  {LADDER_DAYS.map(d => {
                     const price       = getLadderPrice(selectedCamera, d)
                     const isSelected  = form.days === String(d)
                     const unavailable = price === null && hasLadder(selectedCamera)
