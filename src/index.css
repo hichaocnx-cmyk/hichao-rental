@@ -7,7 +7,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'IBM Plex Sans Thai', 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -112,76 +112,72 @@ button:active:not(:disabled) { transform: scale(.96); }
 }
 
 /* ════════════════════════════════════════════════════════════
-   HICHAO — Glass / Glow / 3D theme (v1)
-   พื้นผิวกระจกโปร่งแสง + พื้นหลังเรืองแสง + ความลึก 3D
+   HICHAO — ธีม "สะอาดตา" (v2)
+   พื้นเทาอุ่นเรียบ · การ์ดขาวทึบ · ขอบบาง · เงาบางมาก
+   เลิกใช้กระจกโปร่งแสง + พื้นหลังเรืองแสง เพราะสีพื้นทะลุขึ้นมา
+   หลังตัวเลข และ saturate(180%) ดันสีป้ายสถานะจนแย่งกันเอง
    ════════════════════════════════════════════════════════════ */
-
-/* พื้นหลังเรืองแสง (glow mesh) */
-.flex.h-screen.bg-surface {
-  background:
-    radial-gradient(900px 520px at 8% -8%,   rgba(255,140,190,.50) 0%, transparent 60%),
-    radial-gradient(820px 560px at 115% 6%,  rgba(150,110,255,.45) 0%, transparent 58%),
-    radial-gradient(760px 520px at 50% 128%, rgba(255,170,90,.40) 0%, transparent 60%),
-    radial-gradient(700px 500px at 85% 90%,  rgba(90,200,255,.32) 0%, transparent 60%),
-    linear-gradient(180deg, #f7f0fa 0%, #eee8fb 100%);
-  background-attachment: fixed;
+:root {
+  --hc-page:    #F6F5F3;
+  --hc-card:    #FFFFFF;
+  --hc-border:  #E9E6E2;
+  --hc-border2: #DCD7D1;   /* ขอบเข้มขึ้นสำหรับกรอบที่ต้องเด่น เช่น ปฏิทิน */
+  --hc-grid:    #EAE6E1;   /* เส้นตารางปฏิทิน */
+  --hc-wknd:    #FBFAF8;   /* พื้นเสาร์-อาทิตย์ */
+  --hc-out:     #F7F5F2;   /* พื้นวันนอกเดือน */
+  --hc-today:   #FDF0F5;   /* พื้นช่องวันนี้ */
+  --hc-shadow:  0 1px 2px rgba(28, 26, 25, .04);
 }
-.cute-blob { filter: blur(70px); opacity: .55; }
 
-/* การ์ดกระจกโปร่งแสง (glassmorphism) */
+.flex.h-screen.bg-surface {
+  background: var(--hc-page);
+  background-attachment: scroll;
+}
+
+/* ก้อนพาสเทลเบลอ — ธีมนี้ไม่ใช้ */
+.cute-bg, .cute-blob { display: none !important; }
+
+/* การ์ด: ขาวทึบ ขอบบาง ไม่มีเงาฟุ้ง ไม่ลอยตอน hover */
 main .bg-white.rounded-2xl,
 main .bg-white.rounded-3xl,
 main .bg-white.rounded-xl {
-  background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.55)) !important;
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  border: 1px solid rgba(255,255,255,.85);
-  box-shadow:
-    0 1px 0  rgba(255,255,255,.9) inset,
-    0 18px 44px -16px rgba(108,33,128,.30),
-    0 4px 14px  -6px rgba(108,33,128,.16);
-  transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s ease;
+  background: var(--hc-card) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--hc-border);
+  box-shadow: var(--hc-shadow);
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
 @media (hover: hover) {
   main .bg-white.rounded-2xl:hover,
   main .bg-white.rounded-3xl:hover,
   main .bg-white.rounded-xl:hover {
-    transform: translateY(-8px) scale(1.015);
-    box-shadow:
-      0 1px 0 rgba(255,255,255,1) inset,
-      0 34px 70px -18px rgba(108,33,128,.42),
-      0 0 28px -2px rgba(255,120,180,.45);
+    transform: none;
+    border-color: var(--hc-border2);
+    box-shadow: 0 2px 6px rgba(28, 26, 25, .06);
   }
 }
 
-/* Topbar + Sidebar + bottom nav = กระจก */
+/* Topbar + Sidebar + bottom nav = ขาวทึบ */
 header.h-16 {
-  background: rgba(255,255,255,.55) !important;
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  border-bottom: 1px solid rgba(255,255,255,.55) !important;
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1px solid var(--hc-border) !important;
 
-  /* ⚠️ ห้ามลบ 2 บรรทัดนี้ — ผูกกับ backdrop-filter ด้านบนโดยตรง
-     backdrop-filter ทำให้ element กลายเป็น "stacking context" ใหม่
-     เดิม header เป็น position:static + z-index:auto จึงถูกวาดที่ชั้น 0
-     เท่ากับการ์ดใน main (ที่มี backdrop-filter เหมือนกัน) แต่ main อยู่
-     หลัง header ใน DOM → การ์ดเลยทับ header
-     ผลคือ dropdown แจ้งเตือน (z-50) ถูกขังอยู่ใน stacking context ของ
-     header ยกตัวเองข้ามการ์ดใน main ไม่ได้ → กดกระดิ่งแล้วเนื้อหาทับกัน
-     แก้ด้วยการทำให้ header เป็น positioned + z สูงกว่าการ์ด
-     ค่า 20 เลือกให้ > การ์ดใน main (ชั้น 0/10) แต่ < modal (z-50)
-     และ < bottom nav (z-40) — modal จึงยังคลุม header ได้ตามเดิม */
+  /* ⚠️ ห้ามลบ 2 บรรทัดนี้ — dropdown แจ้งเตือน (z-50) ต้องยกข้ามการ์ดใน main ได้
+     ค่า 20 เลือกให้ > การ์ดใน main แต่ < modal (z-50) และ < bottom nav (z-40) */
   position: relative;
   z-index: 20;
 }
 aside,
 nav.lg\:hidden {
-  background: rgba(255,255,255,.55) !important;
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-/* Modal ต้องทึบเสมอ (specificity สูงกว่ากฎ glass ด้านบน) */
+/* Modal ทึบเสมอ */
 .fixed .bg-white.rounded-2xl,
 .fixed .bg-white.rounded-3xl,
 .fixed .bg-white.rounded-xl,
@@ -198,44 +194,77 @@ nav.lg\:hidden {
 }
 
 /* ════════════════════════════════════════════════════════════
-   HICHAO — Dark mode (html.dark)  •  glass + neon glow บนพื้นเข้ม
+   ปฏิทินการจอง (BookingCalendar) — ขนาดช่อง/แถบ
+   คุมด้วยตัวแปร เพราะแถบจองวางแบบ absolute จึงคำนวณ top เองไม่ได้
+   ถ้าจะปรับความสูงของแถว แก้แค่ตรงนี้ที่เดียว
+   ════════════════════════════════════════════════════════════ */
+.bcal {
+  --bc-lanes: 3;    /* จำนวนแถบที่โชว์ได้ต่อ 1 สัปดาห์ */
+  --bc-dateh: 17px; /* ความสูงบรรทัดตัวเลขวันที่ */
+  --bc-barh:  13px;
+  --bc-gap:   4px;
+}
+@media (min-width: 640px) {
+  .bcal { --bc-dateh: 26px; --bc-barh: 22px; --bc-gap: 8px; }
+}
+.bcal-row {
+  position: relative;
+  height: calc(var(--bc-dateh) + var(--bc-lanes) * (var(--bc-barh) + var(--bc-gap)) + 2px);
+}
+.bcal-bar {
+  position: absolute;
+  height: var(--bc-barh);
+  top: calc(var(--bc-dateh) + var(--bc-lane) * (var(--bc-barh) + var(--bc-gap)));
+  pointer-events: none;
+}
+.bcal-more {
+  position: absolute;
+  top: calc(var(--bc-dateh) + var(--bc-lanes) * (var(--bc-barh) + var(--bc-gap)));
+  line-height: 12px;
+  pointer-events: none;
+}
+/* แถวที่มีรายการล้น — ต่อความสูงให้บรรทัด "+N" มีที่ยืน */
+.bcal-row.bcal-row--more {
+  height: calc(var(--bc-dateh) + var(--bc-lanes) * (var(--bc-barh) + var(--bc-gap)) + 16px);
+}
+
+/* ════════════════════════════════════════════════════════════
+   HICHAO — Dark mode (html.dark)  •  พื้นเข้มเรียบ เข้าชุดกับธีมสะอาดตา
    ════════════════════════════════════════════════════════════ */
 html.dark body { color: #ECE9F2; }
 
-html.dark .flex.h-screen.bg-surface {
-  background:
-    radial-gradient(900px 520px at 8% -8%,   rgba(255,90,160,.20) 0%, transparent 60%),
-    radial-gradient(820px 560px at 115% 6%,  rgba(140,90,255,.22) 0%, transparent 58%),
-    radial-gradient(760px 520px at 50% 128%, rgba(255,150,70,.14) 0%, transparent 60%),
-    linear-gradient(180deg, #120e1c 0%, #0e0b16 100%) !important;
+html.dark {
+  --hc-grid:  rgba(255,255,255,.12);
+  --hc-wknd:  rgba(255,255,255,.03);
+  --hc-out:   rgba(255,255,255,.04);
+  --hc-today: rgba(201,55,107,.20);
 }
-html.dark .cute-blob { opacity: .28; }
 
-/* การ์ดกระจกเข้ม */
+html.dark .flex.h-screen.bg-surface {
+  background: #141119 !important;
+}
+
+/* การ์ดเข้มทึบ */
 html.dark main .bg-white.rounded-2xl,
 html.dark main .bg-white.rounded-3xl,
 html.dark main .bg-white.rounded-xl {
-  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035)) !important;
-  border: 1px solid rgba(255,255,255,.12);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.08) inset,
-    0 18px 44px -16px rgba(0,0,0,.6) !important;
+  background: #1B1626 !important;
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 1px 2px rgba(0,0,0,.4) !important;
 }
 @media (hover: hover) {
   html.dark main .bg-white.rounded-2xl:hover,
   html.dark main .bg-white.rounded-3xl:hover,
   html.dark main .bg-white.rounded-xl:hover {
-    box-shadow:
-      0 1px 0 rgba(255,255,255,.12) inset,
-      0 34px 70px -18px rgba(0,0,0,.7),
-      0 0 30px -2px rgba(180,120,255,.35) !important;
+    border-color: rgba(255,255,255,.18);
+    box-shadow: 0 2px 8px rgba(0,0,0,.5) !important;
   }
 }
 
 /* Topbar / Sidebar / bottom nav */
-html.dark header.h-16 { background: rgba(20,16,30,.55) !important; border-bottom: 1px solid rgba(255,255,255,.08) !important; }
+html.dark header.h-16 { background: #17121f !important; border-bottom: 1px solid rgba(255,255,255,.08) !important; }
 html.dark aside,
-html.dark nav.lg\:hidden { background: rgba(18,14,28,.6) !important; border-color: rgba(255,255,255,.08) !important; }
+html.dark nav.lg\:hidden { background: #17121f !important; border-color: rgba(255,255,255,.08) !important; }
 
 /* ข้อความ */
 html.dark .text-gray-900, html.dark .text-gray-800 { color: #ECE9F2 !important; }

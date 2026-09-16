@@ -7,6 +7,7 @@ import CountUp from '../components/CountUp'
 import { useToast } from '../context/ToastContext'
 import CameraIcon from '../components/CameraIcon'
 import ReportSection from '../components/ReportSection'
+import BookingCalendar, { useRentalColors, shortDate, daySpan, BOOKING_COLORS } from '../components/BookingCalendar'
 
 // ── Donut Chart ────────────────────────────────────────────────────
 function DonutChart({ data, total, colors }) {
@@ -89,7 +90,7 @@ function QueueItem({ rental, type }) {
 // ── Constants ──────────────────────────────────────────────────────
 const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 const DAYS_TH   = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์']
-const EXP_COLORS = ['#FF6B9D','#f59e0b','#10b981','#6366f1','#3b82f6']
+const EXP_COLORS = ['#C9376B','#D98324','#14684C','#5B3FA8','#17518F']
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -101,6 +102,113 @@ function getGreeting() {
 const currentMonthLabel = () => {
   const d = new Date()
   return `${MONTHS_TH[d.getMonth()]} ${d.getFullYear()}`
+}
+
+
+// ── สถานะการเช่า -> ป้ายสี ─────────────────────────────────────
+const RENTAL_STATUS = {
+  booked:   { label: 'จองไว้',    cls: 'text-amber-700 bg-amber-50' },
+  active:   { label: 'กำลังเช่า', cls: 'text-sky-800 bg-sky-50' },
+  returned: { label: 'คืนแล้ว',   cls: 'text-emerald-700 bg-emerald-50' },
+}
+const statusOf = (r) => RENTAL_STATUS[r.status] || RENTAL_STATUS.booked
+
+// ── แถวหนึ่งรายการ (ใช้ทั้งในการ์ดข้างปฏิทินและในแผ่นรายละเอียดวัน) ──
+function BookingRow({ rental, color, onClick }) {
+  const st = statusOf(rental)
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 py-2.5 border-t border-gray-100 text-left hover:bg-gray-50 transition-colors">
+      <span className="w-1 h-7 rounded-full flex-shrink-0" style={{ background: color.bar }} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[13px] font-semibold text-gray-900 truncate">{rental.camera?.name || 'กล้อง'}</span>
+        <span className="block text-[11px] text-gray-400 truncate">
+          {rental.customer?.name || '—'} · {shortDate(rental.start_date)}–{shortDate(rental.end_date)} ({daySpan(rental)} วัน)
+        </span>
+      </span>
+      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${st.cls}`}>{st.label}</span>
+    </button>
+  )
+}
+
+// ── การ์ดรายการข้างปฏิทิน ──────────────────────────────────────
+function BookingListCard({ title, note, items, colors, onPick, empty }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+        <span className="text-[11px] text-gray-400">{note}</span>
+      </div>
+      {items.length === 0
+        ? <p className="px-4 pb-4 text-[13px] text-gray-300">{empty}</p>
+        : items.map(r => (
+            <BookingRow key={r.id} rental={r}
+              color={colors[r.id] || BOOKING_COLORS[0]}
+              onClick={() => onPick(r)} />
+          ))
+      }
+    </div>
+  )
+}
+
+// ── แผ่นรายละเอียดของวันที่กด ───────────────────────────────────
+// มือถือ = เด้งจากด้านล่าง · จอใหญ่ = กล่องกลางจอ
+function DaySheet({ ds, rentals, colors, onClose, onOpenRentals }) {
+  if (!ds) return null
+  const d = new Date(ds + 'T00:00:00')
+  const label = `${DAYS_TH[d.getDay()]}ที่ ${d.getDate()} ${MONTHS_TH[d.getMonth()]}`
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/35" />
+      <div className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto pb-6 sm:pb-4"
+        onClick={e => e.stopPropagation()}>
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+          <span className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
+        <div className="flex items-center gap-2.5 px-4 py-3">
+          <h3 className="text-base font-bold text-gray-900">{label}</h3>
+          <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-full">
+            {rentals.length} ตัวถูกจอง
+          </span>
+          <button type="button" onClick={onClose} aria-label="ปิด"
+            className="ml-auto w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        {rentals.length === 0
+          ? <p className="px-4 pb-5 text-sm text-gray-400">วันนี้ไม่มีกล้องถูกจอง — ว่างทั้งวัน</p>
+          : rentals.map(r => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3 border-t border-gray-100">
+                <span className="w-1 h-9 rounded-full flex-shrink-0" style={{ background: (colors[r.id] || BOOKING_COLORS[0]).bar }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{r.camera?.name || 'กล้อง'}</p>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${statusOf(r).cls}`}>{statusOf(r).label}</span>
+                  </div>
+                  <p className="text-[11.5px] text-gray-500 truncate mt-0.5">
+                    {r.customer?.name || '—'} · {shortDate(r.start_date)}–{shortDate(r.end_date)} · {daySpan(r)} วัน
+                  </p>
+                </div>
+                {r.customer?.phone && (
+                  <a href={`tel:${r.customer.phone}`} onClick={e => e.stopPropagation()} aria-label="โทรหาลูกค้า"
+                    className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            ))
+        }
+        <div className="px-4 pt-3">
+          <button type="button" onClick={onOpenRentals}
+            className="w-full h-11 rounded-xl bg-brand-500 text-white text-sm font-semibold">
+            เปิดหน้าการเช่า
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Main Page ──────────────────────────────────────────────────────
@@ -122,6 +230,21 @@ export default function DashboardPage() {
   const pickups = rentals.filter(r => r.start_date === todayStr && (r.status === 'booked' || r.status === 'active'))
   const returns = rentals.filter(r => r.end_date === todayStr && r.status === 'active' && r.start_date !== todayStr)
   const hasQueue = pickups.length > 0 || returns.length > 0
+
+  // ── ปฏิทินการจอง (อ่านอย่างเดียว) ────────────────────────────
+  const liveRentals   = rentals.filter(r => r.status !== 'cancelled')
+  const bookingColors = useRentalColors(liveRentals)
+  const [selectedDs, setSelectedDs] = useState(null)
+
+  const onDate = (ds) => liveRentals
+    .filter(r => r.start_date <= ds && r.end_date >= ds)
+    .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+
+  const todayBookings = onDate(todayStr)
+  const upcoming = liveRentals
+    .filter(r => r.start_date > todayStr)
+    .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+    .slice(0, 4)
 
   // ── Send LINE queue ───────────────────────────────────────────────
   const handleSendQueueLine = async () => {
@@ -182,6 +305,37 @@ export default function DashboardPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
           </svg>
+        </div>
+      </div>
+
+      {/* ── ปฏิทินการจอง ─────────────────────────────────────────
+           แถบสี 1 อัน = 1 รายการเช่า ยาวคาดตามจำนวนวันที่จองจริง
+           กดวันไหนก็ได้เพื่อดูว่าวันนั้นกล้องตัวไหนอยู่กับใคร      */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
+        <BookingCalendar
+          rentals={liveRentals}
+          todayDs={todayStr}
+          selectedDs={selectedDs}
+          colorMap={bookingColors}
+          onSelectDay={setSelectedDs}
+        />
+        <div className="space-y-4">
+          <BookingListCard
+            title={`วันนี้ · ${today.getDate()} ${MONTHS_TH[today.getMonth()]}`}
+            note={`${todayBookings.length} ตัวอยู่กับลูกค้า`}
+            items={todayBookings}
+            colors={bookingColors}
+            onPick={(r) => setSelectedDs(todayStr)}
+            empty="วันนี้ไม่มีกล้องอยู่กับลูกค้า"
+          />
+          <BookingListCard
+            title="จองล่วงหน้า"
+            note={`${upcoming.length} รายการถัดไป`}
+            items={upcoming}
+            colors={bookingColors}
+            onPick={(r) => setSelectedDs(r.start_date)}
+            empty="ยังไม่มีคิวจองล่วงหน้า"
+          />
         </div>
       </div>
 
@@ -365,7 +519,7 @@ export default function DashboardPage() {
         {revTotal > 0 && (
           <div className="px-5 pb-4">
             <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100">
-              {[{v:bd.rentalIncome??0,c:'#FF6B9D'},{v:bd.heldInsurance??0,c:'#f59e0b'}]
+              {[{v:bd.rentalIncome??0,c:'#C9376B'},{v:bd.heldInsurance??0,c:'#f59e0b'}]
                 .filter(s => s.v > 0)
                 .map((s, i) => (
                   <div key={i} style={{width:`${(s.v/revTotal)*100}%`,background:s.c}} />
@@ -435,6 +589,15 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── แผ่นรายละเอียดของวันที่กดในปฏิทิน ─────────────────── */}
+      <DaySheet
+        ds={selectedDs}
+        rentals={selectedDs ? onDate(selectedDs) : []}
+        colors={bookingColors}
+        onClose={() => setSelectedDs(null)}
+        onOpenRentals={() => { setSelectedDs(null); navigate('/rentals') }}
+      />
 
     </div>
   )

@@ -93,7 +93,7 @@ function BarChart({ data, maxVal }) {
               style={{ cursor: 'pointer' }}>
               {/* Revenue bar */}
               <rect x={x} y={y} width={barW} height={Math.max(barH, 0)}
-                rx={6} fill={isCurrent ? '#FF6B9D' : isHovered ? '#ffaac9' : '#ffd6e7'}
+                rx={6} fill={isCurrent ? '#C9376B' : isHovered ? '#E8709B' : '#F8C7D8'}
                 style={{ transition: 'fill 0.15s' }}
               />
               {/* Expense overlay */}
@@ -106,7 +106,7 @@ function BarChart({ data, maxVal }) {
               {/* X label */}
               <text x={x + barW / 2} y={padT + chartH + 16}
                 textAnchor="middle" fontSize={10}
-                fill={isCurrent ? '#FF6B9D' : '#9ca3af'}
+                fill={isCurrent ? '#C9376B' : '#9ca3af'}
                 fontWeight={isCurrent ? '600' : '400'}>
                 {d.label}
               </text>
@@ -114,7 +114,7 @@ function BarChart({ data, maxVal }) {
               {barH > 14 && (
                 <text x={x + barW / 2} y={y - 4}
                   textAnchor="middle" fontSize={9}
-                  fill={isCurrent ? '#FF6B9D' : '#d1d5db'}>
+                  fill={isCurrent ? '#C9376B' : '#d1d5db'}>
                   {fmtMoney(d.revenue)}
                 </text>
               )}
@@ -136,7 +136,7 @@ function BarChart({ data, maxVal }) {
               <text x={ttX + 10} y={ttY + 18} fontSize={11} fill="#374151" fontWeight="600">
                 {tooltip.label} {tooltip.year}
               </text>
-              <text x={ttX + 10} y={ttY + 33} fontSize={10} fill="#FF6B9D">
+              <text x={ttX + 10} y={ttY + 33} fontSize={10} fill="#C9376B">
                 รายรับ {fmtMoney(tooltip.revenue)}
               </text>
               <text x={ttX + 10} y={ttY + 48} fontSize={10} fill="#fb923c">
