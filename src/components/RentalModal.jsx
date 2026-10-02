@@ -5,6 +5,7 @@ import { getRentals, createRental, updateRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 import { celebrate } from '../lib/confetti'
 import { LADDER_DAYS } from '../lib/ladder'
+import { rentalDays, daysBetween, endDateFromDays } from '../lib/rentalDays'
 import { useToast } from '../context/ToastContext'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
@@ -56,25 +57,9 @@ const getLadderPrice = (camera, days) => {
 
 const hasLadder = (camera) => ladderOf(camera) !== null
 
-const addDays = (dateStr, n) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  // ใช้ local time แทน UTC เพื่อหลีกเลี่ยงปัญหา timezone
-  const y  = d.getFullYear()
-  const m  = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-const calcDaysFromDates = (start, end) => {
-  if (!start || !end) return 1
-  const s = new Date(start + 'T00:00:00')
-  const e = new Date(end   + 'T00:00:00')
-  // นับรวมวันแรก: วันรับนับเป็นวันที่ 1 เลย → เช่า 16-19 = 4 วัน
-  const d = Math.round((e - s) / 86400000) + 1
-  return d >= 1 ? d : 1
-}
+// คิดแบบ 24 ชั่วโมง: รับ 16 เวลา 13:00 → คืน 17 เวลา 13:00 = 1 วัน
+// นิยามกลางอยู่ที่ src/lib/rentalDays.js
+const calcDaysFromDates = (start, end) => daysBetween(start, end)
 
 // ── ช่วงที่กล้อง "ถูกครอบครองจริง" = [วันรับ, วันคืน) ปลายเปิด ──
 // เช่า 18 → 19 = ครอบครองแค่วันที่ 18
@@ -133,7 +118,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const toast = useToast()
   const isEdit = !!rental
 
-  const initDays = isEdit ? calcDaysFromDates(rental.start_date, rental.end_date) : 1
+  const initDays = isEdit ? rentalDays(rental) : 1
 
   const [cameras, setCameras] = useState([])
   const [customers, setCustomers] = useState([])
@@ -175,17 +160,32 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   // ตอนสร้างใหม่: start_date หรือ days เปลี่ยน → คำนวณ end_date
   useEffect(() => {
     if (!isEdit && form.start_date && form.days) {
-      // นับรวมวันแรก: N วัน = คืนวันที่ start + (N-1) เช่น 4 วัน รับ 16 → คืน 19
-      const n = parseInt(form.days)
-      const newEnd = addDays(form.start_date, n - 1)
-      setForm(f => ({ ...f, end_date: newEnd }))
+      // คิดแบบ 24 ชั่วโมง: N วัน = คืนวันที่ start + N
+      // เช่น 1 วัน รับ 16 → คืน 17 (เวลาเดียวกัน) · 4 วัน รับ 16 → คืน 20
+      setForm(f => ({ ...f, end_date: endDateFromDays(form.start_date, form.days) }))
     }
   }, [form.start_date, form.days])
 
+  // เวลาคืน = เวลารับ (ครบ 24 ชม. พอดี) — เติมให้อัตโนมัติ แต่แก้เองได้
+  // เติมเฉพาะตอนที่ช่องเวลาคืนยังว่าง จะได้ไม่ทับค่าที่พิมพ์เอง
+  useEffect(() => {
+    if (form.pickup_time && !form.return_time) {
+      setForm(f => (f.return_time ? f : { ...f, return_time: f.pickup_time }))
+    }
+  }, [form.pickup_time])
+
   // ตอนแก้ไข: end_date เปลี่ยนโดยตรง → sync form.days ให้ถูกต้อง (เพื่อคำนวณราคาถูก)
+  //
+  // รายการเก่าที่บันทึกด้วยกฎเดิม: ถ้ายังไม่แตะวันที่เลย ให้โชว์จำนวนวันเท่าเดิม
+  // (เปิดดู/แก้หมายเหตุแล้วจำนวนวันต้องไม่กระโดด) — พอแก้วันที่เมื่อไหร่
+  // ถือว่าจองใหม่ จึงเปลี่ยนมาใช้กฎ 24 ชม. และระบบจะคิดราคาใหม่ตามปกติ
   useEffect(() => {
     if (isEdit && form.start_date && form.end_date) {
-      const d = calcDaysFromDates(form.start_date, form.end_date)
+      const datesUntouched =
+        form.start_date === rental.start_date && form.end_date === rental.end_date
+      const d = datesUntouched
+        ? rentalDays(rental)
+        : calcDaysFromDates(form.start_date, form.end_date)
       setForm(f => f.days === String(d) ? f : { ...f, days: String(d) })
     }
   }, [form.start_date, form.end_date])
@@ -440,7 +440,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
               {/* Day picker — 5 ช่องต่อแถว (จำนวนวันสูงสุดอยู่ที่ src/lib/ladder.js) */}
               <div>
-                <label className={labelCls}>จำนวนวันเช่า</label>
+                <label className={labelCls}>จำนวนวันเช่า <span className="font-normal text-gray-400">(1 วัน = 24 ชม.)</span></label>
                 <div className="grid grid-cols-5 gap-1.5">
                   {LADDER_DAYS.map(d => {
                     const price       = getLadderPrice(selectedCamera, d)
@@ -551,8 +551,23 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                     placeholder="เช่น 10:00" maxLength={8} className={inputCls} />
                 </div>
               </div>
+              {/* สรุปช่วงเช่าแบบ 24 ชั่วโมง ให้เห็นก่อนกดบันทึก */}
+              {form.start_date && form.end_date && (
+                <div className="flex items-start gap-2 text-xs bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
+                  <span className="text-sm leading-none mt-0.5">⏱</span>
+                  <span className="text-gray-600">
+                    รับ <strong className="text-gray-900">{fmtDMY(form.start_date)}</strong>
+                    {form.pickup_time ? ` ${form.pickup_time}` : ''}
+                    {' → '}คืน <strong className="text-gray-900">{fmtDMY(form.end_date)}</strong>
+                    {form.return_time ? ` ${form.return_time}` : ''}
+                    {' = '}<strong className="text-brand-600">{days} วัน</strong>
+                  </span>
+                </div>
+              )}
               <p className="text-[10px] text-gray-400">
-                ⏱ พิมพ์เวลาเองได้เลย เช่น 13:00 / 13.30 / 1330 — เวลาที่กรอกจะแสดงในหนังสือสัญญา (นับวันแบบรวมวันแรก: รับ 16 คืน 19 = 4 วัน)
+                ⏱ นับแบบ 24 ชั่วโมง — รับ 13:00 คืน 13:00 ของวันถัดไป = 1 วัน
+                · เวลาคืนจะเติมให้เท่าเวลารับอัตโนมัติ แก้เองได้
+                · พิมพ์เวลาได้หลายแบบ เช่น 13:00 / 13.30 / 1330
               </p>
 
               {/* เตือนคิวชนทันทีที่เลือกกล้อง+วันครบ ไม่ต้องรอกดบันทึกถึงจะรู้ */}

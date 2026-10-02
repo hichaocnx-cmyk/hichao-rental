@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
+import { rentalDays } from '../lib/rentalDays'
 
 // ── ข้อมูลผู้ให้เช่า (แก้ไขได้ตรงนี้) ───────────────────────────────
 const LESSOR = {
@@ -16,11 +17,6 @@ const fmtDate = (ds) => {
   return `${parseInt(d)} ${MONTHS_TH[parseInt(m) - 1]} ${parseInt(y) + 543}`
 }
 const fmtTime = (t) => (t ? `${t.slice(0,5)} น.` : '')
-const calcDays = (start, end) => {
-  if (!start || !end) return 0
-  // นับรวมวันแรก: วันรับนับเป็นวันที่ 1 เลย → เช่า 16-19 = 4 วัน
-  return Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1)
-}
 const baht = (n) => '฿' + Number(n || 0).toLocaleString()
 
 // โหลดรูป (โลโก้/ลายเซ็น) เป็น dataURL — ไฟล์ static บนโดเมนเดียวกัน
@@ -73,7 +69,7 @@ export default function ContractModal({ rental, onClose }) {
   const [resultUrl, setResultUrl]   = useState('')
   const [resultFile, setResultFile] = useState(null)
 
-  const days        = calcDays(rental.start_date, rental.end_date)
+  const days        = rentalDays(rental)
   const pricePerDay = Number(rental.price_per_day || 0)
   const discount    = Number(rental.discount || 0)
   const totalPrice  = Number(rental.total_price || 0)        // ค่าเช่าสุทธิหลังหักส่วนลด (ต้องตรงกับระบบ)

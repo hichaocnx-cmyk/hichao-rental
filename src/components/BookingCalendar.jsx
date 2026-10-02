@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { rentalDays } from '../lib/rentalDays'
 
 /* ════════════════════════════════════════════════════════════
    BookingCalendar — ปฏิทินเดือนที่ลากแถบการจองยาวคาดตามจำนวนวัน
@@ -34,12 +35,9 @@ export const shortDate = (ds) => {
   const [, m, d] = ds.split('-')
   return `${parseInt(d, 10)} ${MONTHS_SHORT_TH[parseInt(m, 10) - 1]}`
 }
-export const daySpan = (r) => {
-  const a = Date.parse(r.start_date + 'T00:00:00')
-  const b = Date.parse(r.end_date + 'T00:00:00')
-  if (Number.isNaN(a) || Number.isNaN(b)) return 1
-  return Math.max(1, Math.round((b - a) / 86400000) + 1)
-}
+// จำนวนวันของการจอง — นิยามกลางอยู่ที่ src/lib/rentalDays.js
+// (24 ชม.: รับ 16 คืน 17 = 1 วัน · รายการที่บันทึกก่อนเปลี่ยนกฎยังนับแบบเดิม)
+export const daySpan = (r) => rentalDays(r)
 
 // สีคงที่ต่อ 1 รายการเช่า — เรียงตามวันเริ่มเพื่อให้สีไม่สลับไปมาเวลารีโหลด
 export function useRentalColors(rentals) {

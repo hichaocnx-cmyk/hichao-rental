@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { updateRental, deleteRental } from '../lib/rentals'
+import { rentalDays } from '../lib/rentalDays'
 import { updateCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
@@ -56,8 +57,8 @@ const fmtDateFull = iso => {
 // ── Rental Status Timeline ──────────────────────────────────────
 function RentalTimeline({ r }) {
   const s = r.status
-  // นับรวมวันแรก: รับ 16 คืน 19 = 4 วัน
-  const calcDaysLocal = () => Math.max(1, Math.round((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1)
+  // จำนวนวัน: นิยามกลางอยู่ที่ src/lib/rentalDays.js (24 ชม. · รายการเก่ายังนับแบบเดิม)
+  const calcDaysLocal = () => rentalDays(r)
 
   // step: { label, sub, detail, done, active }
   const steps = [
@@ -489,8 +490,8 @@ export default function RentalsPage() {
     finally { setLineSending(s => ({ ...s, all: false })) }
   }
 
-  // นับรวมวันแรก: รับ 16 คืน 19 = 4 วัน
-  const calcDays = (r) => Math.max(1, Math.round((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1)
+  // จำนวนวัน: นิยามกลางอยู่ที่ src/lib/rentalDays.js (24 ชม. · รายการเก่ายังนับแบบเดิม)
+  const calcDays = (r) => rentalDays(r)
   const urgentNoti = notifications.filter(n => n.urgent)
   const showBanner = urgentNoti.length > 0 && !bannerDismissed
 
