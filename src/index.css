@@ -50,22 +50,14 @@ html {
 /* เฟดเข้าตอนเปลี่ยนหน้า */
 .page-enter { animation: hcFloatUp .45s cubic-bezier(.22, 1, .36, 1) backwards; }
 
-/* การ์ดลอยขึ้นนุ่มๆ ตอน hover (เฉพาะเนื้อหาหลัก ไม่โดน modal/แมว) */
-main .bg-white.rounded-2xl,
-main .bg-white.rounded-3xl,
-main .bg-white.rounded-xl {
-  transition: transform .25s cubic-bezier(.22, 1, .36, 1), box-shadow .25s ease;
-}
-@media (hover: hover) {
-  main .bg-white.rounded-2xl:hover,
-  main .bg-white.rounded-3xl:hover,
-  main .bg-white.rounded-xl:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px -10px rgba(255, 107, 157, .28);
-  }
-}
-/* ยกเลิกเอฟเฟกต์ลอยภายใน overlay/modal (กันการ์ด modal ขยับแปลกๆ) */
-.fixed .bg-white:hover { transform: none !important; box-shadow: none !important; }
+/* ⚠️ เคยมีเอฟเฟกต์ "การ์ดลอยขึ้นตอน hover" ของธีมกระจกเดิมอยู่ตรงนี้
+   พร้อมกฎกันการ์ดใน modal ลอย:  .fixed .bg-white:hover { transform: none !important }
+   ลบออกทั้งคู่แล้ว เพราะ 2 เหตุผล
+     1) ธีม "สะอาดตา" ไม่ลอยแล้ว (hover แค่ขอบเข้มขึ้น — ดูบล็อกธีมด้านล่าง)
+     2) บนมือถือ "นิ้วที่แตะค้างไว้" นับเป็น hover → กฎ !important ไปล็อก
+        transform ของแผ่น modal ทำให้ลากแล้วแผ่นไม่ขยับตามนิ้ว
+        (ฉากดำจางได้ปกติเพราะไม่ใช่ .bg-white จึงไม่โดนกฎนี้)
+   ถ้าจะเพิ่มเอฟเฟกต์ hover ใหม่ อย่าแตะ transform ของอะไรที่ลากได้ */
 
 /* ปุ่มกดแล้วยุบเบาๆ ให้รู้สึกตอบสนอง */
 button { transition: transform .12s ease; }
@@ -83,7 +75,10 @@ button:active:not(:disabled) { transform: scale(.96); }
   .page-enter, .cute-blob, .cute-pulse,
   main .bg-white.rounded-2xl, main .bg-white.rounded-3xl, main .bg-white.rounded-xl,
   button { animation: none !important; transition: none !important; }
-  main .bg-white:hover { transform: none !important; }
+  /* ไม่แตะ transform ของแผ่นที่ลากได้ — ผู้ใช้ยังต้องลากปิดได้แม้ปิดแอนิเมชัน */
+  main .bg-white.rounded-2xl:hover,
+  main .bg-white.rounded-3xl:hover,
+  main .bg-white.rounded-xl:hover { transform: none !important; }
 }
 
 /* ── Shimmer skeleton ── */
@@ -160,7 +155,7 @@ main .bg-white.rounded-xl {
   main .bg-white.rounded-2xl:hover,
   main .bg-white.rounded-3xl:hover,
   main .bg-white.rounded-xl:hover {
-    transform: none;
+    /* ห้ามใส่ transform ตรงนี้ — แผ่น modal/เมนูที่ลากได้ใช้ transform อยู่ */
     border-color: var(--hc-border2);
     box-shadow: 0 2px 6px rgba(28, 26, 25, .06);
   }

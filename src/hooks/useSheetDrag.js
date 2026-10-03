@@ -62,11 +62,17 @@ export default function useSheetDrag({
   const posOf = (t) => (vertical ? t.clientY : t.clientX)
 
   // ── เขียนลงจอตรงๆ ไม่ผ่าน React ────────────────────────────
+  // ⚠️ ใช้ setProperty(..., 'important') ไม่ใช่ n.style.transform = ...
+  // เคยเจอของจริง: index.css มีกฎ .fixed .bg-white:hover { transform: none !important }
+  // บนมือถือ "นิ้วแตะค้าง" นับเป็น hover → กฎ !important ชนะ inline style
+  // ฉากดำจางได้ แต่แผ่นไม่ขยับตามนิ้วเลย (ลบกฎนั้นออกแล้ว แต่กันไว้ไม่ให้เกิดซ้ำ
+  // ถ้าวันหลังมีใครเขียนกฎ hover/transform ใหม่โดยไม่รู้)
   const paint = (d, animate) => {
     const n = sheetRef.current
     if (n) {
       n.style.transition = animate ? SPRING : 'none'
-      n.style.transform = d ? (vertical ? `translateY(${d}px)` : `translateX(${-d}px)`) : ''
+      if (d) n.style.setProperty('transform', vertical ? `translateY(${d}px)` : `translateX(${-d}px)`, 'important')
+      else   n.style.removeProperty('transform')
     }
     const b = backdropRef.current
     if (b) {
