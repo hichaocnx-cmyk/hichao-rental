@@ -1,73 +1,82 @@
 import { useRef, useState } from 'react'
 
 /* ══════════════════════════════════════════════════════════════
-   useSheetDrag — ลากแผ่น (bottom sheet) ลงเพื่อปิด บนมือถือ
+   useSheetDrag — ลากเพื่อปิด บนมือถือ
    ──────────────────────────────────────────────────────────────
-   เดิมปิดหน้าต่างได้ทางเดียวคือเล็งกดกากบาทมุมขวาบน ซึ่งอยู่สูง
-   และเล็กเกินไปเวลาถือมือถือมือเดียว
-   ตอนนี้ลากแผ่นลงแล้วปล่อย = ปิด เหมือนแอปทั่วไป
+   ใช้ได้ 2 แบบ:
+     axis: 'y' (ค่าเริ่มต้น) — แผ่นเลื่อนขึ้นจากด้านล่าง ลากลงเพื่อปิด
+     axis: 'x'               — เมนูข้างที่เลื่อนมาจากซ้าย ลากไปทางซ้ายเพื่อปิด
 
    วิธีใช้:
      const sheet = useSheetDrag({ onClose })
-     <div style={sheet.style} ...>
+     <div style={sheet.style}>
        <div {...sheet.handleProps}> ...ขีดจับ + หัวข้อ... </div>
        <div {...sheet.bodyProps} className="overflow-y-auto"> ...เนื้อหา... </div>
      </div>
 
    · handleProps — ลากได้เสมอ (ใช้กับขีดจับและแถบหัวข้อ)
    · bodyProps   — ลากได้เฉพาะตอนเลื่อนเนื้อหาอยู่บนสุดแล้ว
-                   ไม่งั้นจะแย่งกับการสกรอลล์อ่านฟอร์ม
-   · จอใหญ่ (>= 640px) ไม่ทำงาน เพราะที่นั่นเป็นกล่องกลางจอ ไม่ใช่แผ่นเลื่อน
+                   ไม่งั้นจะแย่งกับการสกรอลล์อ่านเนื้อหา
+   · reset()     — ล้างระยะที่ลางค้างไว้ จำเป็นกับตัวที่ไม่ถูก unmount
+                   เวลาปิด (เช่น เมนูข้าง) ไม่งั้นเปิดใหม่แล้วจะยังอยู่นอกจอ
+   · จอกว้างเกิน maxWidth ไม่ทำงาน (ที่นั่นไม่ใช่แผ่นเลื่อน/เมนูลอย)
    ══════════════════════════════════════════════════════════════ */
 
-const BREAKPOINT    = 640   // ต่ำกว่านี้ถือว่าเป็นมือถือ (ตรงกับ sm: ของ Tailwind)
-const CLOSE_AT      = 110   // ลากลงเกินกี่ px ถึงจะปิด
+const CLOSE_AT       = 110  // ลากเกินกี่ px ถึงจะปิด
 const CLOSE_VELOCITY = 0.6  // ปัดเร็วๆ (px ต่อ ms) ก็ปิดเลย ไม่ต้องลากไกล
-const FLICK_MIN     = 56    // แต่ต้องลากลงอย่างน้อยเท่านี้ กันนิ้วปัดโดนนิดเดียวแล้วหน้าปิดเอง
+const FLICK_MIN      = 56   // แต่ต้องลากอย่างน้อยเท่านี้ กันนิ้วปัดโดนนิดเดียวแล้วปิดเอง
 
-export default function useSheetDrag({ onClose, closeAt = CLOSE_AT } = {}) {
-  const [dragY, setDragY] = useState(0)
-  const start = useRef(null)   // { y, t } — null = ไม่ได้กำลังลาก
+export default function useSheetDrag({
+  onClose,
+  closeAt  = CLOSE_AT,
+  axis     = 'y',    // 'y' = ลากลงปิด · 'x' = ลากไปซ้ายปิด
+  maxWidth = 640,    // จอแคบกว่านี้ถึงจะลากได้ (เมนูข้างใช้ 1024 เพราะซ่อนที่ lg)
+} = {}) {
+  const [drag, setDrag] = useState(0)   // ระยะที่ลางมาแล้ว (บวกเสมอ)
+  const start = useRef(null)            // { pos, t } — null = ไม่ได้กำลังลาก
 
-  const isPhone = () => typeof window !== 'undefined' && window.innerWidth < BREAKPOINT
+  const vertical = axis !== 'x'
+  const canDrag = () => typeof window !== 'undefined' && window.innerWidth < maxWidth
+  const posOf = (touch) => (vertical ? touch.clientY : touch.clientX)
 
   const begin = (e) => {
-    if (!isPhone() || e.touches.length !== 1) return
-    start.current = { y: e.touches[0].clientY, t: Date.now() }
+    if (!canDrag() || e.touches.length !== 1) return
+    start.current = { pos: posOf(e.touches[0]), t: Date.now() }
   }
 
   const move = (e) => {
     if (!start.current) return
-    const dy = e.touches[0].clientY - start.current.y
-    // ลากขึ้นไม่ทำอะไร — แผ่นติดขอบบนอยู่แล้ว
-    setDragY(dy > 0 ? dy : 0)
+    const delta = posOf(e.touches[0]) - start.current.pos
+    // แนวตั้งนับเฉพาะลากลง · แนวนอนนับเฉพาะลากไปซ้าย
+    const d = vertical ? delta : -delta
+    setDrag(d > 0 ? d : 0)
   }
 
   const end = () => {
     if (!start.current) return
     const elapsed = Math.max(1, Date.now() - start.current.t)
-    // ปัดเร็ว = ปิดได้โดยไม่ต้องลากจนสุด แต่ต้องลากลงพอสมควรก่อน
-    // ไม่งั้นแค่สะบัดนิ้วตอนเลื่อนดูฟอร์ม หน้าก็ปิดเองโดยไม่ได้ตั้งใจ
-    const fast = dragY >= FLICK_MIN && dragY / elapsed >= CLOSE_VELOCITY
-    const far  = dragY >= closeAt
+    // ปัดเร็ว = ปิดได้โดยไม่ต้องลากจนสุด แต่ต้องลากพอสมควรก่อน
+    // ไม่งั้นแค่สะบัดนิ้วตอนเลื่อนดูเนื้อหา ก็ปิดเองโดยไม่ได้ตั้งใจ
+    const fast = drag >= FLICK_MIN && drag / elapsed >= CLOSE_VELOCITY
+    const far  = drag >= closeAt
     start.current = null
     if (far || fast) {
-      // เลื่อนลงให้สุดก่อนค่อยปิด จะได้ไม่หายวับ
-      setDragY(window.innerHeight)
+      // เลื่อนออกให้สุดก่อนค่อยปิด จะได้ไม่หายวับ
+      setDrag(vertical ? window.innerHeight : window.innerWidth)
       setTimeout(() => onClose?.(), 180)
     } else {
-      setDragY(0)
+      setDrag(0)
     }
   }
 
   // เลื่อนเนื้อหาอยู่บนสุดแล้วเท่านั้นถึงเริ่มลากจากตัวเนื้อหาได้
   const beginFromBody = (e) => {
-    if (e.currentTarget.scrollTop > 0) return
+    if (vertical && e.currentTarget.scrollTop > 0) return
     begin(e)
   }
   const moveFromBody = (e) => {
     if (!start.current) return
-    if (e.currentTarget.scrollTop > 0) { start.current = null; setDragY(0); return }
+    if (vertical && e.currentTarget.scrollTop > 0) { start.current = null; setDrag(0); return }
     move(e)
   }
 
@@ -75,8 +84,9 @@ export default function useSheetDrag({ onClose, closeAt = CLOSE_AT } = {}) {
 
   return {
     dragging,
+    reset: () => { start.current = null; setDrag(0) },
     style: {
-      transform: dragY ? `translateY(${dragY}px)` : undefined,
+      transform: drag ? (vertical ? `translateY(${drag}px)` : `translateX(-${drag}px)`) : undefined,
       transition: dragging ? 'none' : 'transform .22s cubic-bezier(.22,1,.36,1)',
     },
     handleProps: {
@@ -84,7 +94,7 @@ export default function useSheetDrag({ onClose, closeAt = CLOSE_AT } = {}) {
       onTouchMove:  (e) => { e.stopPropagation(); move(e) },
       onTouchEnd:   (e) => { e.stopPropagation(); end(e) },
       onTouchCancel:(e) => { e.stopPropagation(); end(e) },
-      style: { touchAction: 'none' },   // บอกเบราว์เซอร์ว่าเราจัดการนิ้วเอง
+      style: { touchAction: vertical ? 'none' : 'pan-y' },  // แนวนอน: ยังให้เลื่อนขึ้นลงได้ตามปกติ
     },
     bodyProps: {
       onTouchStart: beginFromBody,

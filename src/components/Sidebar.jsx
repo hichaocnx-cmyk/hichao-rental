@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { exportBackup, fetchLastBackup, backupUrgency, backupLabel } from '../lib/backup'
+import useSheetDrag from '../hooks/useSheetDrag'
 
 const navItems = [
   {
@@ -65,6 +66,12 @@ const navItems = [
 ]
 
 export default function Sidebar({ open, onClose }) {
+  // มือถือ/แท็บเล็ต: ลากเมนูไปทางซ้ายเพื่อปิด (เมนูขยับตามนิ้ว)
+  // maxWidth 1024 เพราะเมนูนี้เป็นแบบลอยจนถึงขนาด lg
+  const drawer = useSheetDrag({ onClose, axis: 'x', maxWidth: 1024 })
+  // ปิดแล้วต้องล้างระยะที่ลากค้างไว้ — เมนูนี้ไม่ได้ถูกถอดออกจากหน้า
+  // ถ้าไม่ล้าง เปิดใหม่รอบหน้าจะยังค้างอยู่นอกจอ กดแล้วเหมือนเมนูไม่ขึ้น
+  useEffect(() => { if (!open) drawer.reset() }, [open])
   const { logout, user } = useAuth()
   const toast = useToast()
   const [backingUp, setBackingUp] = useState(false)
@@ -117,7 +124,9 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
 
-      <aside className={`
+      <aside {...drawer.handleProps}
+        style={open ? { ...drawer.handleProps.style, ...drawer.style } : drawer.handleProps.style}
+        className={`
         fixed top-0 left-0 h-full w-60 bg-white z-30
         flex flex-col border-r border-gray-100
         transition-transform duration-300 ease-in-out
