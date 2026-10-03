@@ -151,12 +151,12 @@ export default function BookingCalendar({
       </div>
 
       {/* ── แถบหัววัน ─────────────────────────────────────────── */}
-      <div className="flex" style={{ background: '#FAF8F6', borderTop: '1px solid var(--hc-grid)', borderBottom: '1px solid var(--hc-grid)' }}>
+      <div className="flex" style={{ background: 'var(--hc-band)', borderTop: '1px solid var(--hc-grid)', borderBottom: '1px solid var(--hc-grid)' }}>
         {DOW_TH.map((d, i) => (
           <div key={d} className="text-center text-[10.5px] sm:text-xs font-semibold py-1.5"
             style={{
               width: pct(1),
-              color: i === 0 || i === 6 ? '#B5AEA7' : '#6E6A66',
+              color: i === 0 || i === 6 ? 'var(--hc-dim)' : 'var(--hc-muted)',
               borderRight: i === 6 ? 'none' : '1px solid var(--hc-grid)',
             }}>
             {d}
@@ -223,7 +223,7 @@ export default function BookingCalendar({
                     background: isToday ? 'var(--hc-today)' : out ? 'var(--hc-out)' : (i === 0 || i === 6) ? 'var(--hc-wknd)' : 'transparent',
                     borderRight: i === 6 ? 'none' : '1px solid var(--hc-grid)',
                     borderBottom: isLast ? 'none' : '1px solid var(--hc-grid)',
-                    boxShadow: isSel && !isToday ? 'inset 0 0 0 1.5px #E06894' : 'none',
+                    boxShadow: isSel && !isToday ? 'inset 0 0 0 1.5px var(--hc-primary)' : 'none',
                   }}
                   aria-label={ds || undefined}
                 />
@@ -245,8 +245,8 @@ export default function BookingCalendar({
                     className="flex items-center justify-center rounded-full tabular-nums text-[11.5px] sm:text-[13px] min-w-[19px] h-[19px] sm:min-w-[24px] sm:h-6"
                     style={{
                       fontWeight: isToday ? 700 : 500,
-                      color: isToday ? '#fff' : out ? '#C8C3BD' : '#1C1A19',
-                      background: isToday ? '#C9376B' : 'transparent',
+                      color: isToday ? '#fff' : out ? 'var(--hc-dim)' : 'var(--hc-text)',
+                      background: isToday ? 'var(--hc-primary)' : 'transparent',
                     }}>
                     {shown}
                   </span>

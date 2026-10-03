@@ -127,6 +127,14 @@ button:active:not(:disabled) { transform: scale(.96); }
   --hc-out:     #F7F5F2;   /* พื้นวันนอกเดือน */
   --hc-today:   #FDF0F5;   /* พื้นช่องวันนี้ */
   --hc-shadow:  0 1px 2px rgba(28, 26, 25, .04);
+
+  /* สีตัวหนังสือ — ใช้ในที่ที่เขียน style ตรงๆ (เช่น ปฏิทิน) จะได้สลับโหมดตามได้ */
+  --hc-text:    #1C1A19;   /* ตัวหนังสือหลัก */
+  --hc-muted:   #6E6A66;   /* รอง */
+  --hc-faint:   #98928C;   /* จาง */
+  --hc-dim:     #C8C3BD;   /* จางมาก เช่น วันนอกเดือน */
+  --hc-band:    #FAF8F6;   /* แถบหัววันของปฏิทิน */
+  --hc-primary: #C9376B;   /* ชมพูแบรนด์ (วงกลมวันนี้ / กรอบวันที่เลือก) */
 }
 
 .flex.h-screen.bg-surface {
@@ -229,84 +237,162 @@ nav.lg\:hidden {
 }
 
 /* ════════════════════════════════════════════════════════════
-   HICHAO — Dark mode (html.dark)  •  พื้นเข้มเรียบ เข้าชุดกับธีมสะอาดตา
+   HICHAO — โหมดกลางคืน (html.dark)
+   ────────────────────────────────────────────────────────────
+   หลักที่ยึด: ตัวหนังสือต้องอ่านออกก่อนเสมอ แล้วค่อยสวย
+   ปัญหาเดิมคือเปลี่ยนแค่ "พื้น" ให้เข้ม แต่ "ตัวหนังสือ" ยังเป็นสีเข้มอยู่
+   เช่นป้าย text-emerald-700 บน bg-emerald-50 → พื้นกลายเป็นเขียวเข้ม
+   แต่ตัวหนังสือยังเขียวเข้มเหมือนเดิม = เข้มบนเข้ม อ่านไม่ออก
+   ตอนนี้จึงสลับทั้งคู่: พื้นเข้มโปร่ง + ตัวหนังสือสีอ่อนของสีเดียวกัน
    ════════════════════════════════════════════════════════════ */
-html.dark body { color: #ECE9F2; }
-
 html.dark {
-  --hc-grid:  rgba(255,255,255,.12);
-  --hc-wknd:  rgba(255,255,255,.03);
-  --hc-out:   rgba(255,255,255,.04);
-  --hc-today: rgba(201,55,107,.20);
+  --hc-page:    #141119;
+  --hc-card:    #1B1626;
+  --hc-border:  rgba(255,255,255,.10);
+  --hc-border2: rgba(255,255,255,.18);
+  --hc-grid:    rgba(255,255,255,.12);
+  --hc-wknd:    rgba(255,255,255,.03);
+  --hc-out:     rgba(255,255,255,.045);
+  --hc-today:   rgba(201,55,107,.17);
+  --hc-shadow:  0 1px 2px rgba(0,0,0,.4);
+
+  --hc-text:    #ECE9F2;
+  --hc-muted:   #BDB6C9;
+  --hc-faint:   #948CA3;
+  --hc-dim:     #5F5870;
+  --hc-band:    #211B2D;
+  --hc-primary: #E0558A;   /* โหมดกลางคืนใช้ชมพูสว่างขึ้น ไม่งั้นจมกับพื้นมืด */
 }
 
-html.dark .flex.h-screen.bg-surface {
-  background: #141119 !important;
-}
+html.dark body { color: var(--hc-text); }
+html.dark .flex.h-screen.bg-surface { background: var(--hc-page) !important; }
 
-/* การ์ดเข้มทึบ */
+/* การ์ด */
 html.dark main .bg-white.rounded-2xl,
 html.dark main .bg-white.rounded-3xl,
 html.dark main .bg-white.rounded-xl {
-  background: #1B1626 !important;
-  border: 1px solid rgba(255,255,255,.10);
-  box-shadow: 0 1px 2px rgba(0,0,0,.4) !important;
+  background: var(--hc-card) !important;
+  border: 1px solid var(--hc-border);
+  box-shadow: var(--hc-shadow) !important;
 }
 @media (hover: hover) {
   html.dark main .bg-white.rounded-2xl:hover,
   html.dark main .bg-white.rounded-3xl:hover,
   html.dark main .bg-white.rounded-xl:hover {
-    border-color: rgba(255,255,255,.18);
+    border-color: var(--hc-border2);
     box-shadow: 0 2px 8px rgba(0,0,0,.5) !important;
   }
 }
 
-/* Topbar / Sidebar / bottom nav */
+/* ⚠️ bg-white ที่ไม่มีคลาส rounded ก็มีอีกเยอะ (แถวในลิสต์ กล่องซ้อนในการ์ด)
+   ของเดิมครอบแค่ 3 คลาสข้างบน พวกนี้เลยยังขาวจ้าอยู่กลางพื้นเข้ม */
+html.dark .bg-white { background: var(--hc-card); }
+html.dark .hover\:bg-white:hover { background: var(--hc-card); }
+
+/* Topbar / Sidebar / แถบล่าง */
 html.dark header.h-16 { background: #17121f !important; border-bottom: 1px solid rgba(255,255,255,.08) !important; }
 html.dark aside,
 html.dark nav.lg\:hidden { background: #17121f !important; border-color: rgba(255,255,255,.08) !important; }
-
-/* ข้อความ */
-html.dark .text-gray-900, html.dark .text-gray-800 { color: #ECE9F2 !important; }
-html.dark .text-gray-700, html.dark .text-gray-600 { color: #CDC7DA !important; }
-html.dark .text-gray-500, html.dark .text-gray-400 { color: #9C93AE !important; }
-html.dark .text-gray-300 { color: #6E6781 !important; }
-
-/* พื้นผิว & เส้นขอบ */
-html.dark .bg-gray-50, html.dark .bg-gray-100 { background: rgba(255,255,255,.05) !important; }
-html.dark .border-gray-50, html.dark .border-gray-100, html.dark .border-gray-200 { border-color: rgba(255,255,255,.10) !important; }
-
-/* สถิติพาสเทล -> tint เข้ม */
-html.dark .bg-rose-50    { background: rgba(244,63,94,.14) !important; }
-html.dark .bg-emerald-50, html.dark .bg-green-50 { background: rgba(16,185,129,.14) !important; }
-html.dark .bg-orange-50, html.dark .bg-amber-50  { background: rgba(245,158,11,.14) !important; }
-html.dark .bg-blue-50, html.dark .bg-sky-50      { background: rgba(56,189,248,.14) !important; }
-html.dark .bg-purple-50, html.dark .bg-violet-50, html.dark .bg-indigo-50 { background: rgba(139,92,246,.14) !important; }
-html.dark .bg-brand-50   { background: rgba(255,107,157,.14) !important; }
-
-/* ฟอร์ม */
-html.dark input, html.dark select, html.dark textarea {
-  background: rgba(255,255,255,.05) !important; color: #ECE9F2 !important; border-color: rgba(255,255,255,.14) !important;
+html.dark header .bg-white.rounded-2xl {
+  background: var(--hc-card) !important;
+  border: 1px solid var(--hc-border) !important;
 }
 
-/* Modal เข้มแต่ทึบ */
+/* ── ตัวหนังสือเทา ───────────────────────────────────────────── */
+html.dark .text-gray-900, html.dark .text-gray-800 { color: var(--hc-text) !important; }
+html.dark .text-gray-700, html.dark .text-gray-600 { color: var(--hc-muted) !important; }
+html.dark .text-gray-500, html.dark .text-gray-400 { color: var(--hc-faint) !important; }
+html.dark .text-gray-300, html.dark .text-gray-200 { color: var(--hc-dim) !important; }
+
+/* ── พื้นเทา & เส้นขอบ ───────────────────────────────────────── */
+html.dark .bg-gray-50  { background: rgba(255,255,255,.04) !important; }
+html.dark .bg-gray-100 { background: rgba(255,255,255,.07) !important; }
+html.dark .bg-gray-200 { background: rgba(255,255,255,.12) !important; }
+html.dark .bg-gray-300 { background: rgba(255,255,255,.18) !important; }
+html.dark .hover\:bg-gray-50:hover  { background: rgba(255,255,255,.06) !important; }
+html.dark .hover\:bg-gray-100:hover { background: rgba(255,255,255,.10) !important; }
+html.dark .border-gray-50,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 { border-color: var(--hc-border) !important; }
+html.dark .divide-gray-50 > * + *,
+html.dark .divide-gray-100 > * + * { border-color: var(--hc-border) !important; }
+
+/* ── ป้ายสถานะ / กล่อง tint ───────────────────────────────────
+   พื้น = สีเดิมแบบโปร่ง · ตัวหนังสือ = สีอ่อนของสีเดียวกัน
+   (ของเดิมเปลี่ยนแค่พื้น ตัวหนังสือเลยจมหายไปกับพื้น) */
+html.dark .bg-brand-50,   html.dark .bg-brand-100   { background: rgba(201,55,107,.20) !important; }
+html.dark .bg-emerald-50, html.dark .bg-emerald-100,
+html.dark .bg-green-50,   html.dark .bg-green-100   { background: rgba(16,185,129,.16) !important; }
+html.dark .bg-amber-50,   html.dark .bg-amber-100,
+html.dark .bg-orange-50,  html.dark .bg-orange-100  { background: rgba(245,158,11,.16) !important; }
+html.dark .bg-red-50,     html.dark .bg-red-100,
+html.dark .bg-rose-50,    html.dark .bg-rose-100    { background: rgba(239,68,68,.18) !important; }
+html.dark .bg-sky-50,     html.dark .bg-sky-100,
+html.dark .bg-blue-50,    html.dark .bg-blue-100    { background: rgba(56,189,248,.16) !important; }
+html.dark .bg-violet-50,  html.dark .bg-violet-100,
+html.dark .bg-purple-50,  html.dark .bg-purple-100,
+html.dark .bg-indigo-50,  html.dark .bg-indigo-100  { background: rgba(139,92,246,.18) !important; }
+
+html.dark .text-brand-600,   html.dark .text-brand-700,   html.dark .text-brand-900   { color: #FF9FBF !important; }
+html.dark .text-brand-500,   html.dark .text-brand-400    { color: #FF9FBF !important; }
+html.dark .text-emerald-600, html.dark .text-emerald-700,
+html.dark .text-emerald-800, html.dark .text-green-600,
+html.dark .text-green-700                                 { color: #6EE7B7 !important; }
+html.dark .text-emerald-500, html.dark .text-green-500     { color: #6EE7B7 !important; }
+html.dark .text-amber-600,   html.dark .text-amber-700,
+html.dark .text-amber-800,   html.dark .text-orange-600,
+html.dark .text-orange-700,  html.dark .text-orange-800    { color: #FCD34D !important; }
+html.dark .text-amber-500,   html.dark .text-orange-500,
+html.dark .text-orange-400                                 { color: #FBBF24 !important; }
+html.dark .text-red-600,     html.dark .text-red-700,
+html.dark .text-red-800,     html.dark .text-rose-600,
+html.dark .text-rose-700                                   { color: #FCA5A5 !important; }
+html.dark .text-red-500,     html.dark .text-red-400        { color: #FCA5A5 !important; }
+html.dark .text-sky-600,     html.dark .text-sky-700,
+html.dark .text-sky-800,     html.dark .text-blue-600,
+html.dark .text-blue-700,    html.dark .text-blue-800       { color: #93C5FD !important; }
+html.dark .text-sky-500,     html.dark .text-blue-500        { color: #93C5FD !important; }
+html.dark .text-violet-600,  html.dark .text-violet-700,
+html.dark .text-purple-600,  html.dark .text-purple-700,
+html.dark .text-indigo-600,  html.dark .text-indigo-700      { color: #C4B5FD !important; }
+html.dark .text-violet-500,  html.dark .text-purple-500,
+html.dark .text-indigo-500                                   { color: #C4B5FD !important; }
+
+/* เส้นขอบของกล่อง tint */
+html.dark .border-brand-100   { border-color: rgba(201,55,107,.30) !important; }
+html.dark .border-emerald-100, html.dark .border-green-100  { border-color: rgba(16,185,129,.28) !important; }
+html.dark .border-amber-100,   html.dark .border-amber-200,
+html.dark .border-orange-100,  html.dark .border-orange-200 { border-color: rgba(245,158,11,.28) !important; }
+html.dark .border-red-100,     html.dark .border-red-200    { border-color: rgba(239,68,68,.30) !important; }
+html.dark .border-sky-100,     html.dark .border-blue-100   { border-color: rgba(56,189,248,.28) !important; }
+
+/* ปุ่มสีทึบ (พื้นสีเข้ม ตัวหนังสือขาว) ไม่ต้องแตะ — อ่านออกอยู่แล้ว
+   แต่ต้องกันไม่ให้กฎ text-white ด้านบนไปโดน */
+html.dark .text-white { color: #fff !important; }
+
+/* ── ฟอร์ม ──────────────────────────────────────────────────── */
+html.dark input, html.dark select, html.dark textarea {
+  background: rgba(255,255,255,.05) !important;
+  color: var(--hc-text) !important;
+  border-color: rgba(255,255,255,.14) !important;
+}
+html.dark input::placeholder, html.dark textarea::placeholder { color: var(--hc-faint) !important; }
+/* ไอคอนปฏิทินในช่องวันที่เป็นสีดำบนพื้นเข้ม — กลับสีให้เห็น */
+html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.7); }
+html.dark select option { background: #1B1626; color: var(--hc-text); }
+
+/* ── Modal / แผ่นเลื่อน ─────────────────────────────────────── */
 html.dark .fixed .bg-white.rounded-2xl,
 html.dark .fixed .bg-white.rounded-3xl,
 html.dark .fixed .bg-white.rounded-xl,
-html.dark .fixed .bg-white.rounded-t-2xl {
-  background: #1b1626 !important; border: 1px solid rgba(255,255,255,.10) !important;
+html.dark .fixed .bg-white.rounded-t-2xl,
+html.dark .fixed .bg-white.rounded-t-3xl {
+  background: var(--hc-card) !important;
+  border: 1px solid var(--hc-border) !important;
 }
 
-/* Dropdown แจ้งเตือน (กระดิ่งบน Topbar)
-   มันอยู่ใน <header> จึงไม่เข้าเงื่อนไขทั้ง 'main ...' (การ์ด)
-   และ '.fixed ...' (modal) ที่เขียนไว้ด้านบน — พื้นหลังเลยค้างเป็นขาวล้วน
-   ขณะที่กฎ 'html.dark .text-gray-900' บังคับตัวหนังสือเป็นสีอ่อน
-   ผลคือขาวบนขาว contrast 1.2 (เกณฑ์อ่านออกต้อง >= 4.5) อ่านไม่ออกเลย */
-html.dark header .bg-white.rounded-2xl {
-  background: #1b1626 !important;
-  border: 1px solid rgba(255,255,255,.10) !important;
-}
-
-/* สีที่ dark mode ยังไม่ได้ครอบ (ใช้ในแถบ "เกินกำหนด" และ badge) */
-html.dark .bg-red-50    { background: rgba(239,68,68,.16) !important; }
-html.dark .bg-brand-100 { background: rgba(255,107,157,.20) !important; }
+/* ── ปฏิทินการจอง ───────────────────────────────────────────── */
+/* แถบจองเป็นพาสเทลอ่อน + ตัวหนังสือเข้ม (อ่านออกอยู่แล้วทั้งสองโหมด)
+   แค่หรี่ความจ้าลงนิดให้เข้ากับพื้นมืด */
+html.dark .bcal-bar { filter: brightness(.94) saturate(.95); }
