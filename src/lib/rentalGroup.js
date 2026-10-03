@@ -16,6 +16,28 @@ import { rentalRevenue, cashReceived, pendingAmount, isCountable } from './reven
 
 const num = (v) => Number(v || 0)
 
+// ══════════════════════════════════════════════════════════════
+// กฎค่าประกันของร้าน (ยืนยันกับเจ้าของแล้ว 3 ต.ค. 2569)
+//   เช่าตัวเดียว      → คิดค่าประกันของกล้องตัวนั้นตามปกติ
+//   เช่า 2 ตัวขึ้นไป  → คิดค่าประกันเหมา 2,000 บาทสำหรับทั้งชุด
+//                      (เหมาจ่าย ไม่ใช่เพดาน — ต่อให้รวมกันได้น้อยกว่านี้ก็คิด 2,000)
+// อยากเปลี่ยนตัวเลขหรือจำนวนตัวที่เข้าเงื่อนไข แก้ 2 ค่านี้ที่เดียวพอ
+// ══════════════════════════════════════════════════════════════
+export const GROUP_INSURANCE_FROM  = 2      // เช่าตั้งแต่กี่ตัวขึ้นไปถึงเข้าเงื่อนไข
+export const GROUP_INSURANCE_FLAT  = 2000   // ค่าประกันเหมาของทั้งชุด (บาท)
+
+/** ชุดนี้เข้าเงื่อนไขค่าประกันเหมาหรือยัง */
+export const usesFlatInsurance = (count) => Number(count || 0) >= GROUP_INSURANCE_FROM
+
+/**
+ * ค่าประกันที่ต้องเก็บจริงของทั้งชุด
+ * @param cameras รายการกล้องที่เลือก (ใช้ค่า insurance ของแต่ละตัวตอนเช่าตัวเดียว)
+ */
+export function insuranceForSet(cameras = []) {
+  if (usesFlatInsurance(cameras.length)) return GROUP_INSURANCE_FLAT
+  return cameras.reduce((s, c) => s + num(c?.insurance), 0)
+}
+
 /** คีย์ที่ใช้จัดกลุ่ม — ไม่มี group_id ก็ถือว่าเป็นชุดของตัวเอง */
 export const groupKeyOf = (r) => r?.group_id || `single:${r?.id}`
 
@@ -86,7 +108,9 @@ export function groupTotals(rentals = []) {
  * แบ่งเงินของทั้งชุดลงแต่ละแถวตอนบันทึก
  *
  * @param items  [{ camera, rentalPrice, insurance }] เรียงตามลำดับที่เลือก
- * @param money  { discount, deposit, deliveryFee }  ใส่ครั้งเดียวสำหรับทั้งชุด
+ * @param money  { discount, deposit, deliveryFee, groupInsurance }
+ *               ใส่ครั้งเดียวสำหรับทั้งชุด · groupInsurance = ค่าประกันเหมา
+ *               (ใส่มาเมื่อไหร่ จะไม่ใช้ค่าประกันรายตัวแล้ว)
  * @returns      [{ total_price, discount, deposit, delivery_fee, insurance, due_on_pickup }]
  *
  * ส่วนลดตัดไล่จากแถวแรกไปแถวหลัง จึงไม่มีเศษทศนิยมและผลรวมตรงเป๊ะเสมอ
@@ -96,13 +120,19 @@ export function splitGroupMoney(items = [], money = {}) {
   let discountLeft = Math.max(0, num(money.discount))
   const deposit     = Math.max(0, num(money.deposit))
   const deliveryFee = Math.max(0, num(money.deliveryFee))
+  // ค่าประกันเหมาของชุด — ลงที่แถวแรกแถวเดียว เหมือนมัดจำกับค่าส่ง
+  // เพราะเป็นก้อนเดียวของทั้งชุด ไม่ใช่ของกล้องตัวใดตัวหนึ่ง
+  // (ยอดรวมของชุดจึงได้ 2,000 พอดี ไม่มีเศษจากการหาร)
+  const flatIns = money.groupInsurance != null ? Math.max(0, num(money.groupInsurance)) : null
 
   return items.map((it, i) => {
     const price   = Math.max(0, num(it.rentalPrice))
     const used    = Math.min(discountLeft, price)
     discountLeft -= used
     const total   = price - used
-    const ins     = Math.max(0, num(it.insurance))
+    const ins     = flatIns != null
+      ? (i === 0 ? flatIns : 0)
+      : Math.max(0, num(it.insurance))
     // มัดจำกับค่าส่งเป็นของทั้งชุด — ลงที่แถวแรกแถวเดียว ผลรวมจะได้ไม่บวกซ้ำ
     const dep = i === 0 ? deposit : 0
     const del = i === 0 ? deliveryFee : 0

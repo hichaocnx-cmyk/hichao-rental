@@ -449,7 +449,7 @@ export default function ContractModal({ rental, rentals, onClose }) {
                 <tr><td style={td}>หัก: ค่าจอง / มัดจำ (ชำระไว้แล้ว)</td><td style={{ ...tdR, color:'#16a34a' }}>−{baht(deposit)}</td></tr>
               )}
               {insurance > 0 && (
-                <tr><td style={td}>ค่าประกันความเสียหาย (คืนเมื่อส่งอุปกรณ์ครบ)</td><td style={{ ...tdR, color:'#ea580c' }}>+{baht(insurance)}</td></tr>
+                <tr><td style={td}>ค่าประกันความเสียหาย{multi ? ` (เหมาทั้งชุด ${items.length} ตัว · คืนเมื่อส่งครบทุกตัว)` : ' (คืนเมื่อส่งอุปกรณ์ครบ)'}</td><td style={{ ...tdR, color:'#ea580c' }}>+{baht(insurance)}</td></tr>
               )}
               {deliveryFee > 0 && (
                 <tr><td style={td}>ค่าจัดส่ง</td><td style={{ ...tdR, color:'#2563eb' }}>+{baht(deliveryFee)}</td></tr>

@@ -6,7 +6,7 @@ import { sendLineNotify } from '../lib/lineNotify'
 import { celebrate } from '../lib/confetti'
 import { LADDER_DAYS } from '../lib/ladder'
 import { rentalDays, daysBetween, endDateFromDays } from '../lib/rentalDays'
-import { splitGroupMoney } from '../lib/rentalGroup'
+import { splitGroupMoney, insuranceForSet, usesFlatInsurance, GROUP_INSURANCE_FLAT, GROUP_INSURANCE_FROM } from '../lib/rentalGroup'
 import { useToast } from '../context/ToastContext'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
@@ -247,9 +247,17 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const deliveryFee  = parseFloat(form.delivery_fee) || 0
   const discountAmt  = parseFloat(form.discount)     || 0
   // ค่าประกันตรึงไว้เหมือนกัน — ปรับค่าประกันของกล้องทีหลังไม่ควรย้อนไปแก้ของเก่า
-  const insuranceAmt = pricingInputsChanged
-    ? selectedCameras.reduce((sum, cam) => sum + Number(cam.insurance || 0), 0)
-    : Number(rental.insurance || 0)
+  // ค่าประกัน — กฎของร้าน: เช่า 2 ตัวขึ้นไปคิดเหมา 2,000 ทั้งชุด
+  // (นิยามอยู่ที่ src/lib/rentalGroup.js)
+  //
+  // แก้รายการเดิมที่อยู่ในชุดอยู่แล้ว → ไม่คิดใหม่เด็ดขาด เพราะฟอร์มเห็นกล้อง
+  // แค่ตัวเดียว (แก้ทีละแถว) ถ้าคิดใหม่จะกลายเป็นค่าประกันของกล้องตัวนั้น
+  // แล้วยอดเหมาของทั้งชุดจะเพี้ยน
+  const lockInsurance = !pricingInputsChanged || (isEdit && !!rental?.group_id)
+  const insuranceAmt = lockInsurance
+    ? Number(rental?.insurance || 0)
+    : insuranceForSet(selectedCameras)
+  const flatInsurance = !isEdit && usesFlatInsurance(form.camera_ids.length)
   const totalPrice   = Math.max(0, rentalPrice - discountAmt)
   const dueOnPickup  = Math.max(0, totalPrice - depositAmt + insuranceAmt + deliveryFee)
 
@@ -403,7 +411,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         const groupId = (crypto?.randomUUID?.() || `grp-${Date.now()}-${Math.random().toString(16).slice(2)}`)
         const split = splitGroupMoney(
           selectedCameras.map(cam => ({ rentalPrice: priceOf(cam), insurance: Number(cam.insurance || 0) })),
-          { discount: discountAmt, deposit: depositAmt, deliveryFee: deliveryFee },
+          { discount: discountAmt, deposit: depositAmt, deliveryFee: deliveryFee,
+            groupInsurance: insuranceAmt },   // ← ค่าประกันเหมาของทั้งชุด
         )
         const rows = selectedCameras.map((cam, i) => ({
           ...payload,
@@ -551,6 +560,16 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                       เช่าพร้อมกัน {form.camera_ids.length} ตัว — ใช้วันที่ เวลา และลูกค้าชุดเดียวกัน
                       · ส่วนลด มัดจำ ค่าส่ง ใส่ครั้งเดียวสำหรับทั้งชุด
                     </p>
+                  )}
+                  {flatInsurance && (
+                    <div className="flex items-start gap-2 text-[11px] bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+                      <span className="leading-none mt-0.5">🛡</span>
+                      <span className="text-orange-700">
+                        เช่าตั้งแต่ {GROUP_INSURANCE_FROM} ตัวขึ้นไป คิดค่าประกัน
+                        <strong> เหมา ฿{GROUP_INSURANCE_FLAT.toLocaleString()}</strong> ทั้งชุด
+                        (ไม่บวกค่าประกันรายตัวแล้ว) — คืนให้เมื่อได้กล้องครบทุกตัว
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -797,7 +816,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 )}
                 {insuranceAmt > 0 && (
                   <div className="flex justify-between text-xs text-orange-500">
-                    <span>ค่าประกัน</span><span>+฿{insuranceAmt.toLocaleString()}</span>
+                    <span>ค่าประกัน{flatInsurance ? ` (เหมาทั้งชุด ${selectedCameras.length} ตัว)` : ''}</span>
+                    <span>+฿{insuranceAmt.toLocaleString()}</span>
                   </div>
                 )}
                 {deliveryFee > 0 && (

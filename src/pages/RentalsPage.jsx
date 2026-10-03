@@ -956,7 +956,9 @@ export default function RentalsPage() {
                           {/* ── กล้องในชุดนี้ — คืนทีละตัวได้ ───────────── */}
                           {isSet && (
                             <div className="px-4 pt-1 pb-3">
-                              <p className="text-[10px] text-gray-400 mb-1.5">กล้องในชุดนี้ ({mates.length} ตัว)</p>
+                              <p className="text-[10px] text-gray-400 mb-1.5">
+                                กล้องในชุดนี้ ({mates.length} ตัว){gTot.insurance > 0 ? ` · ประกันเหมาทั้งชุด ฿${gTot.insurance.toLocaleString()}` : ''}
+                              </p>
                               <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50">
                                 {mates.map(m => (
                                   <div key={m.id} className="flex items-center gap-2 px-3 py-2">
@@ -964,7 +966,6 @@ export default function RentalsPage() {
                                       <span className="block text-[13px] font-medium text-gray-800 truncate">{m.camera?.name || 'กล้อง'}</span>
                                       <span className="block text-[10.5px] text-gray-400">
                                         ฿{Number(m.total_price || 0).toLocaleString()}
-                                        {Number(m.insurance) > 0 ? ` · ประกัน ฿${Number(m.insurance).toLocaleString()}` : ''}
                                       </span>
                                     </span>
                                     <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${R_STATUS[m.status]?.cls}`}>
@@ -994,7 +995,7 @@ export default function RentalsPage() {
                             <div><p className="text-[10px] text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium text-gray-800">฿{Number(r.price_per_day).toLocaleString()}</p></div>
                             <div><p className="text-[10px] text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-emerald-600">-฿{(isSet ? gTot.deposit : Number(r.deposit)).toLocaleString()}</p></div>
                             {(isSet ? gTot.insurance : Number(r.insurance)) > 0 && (
-                              <div><p className="text-[10px] text-gray-400 mb-0.5">ค่าประกัน</p>
+                              <div><p className="text-[10px] text-gray-400 mb-0.5">ค่าประกัน{isSet ? ' (เหมาทั้งชุด)' : ''}</p>
                                 {r.status === 'returned'
                                   ? <span className="text-xs font-medium text-emerald-600">✅ คืนแล้ว ฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</span>
                                   : <p className="font-medium text-orange-500">+฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</p>}
@@ -1086,7 +1087,7 @@ export default function RentalsPage() {
                               <div><p className="text-xs text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-emerald-600">-฿{(isSet ? gTot.deposit : Number(r.deposit)).toLocaleString()}</p></div>
                               {(isSet ? gTot.insurance : Number(r.insurance)) > 0 && (
                                 <div>
-                                  <p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p>
+                                  <p className="text-xs text-gray-400 mb-0.5">ค่าประกัน{isSet ? ' (เหมาทั้งชุด)' : ''}</p>
                                   {r.status === 'returned'
                                     ? <span className="text-xs font-medium text-emerald-600">✅ คืนแล้ว ฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</span>
                                     : <p className="font-medium text-orange-500">+฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</p>}
@@ -1105,14 +1106,15 @@ export default function RentalsPage() {
                             </div>
                             {isSet && (
                               <div className="px-4 pb-3">
-                                <p className="text-xs text-gray-400 mb-1.5">กล้องในชุดนี้ ({mates.length} ตัว) — คืนทีละตัวได้</p>
+                                <p className="text-xs text-gray-400 mb-1.5">
+                                  กล้องในชุดนี้ ({mates.length} ตัว) — คืนทีละตัวได้{gTot.insurance > 0 ? ` · ประกันเหมาทั้งชุด ฿${gTot.insurance.toLocaleString()}` : ''}
+                                </p>
                                 <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50">
                                   {mates.map(m => (
                                     <div key={m.id} className="flex items-center gap-3 px-3 py-2">
                                       <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{m.camera?.name || 'กล้อง'}</span>
                                       <span className="text-xs text-gray-400 flex-shrink-0">
                                         ฿{Number(m.total_price || 0).toLocaleString()}
-                                        {Number(m.insurance) > 0 ? ` · ประกัน ฿${Number(m.insurance).toLocaleString()}` : ''}
                                       </span>
                                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${R_STATUS[m.status]?.cls}`}>
                                         {R_STATUS[m.status]?.label}
