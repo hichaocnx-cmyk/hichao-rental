@@ -34,6 +34,20 @@ export async function createRental(rental) {
   return data
 }
 
+// ── เช่าหลายตัวพร้อมกัน ────────────────────────────────────────
+// insert ทีเดียวทั้งชุด: ถ้าแถวไหนไม่ผ่าน (เช่น ชนคิวจน constraint ตีกลับ)
+// Postgres จะ rollback ทั้งก้อน ไม่เหลือครึ่งๆ กลางๆ ให้ตามเก็บ
+// แถวทุกแถวต้องมี group_id เดียวกันมาแล้ว (ดู src/lib/rentalGroup.js)
+export async function createRentals(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return []
+  const { data, error } = await supabase
+    .from('rentals')
+    .insert(rows)
+    .select()
+  if (error) throw error
+  return data
+}
+
 export async function updateRental(id, updates) {
   const { data, error } = await supabase
     .from('rentals')

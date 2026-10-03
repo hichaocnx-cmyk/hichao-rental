@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { getCameras, updateCamera } from '../lib/cameras'
 import { getCustomers, createCustomer } from '../lib/customers'
-import { getRentals, createRental, updateRental } from '../lib/rentals'
+import { getRentals, createRental, createRentals, updateRental } from '../lib/rentals'
 import { sendLineNotify } from '../lib/lineNotify'
 import { celebrate } from '../lib/confetti'
 import { LADDER_DAYS } from '../lib/ladder'
 import { rentalDays, daysBetween, endDateFromDays } from '../lib/rentalDays'
+import { splitGroupMoney } from '../lib/rentalGroup'
 import { useToast } from '../context/ToastContext'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
@@ -124,7 +125,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const [customers, setCustomers] = useState([])
   const [existingRentals, setExistingRentals] = useState([])
   const [form, setForm] = useState({
-    camera_id:        rental?.camera_id        || '',
+    // เลือกได้หลายตัวตอนสร้างใหม่ · ตอนแก้ไขจะล็อกไว้ตัวเดียว (แก้ทีละแถว)
+    camera_ids:       rental?.camera_id ? [rental.camera_id] : [],
     customer_id:      rental?.customer_id      || '',
     start_date:       rental?.start_date       || '',
     end_date:         rental?.end_date         || '',
@@ -194,8 +196,15 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const set = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   const setNC = e => setNewCustomer(f => ({ ...f, [e.target.name]: e.target.value }))
 
-  const selectedCamera = cameras.find(c => c.id === form.camera_id)
+  // กล้องตัวแรก = ตัวแทนของชุด (ใช้ตอนแก้ไข/ข้อความที่ต้องการชื่อเดียว)
+  const cameraId = form.camera_ids[0] || ''
+  const selectedCamera = cameras.find(c => c.id === cameraId)
     || (isEdit ? { name: rental.camera?.name, price_per_day: rental.price_per_day, insurance: rental.insurance } : null)
+  // กล้องทุกตัวในชุด เรียงตามลำดับที่กด
+  const selectedCameras = form.camera_ids
+    .map(id => cameras.find(c => c.id === id))
+    .filter(Boolean)
+  const multi = !isEdit && form.camera_ids.length > 1
 
   // ลูกค้าเดิมที่เบอร์โทรตรงกัน (กันสร้างลูกค้าซ้ำ) — เช็คเมื่อพิมพ์เบอร์ครบ 9 หลักขึ้นไป
   const matchedCustomer = !isEdit && normPhone(newCustomer.phone).length >= 9
@@ -210,22 +219,27 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   // ประวัติเดือนเก่าเปลี่ยนตามเงียบๆ กราฟย้อนหลังเพี้ยนโดยไม่มีอะไรเตือน
   // ตอนนี้: คิดราคาใหม่เฉพาะเมื่อ "เปลี่ยนกล้อง หรือเปลี่ยนวันที่" เท่านั้น
   const pricingInputsChanged = !isEdit || (
-    form.camera_id  !== rental.camera_id  ||
+    cameraId        !== rental.camera_id  ||
     form.start_date !== rental.start_date ||
     form.end_date   !== rental.end_date
   )
 
-  // ราคาเช่า: ใช้ตารางราคาขั้นบันไดของกล้องตัวนี้ถ้ามี, ไม่มีใช้ price_per_day × วัน
+  // ราคาเช่าของกล้อง 1 ตัว: ใช้ตารางราคาขั้นบันไดถ้ามี, ไม่มีใช้ price_per_day × วัน
+  const priceOf = (cam) => {
+    if (!cam) return 0
+    const tablePrice = getLadderPrice(cam, days)
+    if (tablePrice != null) return tablePrice
+    return days * Number(cam.price_per_day || 0)
+  }
+
+  // ราคาเช่าของทั้งชุด = ผลรวมของกล้องทุกตัวที่เลือก
   const getRentalPrice = () => {
     // แก้รายการเดิมโดยไม่แตะกล้อง/วันที่ → คงราคาที่ตกลงกับลูกค้าไว้ตอนนั้น
     // (total_price เก็บราคาหลังหักส่วนลดแล้ว จึงบวกส่วนลดกลับเพื่อได้ราคาตั้งต้น)
     if (!pricingInputsChanged) {
       return Number(rental.total_price || 0) + Number(rental.discount || 0)
     }
-    if (!selectedCamera) return 0
-    const tablePrice = getLadderPrice(selectedCamera, days)
-    if (tablePrice != null) return tablePrice
-    return days * Number(selectedCamera.price_per_day || 0)
+    return selectedCameras.reduce((sum, cam) => sum + priceOf(cam), 0)
   }
 
   const rentalPrice  = getRentalPrice()
@@ -234,28 +248,39 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const discountAmt  = parseFloat(form.discount)     || 0
   // ค่าประกันตรึงไว้เหมือนกัน — ปรับค่าประกันของกล้องทีหลังไม่ควรย้อนไปแก้ของเก่า
   const insuranceAmt = pricingInputsChanged
-    ? (selectedCamera ? Number(selectedCamera.insurance || 0) : 0)
+    ? selectedCameras.reduce((sum, cam) => sum + Number(cam.insurance || 0), 0)
     : Number(rental.insurance || 0)
   const totalPrice   = Math.max(0, rentalPrice - discountAmt)
   const dueOnPickup  = Math.max(0, totalPrice - depositAmt + insuranceAmt + deliveryFee)
 
-  const findDateConflict = (list = existingRentals) => {
-    if (!form.camera_id || !form.start_date || !form.end_date) return null
-    return list.find(r =>
-      r.id !== rental?.id &&
-      r.camera_id === form.camera_id &&
-      (r.status === 'booked' || r.status === 'active') &&
-      rangesOverlap(form.start_date, form.end_date, r.start_date, r.end_date)
-    )
+  // เช็คคิวชนทีละตัว — เช่าหลายตัวพร้อมกัน ต้องรู้ว่าตัวไหนชนบ้าง
+  // คืนเป็นลิสต์ [{ cameraId, cameraName, rental }] ว่างแปลว่าไม่ชนเลย
+  const findConflicts = (list = existingRentals) => {
+    if (!form.start_date || !form.end_date) return []
+    const out = []
+    for (const id of form.camera_ids) {
+      const hit = list.find(r =>
+        r.id !== rental?.id &&
+        r.camera_id === id &&
+        (r.status === 'booked' || r.status === 'active') &&
+        rangesOverlap(form.start_date, form.end_date, r.start_date, r.end_date)
+      )
+      if (hit) {
+        const cam = cameras.find(c => c.id === id)
+        out.push({ cameraId: id, cameraName: hit.camera?.name || cam?.name || 'กล้อง', rental: hit })
+      }
+    }
+    return out
   }
 
   // คิวชนที่คำนวณสดๆ ระหว่างกรอกฟอร์ม (ใช้แสดงคำเตือน ไม่ได้บล็อกการกด)
-  const liveConflict = findDateConflict()
+  const liveConflicts = findConflicts()
+  const conflictIds = new Set(liveConflicts.map(c => c.cameraId))
 
   const handleSubmit = async e => {
     e.preventDefault(); setError(''); setSaving(true)
     try {
-      if (!form.camera_id) throw new Error('กรุณาเลือกกล้อง')
+      if (form.camera_ids.length === 0) throw new Error('กรุณาเลือกกล้องอย่างน้อย 1 ตัว')
       if (!form.start_date || !form.end_date) throw new Error('กรุณาเลือกวันที่')
       if (new Date(form.end_date) < new Date(form.start_date)) throw new Error('วันคืนต้องไม่ก่อนวันรับ')
       const pickupTime = normalizeTime(form.pickup_time)
@@ -273,7 +298,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       // ⚠️ คิวชน = "เตือน" ไม่ใช่ "บล็อก" (ตามที่ร้านเลือกไว้)
       // บางครั้งต้องจองทับจริง เช่น ลูกค้าคืนเร็วกว่ากำหนด หรือนัดส่งต่อกันเอง
       // เก็บผลไว้แจ้งหลังบันทึกสำเร็จ แทนการโยน error ขวางไว้
-      const conflict = findDateConflict(latest)
+      const conflicts = findConflicts(latest)
 
       let customerId = form.customer_id
       if (!isEdit) {
@@ -298,7 +323,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
           : Number(selectedCamera?.price_per_day || 0)
 
       const payload = {
-        camera_id:       form.camera_id,
+        camera_id:       cameraId,
         customer_id:     customerId,
         start_date:      form.start_date,
         end_date:        form.end_date,
@@ -316,7 +341,12 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
         notes:           form.notes.trim() || null,
       }
 
-      const camName = selectedCamera?.name || rental?.camera?.name || 'กล้อง'
+      const camNames = selectedCameras.length > 0
+        ? selectedCameras.map(c => c.name)
+        : [selectedCamera?.name || rental?.camera?.name || 'กล้อง']
+      const camName = camNames.length > 1
+        ? `${camNames.length} ตัว\n` + camNames.map(n => `   · ${n}`).join('\n')
+        : camNames[0]
       const custObj = isEdit ? customers.find(c => c.id === customerId) || rental?.customer : newCustomer
       const custName = custObj?.name || '—'
       const custPhone = custObj?.phone || '—'
@@ -346,12 +376,12 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
       let savedId = isEdit ? rental.id : null
       if (isEdit) {
-        const cameraChanged = form.camera_id !== rental.camera_id
+        const cameraChanged = cameraId !== rental.camera_id
         await updateRental(rental.id, payload)
         if (cameraChanged && rental.status === 'active') {
           try {
             await updateCamera(rental.camera_id, { status: 'available' })
-            await updateCamera(form.camera_id, { status: 'rented' })
+            await updateCamera(cameraId, { status: 'rented' })
           } catch (camErr) {
             // rollback rental ถ้า camera update ล้มเหลว
             await updateRental(rental.id, {
@@ -366,17 +396,41 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
           }
         }
         sendLineNotify(buildLineMsg('[HICHAO.CNX] ✏️ แก้ไขรายการเช่า')).catch(console.warn)
+      } else if (multi) {
+        // ── เช่าหลายตัวพร้อมกัน ────────────────────────────────
+        // 1 กล้อง = 1 แถว (ตัวเช็คกล้องชนคิว/สถานะกล้อง/ปฏิทิน ยังทำงานรายตัว)
+        // ผูกกันด้วย group_id เดียว แล้ว insert ทีเดียว — พลาดแถวไหน rollback ทั้งก้อน
+        const groupId = (crypto?.randomUUID?.() || `grp-${Date.now()}-${Math.random().toString(16).slice(2)}`)
+        const split = splitGroupMoney(
+          selectedCameras.map(cam => ({ rentalPrice: priceOf(cam), insurance: Number(cam.insurance || 0) })),
+          { discount: discountAmt, deposit: depositAmt, deliveryFee: deliveryFee },
+        )
+        const rows = selectedCameras.map((cam, i) => ({
+          ...payload,
+          ...split[i],
+          camera_id:     cam.id,
+          group_id:      groupId,
+          price_per_day: hasLadder(cam)
+            ? (days > 0 ? Math.round(priceOf(cam) / days) : 0)
+            : Number(cam.price_per_day || 0),
+          status: 'booked',
+        }))
+        const saved = await createRentals(rows)
+        savedId = saved?.[0]?.id || null
+        celebrate()
+        sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       } else {
         const newRental = await createRental({ ...payload, status: 'booked' })
         savedId = newRental.id
         celebrate()
         sendLineNotify(buildLineMsg('[HICHAO.CNX] 🟡 จองใหม่!')).catch(console.warn)
       }
-      if (conflict) {
-        const cam = conflict.camera?.name || selectedCamera?.name || 'กล้องนี้'
-        const cust = conflict.customer?.name ? ` (${conflict.customer.name})` : ''
-        toast.warning(`บันทึกแล้ว — แต่ ${cam} มีคิวทับช่วง `
-          + `${fmtConflictDate(conflict.start_date, conflict.end_date)}${cust}`, 7000)
+      if (conflicts.length > 0) {
+        const lines = conflicts.map(c => {
+          const cust = c.rental.customer?.name ? ` (${c.rental.customer.name})` : ''
+          return `${c.cameraName} ทับช่วง ${fmtConflictDate(c.rental.start_date, c.rental.end_date)}${cust}`
+        })
+        toast.warning('บันทึกแล้ว — แต่มีคิวทับ: ' + lines.join(' · '), 7000)
       }
 
       onSaved(savedId, !isEdit)
@@ -431,21 +485,93 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
           <section>
             <SectionHead n="1" label="เลือกกล้อง" />
             <div className="space-y-3">
-              <select name="camera_id" value={form.camera_id} onChange={set} required className={inputCls}>
-                <option value="">— เลือกกล้อง —</option>
-                {cameras.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              {isEdit ? (
+                /* แก้ไขรายการเดิม — ล็อกไว้ตัวเดียว (ชุดหลายตัวแก้ทีละแถว) */
+                <select value={cameraId} required className={inputCls}
+                  onChange={e => setForm(f => ({ ...f, camera_ids: e.target.value ? [e.target.value] : [] }))}>
+                  <option value="">— เลือกกล้อง —</option>
+                  {cameras.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                /* สร้างใหม่ — กดเลือกได้หลายตัว ลูกค้าคนเดียวเช่าทีเดียวหลายตัว
+                   แต่ละตัวจะถูกบันทึกเป็นแถวของตัวเอง แล้วผูกกันเป็นชุด */
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className={labelCls + ' mb-0'}>เลือกกล้อง (กดได้หลายตัว)</label>
+                    {form.camera_ids.length > 0 && (
+                      <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
+                        เลือกแล้ว {form.camera_ids.length} ตัว
+                      </span>
+                    )}
+                  </div>
+                  <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                    {cameras.length === 0 && (
+                      <p className="px-3 py-4 text-xs text-gray-400 text-center">ยังไม่มีกล้องให้เลือก</p>
+                    )}
+                    {cameras.map(c => {
+                      const picked = form.camera_ids.includes(c.id)
+                      const order  = form.camera_ids.indexOf(c.id) + 1
+                      const busy   = conflictIds.has(c.id)
+                      const price  = priceOf(c)
+                      return (
+                        <button key={c.id} type="button"
+                          onClick={() => setForm(f => ({
+                            ...f,
+                            camera_ids: f.camera_ids.includes(c.id)
+                              ? f.camera_ids.filter(id => id !== c.id)
+                              : [...f.camera_ids, c.id],
+                          }))}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors
+                            ${picked ? 'bg-brand-50' : 'bg-white hover:bg-gray-50'}`}>
+                          <span className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 text-[10px] font-bold
+                            ${picked ? 'bg-brand-500 text-white' : 'border border-gray-300 text-transparent'}`}>
+                            {picked ? order : '0'}
+                          </span>
+                          <span className="flex-1 min-w-0">
+                            <span className={`block text-sm truncate ${picked ? 'font-semibold text-brand-700' : 'text-gray-700'}`}>
+                              {c.name}
+                            </span>
+                            {busy && (
+                              <span className="block text-[10.5px] text-amber-600">⚠ ช่วงนี้มีคิวอยู่แล้ว</span>
+                            )}
+                          </span>
+                          {price > 0 && (
+                            <span className={`text-xs flex-shrink-0 ${picked ? 'text-brand-600 font-semibold' : 'text-gray-400'}`}>
+                              ฿{price.toLocaleString()}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {multi && (
+                    <p className="text-[10.5px] text-gray-400">
+                      เช่าพร้อมกัน {form.camera_ids.length} ตัว — ใช้วันที่ เวลา และลูกค้าชุดเดียวกัน
+                      · ส่วนลด มัดจำ ค่าส่ง ใส่ครั้งเดียวสำหรับทั้งชุด
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Day picker — 5 ช่องต่อแถว (จำนวนวันสูงสุดอยู่ที่ src/lib/ladder.js) */}
               <div>
                 <label className={labelCls}>จำนวนวันเช่า <span className="font-normal text-gray-400">(1 วัน = 24 ชม.)</span></label>
                 <div className="grid grid-cols-5 gap-1.5">
                   {LADDER_DAYS.map(d => {
-                    const price       = getLadderPrice(selectedCamera, d)
+                    // ราคาของจำนวนวันนี้ = รวมทุกตัวที่เลือก (เลือกตัวเดียวก็ได้ราคาตัวนั้น)
+                    const price = selectedCameras.length > 0
+                      ? selectedCameras.reduce((sum, c) => {
+                          const t = getLadderPrice(c, d)
+                          return sum + (t != null ? t : d * Number(c.price_per_day || 0))
+                        }, 0)
+                      : getLadderPrice(selectedCamera, d)
                     const isSelected  = form.days === String(d)
-                    const unavailable = price === null && hasLadder(selectedCamera)
+                    // ปิดปุ่มเมื่อมีกล้องที่ตั้งตารางราคาไว้ แต่ไม่ได้ตั้งราคาของจำนวนวันนี้
+                    const unavailable = selectedCameras.length > 0
+                      ? selectedCameras.some(c => hasLadder(c) && getLadderPrice(c, d) === null)
+                      : (price === null && hasLadder(selectedCamera))
                     return (
                       <button key={d} type="button" disabled={unavailable}
                         onClick={() => setForm(f => ({ ...f, days: String(d) }))}
@@ -472,7 +598,10 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                   <svg className="w-4 h-4 flex-shrink-0 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                   </svg>
-                  <span className="text-xs">{selectedCamera?.name} · {days} วัน: <strong className="text-brand-600">฿{rentalPrice.toLocaleString()}</strong></span>
+                  <span className="text-xs">
+                    {multi ? `${selectedCameras.length} ตัว` : selectedCamera?.name} · {days} วัน:{' '}
+                    <strong className="text-brand-600">฿{rentalPrice.toLocaleString()}</strong>
+                  </span>
                 </div>
               )}
             </div>
@@ -570,18 +699,23 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                 · พิมพ์เวลาได้หลายแบบ เช่น 13:00 / 13.30 / 1330
               </p>
 
-              {/* เตือนคิวชนทันทีที่เลือกกล้อง+วันครบ ไม่ต้องรอกดบันทึกถึงจะรู้ */}
-              {liveConflict && (
+              {/* เตือนคิวชนทันทีที่เลือกกล้อง+วันครบ ไม่ต้องรอกดบันทึกถึงจะรู้
+                  เช่าหลายตัว = บอกเป็นรายตัวว่าตัวไหนชน */}
+              {liveConflicts.length > 0 && (
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
                   <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                   </svg>
                   <div className="text-xs text-amber-800 leading-relaxed">
-                    <span className="font-semibold">ระวัง — ช่วงนี้มีคิวอยู่แล้ว</span><br />
-                    {selectedCamera?.name || 'กล้องนี้'} ถูกจองไว้{' '}
-                    {fmtConflictDate(liveConflict.start_date, liveConflict.end_date)}
-                    {liveConflict.customer?.name ? ` โดย ${liveConflict.customer.name}` : ''}
-                    <br />
+                    <span className="font-semibold">
+                      ระวัง — ช่วงนี้มีคิวอยู่แล้ว{liveConflicts.length > 1 ? ` ${liveConflicts.length} ตัว` : ''}
+                    </span>
+                    {liveConflicts.map(c => (
+                      <span key={c.cameraId} className="block">
+                        {c.cameraName} ถูกจองไว้ {fmtConflictDate(c.rental.start_date, c.rental.end_date)}
+                        {c.rental.customer?.name ? ` โดย ${c.rental.customer.name}` : ''}
+                      </span>
+                    ))}
                     <span className="text-amber-600">กดบันทึกต่อได้ตามปกติ ถ้าตั้งใจจองทับ</span>
                   </div>
                 </div>
@@ -648,7 +782,7 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
               <div className="mt-3 bg-brand-50 rounded-xl p-3.5 space-y-1.5 border border-brand-100">
                 <p className="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-2">สรุปยอด</p>
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>ราคาเช่า ({days} วัน)</span>
+                  <span>ราคาเช่า ({days} วัน{multi ? ` · ${selectedCameras.length} ตัว` : ''})</span>
                   <span className="font-medium text-gray-800">฿{rentalPrice.toLocaleString()}</span>
                 </div>
                 {discountAmt > 0 && (

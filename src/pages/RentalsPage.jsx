@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { updateRental, deleteRental } from '../lib/rentals'
 import { rentalDays } from '../lib/rentalDays'
+import { membersOf, groupTotals, groupKeyOf } from '../lib/rentalGroup'
 import { updateCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
@@ -285,6 +286,22 @@ export default function RentalsPage() {
     }).sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
   }, [rentals, selectedDay, filterStatus, search, activeTab])
 
+  // ── เช่าหลายตัวพร้อมกัน = หลายแถวที่ group_id เดียวกัน ─────────
+  // หน้าจอแสดงเป็นการ์ดเดียว จึงเหลือไว้แค่แถวแรกของแต่ละชุดที่ผ่านตัวกรอง
+  // (ของเดิมที่ไม่มี group_id จะไม่โดนอะไรเลย เพราะถือเป็นชุดของตัวเอง)
+  const visibleRentals = useMemo(() => {
+    const seen = new Set()
+    return filteredRentals.filter(r => {
+      const key = groupKeyOf(r)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [filteredRentals])
+
+  // แถวทั้งหมดของชุดที่การ์ดใบนี้เป็นตัวแทน
+  const matesOf = (r) => membersOf(r, rentals)
+
   // เปิดหนังสือสัญญาอัตโนมัติหลังบันทึกรายการใหม่ (รอข้อมูล join จาก reload)
   useEffect(() => {
     if (!pendingContractId) return
@@ -293,8 +310,62 @@ export default function RentalsPage() {
   }, [pendingContractId, rentals])
 
   // ── Actions ───────────────────────────────────────────────────
-  const handleDeliver = async (rental) => {
-    const ok = await confirm({
+
+  // ── ทำกับ "ทั้งชุด" (เช่าหลายตัวพร้อมกัน) ─────────────────────
+  // ชุดที่มีตัวเดียว = เรียก handler เดิมตรงๆ หน้าตาไม่เปลี่ยนจากเดิมเลย
+  // ชุดหลายตัว = ถามยืนยันครั้งเดียว แล้วไล่ทำทีละแถว (แถวละ 1 กล้อง)
+  const runOnGroup = async (lead, fn, canDo, ask) => {
+    const targets = matesOf(lead).filter(canDo)
+    if (targets.length === 0) return
+    if (targets.length === 1) return fn(targets[0])
+    const ok = await confirm(ask(targets))
+    if (!ok) return
+    for (const t of targets) await fn(t, true)
+  }
+
+  const groupNames = (list) => list.map(r => r.camera?.name || 'กล้อง').join(', ')
+
+  const handleDeliverGroup = (lead) => runOnGroup(
+    lead, handleDeliver, r => r.status === 'booked',
+    (t) => ({
+      title: `ยืนยันส่งกล้อง ${t.length} ตัว`,
+      message: `${groupNames(t)} ให้ ${lead.customer?.name || 'ลูกค้า'} แล้ว?`,
+      confirmLabel: `ส่งทั้ง ${t.length} ตัว`, cancelLabel: 'ยกเลิก',
+    }),
+  )
+
+  const handleReturnGroup = (lead) => runOnGroup(
+    lead, handleReturn, r => r.status === 'active',
+    (t) => ({
+      title: `ยืนยันรับคืน ${t.length} ตัว`,
+      message: `รับ ${groupNames(t)} คืนจาก ${lead.customer?.name || 'ลูกค้า'} ครบแล้ว? `
+        + 'ถ้าคืนไม่ครบ ให้กดรับคืนทีละตัวจากรายการกล้องด้านล่างแทน',
+      confirmLabel: `รับคืนทั้ง ${t.length} ตัว`, cancelLabel: 'ยกเลิก',
+    }),
+  )
+
+  const handleCancelGroup = (lead) => runOnGroup(
+    lead, handleCancel, r => r.status !== 'cancelled' && r.status !== 'returned',
+    (t) => ({
+      title: `ยกเลิกทั้งชุด ${t.length} ตัว?`,
+      message: `${groupNames(t)} จะถูกทำเครื่องหมายว่ายกเลิกทั้งหมด และกล้องกลับมาว่างทันที `
+        + 'รายการยังอยู่ในระบบเป็นประวัติ ไม่นับเป็นรายได้',
+      confirmLabel: 'ยกเลิกทั้งชุด', cancelLabel: 'ไม่ใช่ตอนนี้', variant: 'danger',
+    }),
+  )
+
+  const handleDeleteGroup = (lead) => runOnGroup(
+    lead, handleDelete, () => true,
+    (t) => ({
+      title: `ลบทั้งชุด ${t.length} รายการ?`,
+      message: `${groupNames(t)} จะถูกลบถาวร กู้คืนไม่ได้ และหายจากรายงานย้อนหลังด้วย — `
+        + 'ถ้าลูกค้าแค่ยกเลิก แนะนำใช้ปุ่ม "ยกเลิก" แทน',
+      confirmLabel: 'ลบทั้งชุด', cancelLabel: 'ยกเลิก', variant: 'danger',
+    }),
+  )
+
+  const handleDeliver = async (rental, skipConfirm = false) => {
+    const ok = skipConfirm || await confirm({
       title: `ยืนยันส่งกล้อง`,
       message: `${rental.camera?.name} ให้ ${rental.customer?.name || 'ลูกค้า'} แล้ว?`,
       confirmLabel: 'ยืนยันส่งกล้อง',
@@ -324,8 +395,8 @@ export default function RentalsPage() {
     }
   }
 
-  const handleReturn = async (rental) => {
-    const ok = await confirm({
+  const handleReturn = async (rental, skipConfirm = false) => {
+    const ok = skipConfirm || await confirm({
       title: 'ยืนยันรับกล้องคืน',
       message: `${rental.camera?.name} จาก ${rental.customer?.name || 'ลูกค้า'} แล้ว?`,
       confirmLabel: 'ยืนยันรับคืน',
@@ -392,8 +463,8 @@ export default function RentalsPage() {
   // สถานะ 'cancelled' มีในฐานข้อมูลและในตัวกรองมาตลอด แต่ไม่มีปุ่มไหนเขียนค่านี้เลย
   // เวลาลูกค้ายกเลิก ทางเดียวคือกดลบ → มัดจำที่เก็บไปแล้วและหลักฐานการจองหายหมด
   // ตอนนี้เก็บรายการไว้ ทำเครื่องหมายว่ายกเลิก แล้วปล่อยกล้องให้ว่างรับคิวอื่นได้
-  const handleCancel = async (rental) => {
-    const ok = await confirm({
+  const handleCancel = async (rental, skipConfirm = false) => {
+    const ok = skipConfirm || await confirm({
       title: 'ยกเลิกรายการเช่านี้?',
       message: 'รายการจะยังอยู่ในระบบเป็นประวัติ (สถานะ "ยกเลิก") และกล้องจะกลับมาว่างทันที '
         + 'ไม่นับเป็นรายได้ — ถ้าอยากลบทิ้งถาวรให้ใช้ปุ่มถังขยะแทน',
@@ -426,8 +497,8 @@ export default function RentalsPage() {
     }
   }
 
-  const handleDelete = async (rental) => {
-    const ok = await confirm({
+  const handleDelete = async (rental, skipConfirm = false) => {
+    const ok = skipConfirm || await confirm({
       title: 'ลบรายการเช่า?',
       message: 'ลบถาวร กู้คืนไม่ได้ และรายการนี้จะหายจากรายงานรายได้ย้อนหลังด้วย — '
         + 'ถ้าลูกค้าแค่ยกเลิกการจอง แนะนำใช้ปุ่ม "ยกเลิก" แทน จะได้เก็บประวัติไว้',
@@ -767,10 +838,14 @@ export default function RentalsPage() {
             <>
               {/* ── MOBILE card view (< sm) ─────────────────── */}
               <div className="sm:hidden space-y-3">
-                {filteredRentals.map(r => {
+                {visibleRentals.map(r => {
                   const noti = notifications.find(n => n.rental?.id === r.id)
                   const isExpanded = expanded === r.id
                   const days = calcDays(r)
+                  // ชุดนี้มีกล้องกี่ตัว + ยอดรวมของทั้งชุด (ตัวเดียว = เหมือนเดิมทุกอย่าง)
+                  const mates = matesOf(r)
+                  const isSet = mates.length > 1
+                  const gTot  = groupTotals(mates)
                   return (
                     <div key={r.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
 
@@ -781,7 +856,14 @@ export default function RentalsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{r.camera?.name || '—'}</p>
+                              <p className="font-semibold text-gray-900 text-sm leading-tight truncate">
+                                {isSet ? `${mates.length} ตัว · ${r.camera?.name || '—'}` : (r.camera?.name || '—')}
+                              </p>
+                              {isSet && (
+                                <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                                  {mates.map(m => m.camera?.name || 'กล้อง').join(', ')}
+                                </p>
+                              )}
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${R_STATUS[r.status]?.cls}`}>
                                   {R_STATUS[r.status]?.label}
@@ -794,7 +876,7 @@ export default function RentalsPage() {
                               </div>
                             </div>
                             <div className="flex-shrink-0 text-right">
-                              <p className="text-base font-bold text-brand-500">฿{Number(r.total_price).toLocaleString()}</p>
+                              <p className="text-base font-bold text-brand-500">฿{(isSet ? gTot.totalPrice : Number(r.total_price)).toLocaleString()}</p>
                               <p className="text-[10px] text-gray-400">{days} วัน</p>
                             </div>
                           </div>
@@ -838,17 +920,17 @@ export default function RentalsPage() {
                       <div className="px-4 pb-4 pt-3 border-t border-gray-50 space-y-2">
 
                         {r.status === 'booked' && (
-                          <button onClick={() => handleDeliver(r)}
+                          <button onClick={() => handleDeliverGroup(r)}
                             className="w-full flex items-center justify-center gap-1.5 h-11 text-sm font-semibold text-white rounded-xl transition-colors bg-amber-500 hover:bg-amber-600">
                             <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>
-                            <span className="whitespace-nowrap">ยืนยันส่งกล้อง</span>
+                            <span className="whitespace-nowrap">ยืนยันส่งกล้อง{isSet ? ` (${mates.length} ตัว)` : ''}</span>
                           </button>
                         )}
                         {r.status === 'active' && (
-                          <button onClick={() => handleReturn(r)}
+                          <button onClick={() => handleReturnGroup(r)}
                             className="w-full flex items-center justify-center gap-1.5 h-11 text-sm font-semibold text-white rounded-xl transition-colors bg-emerald-500 hover:bg-emerald-600">
                             <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                            <span className="whitespace-nowrap">ยืนยันคืนกล้อง</span>
+                            <span className="whitespace-nowrap">ยืนยันคืนกล้อง{isSet ? ` (${mates.length} ตัว)` : ''}</span>
                           </button>
                         )}
 
@@ -870,22 +952,58 @@ export default function RentalsPage() {
                       {isExpanded && (
                         <div className="border-t border-gray-50 bg-gray-50/50">
                           <RentalTimeline r={r} />
+
+                          {/* ── กล้องในชุดนี้ — คืนทีละตัวได้ ───────────── */}
+                          {isSet && (
+                            <div className="px-4 pt-1 pb-3">
+                              <p className="text-[10px] text-gray-400 mb-1.5">กล้องในชุดนี้ ({mates.length} ตัว)</p>
+                              <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50">
+                                {mates.map(m => (
+                                  <div key={m.id} className="flex items-center gap-2 px-3 py-2">
+                                    <span className="flex-1 min-w-0">
+                                      <span className="block text-[13px] font-medium text-gray-800 truncate">{m.camera?.name || 'กล้อง'}</span>
+                                      <span className="block text-[10.5px] text-gray-400">
+                                        ฿{Number(m.total_price || 0).toLocaleString()}
+                                        {Number(m.insurance) > 0 ? ` · ประกัน ฿${Number(m.insurance).toLocaleString()}` : ''}
+                                      </span>
+                                    </span>
+                                    <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${R_STATUS[m.status]?.cls}`}>
+                                      {R_STATUS[m.status]?.label}
+                                    </span>
+                                    {m.status === 'active' && (
+                                      <button onClick={() => handleReturn(m)}
+                                        className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex-shrink-0">
+                                        รับคืน
+                                      </button>
+                                    )}
+                                    {m.status === 'booked' && (
+                                      <button onClick={() => handleDeliver(m)}
+                                        className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex-shrink-0">
+                                        ส่งกล้อง
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="px-4 pt-1 pb-4">
                           <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                             <div><p className="text-[10px] text-gray-400 mb-0.5">จำนวนวัน</p><p className="font-medium text-gray-800">{days} วัน</p></div>
                             <div><p className="text-[10px] text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium text-gray-800">฿{Number(r.price_per_day).toLocaleString()}</p></div>
-                            <div><p className="text-[10px] text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-emerald-600">-฿{Number(r.deposit).toLocaleString()}</p></div>
-                            {Number(r.insurance) > 0 && (
+                            <div><p className="text-[10px] text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-emerald-600">-฿{(isSet ? gTot.deposit : Number(r.deposit)).toLocaleString()}</p></div>
+                            {(isSet ? gTot.insurance : Number(r.insurance)) > 0 && (
                               <div><p className="text-[10px] text-gray-400 mb-0.5">ค่าประกัน</p>
                                 {r.status === 'returned'
-                                  ? <span className="text-xs font-medium text-emerald-600">✅ คืนแล้ว ฿{Number(r.insurance).toLocaleString()}</span>
-                                  : <p className="font-medium text-orange-500">+฿{Number(r.insurance).toLocaleString()}</p>}
+                                  ? <span className="text-xs font-medium text-emerald-600">✅ คืนแล้ว ฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</span>
+                                  : <p className="font-medium text-orange-500">+฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</p>}
                               </div>
                             )}
-                            {Number(r.delivery_fee) > 0 && <div><p className="text-[10px] text-gray-400 mb-0.5">ค่าส่ง</p><p className="font-medium text-blue-500">+฿{Number(r.delivery_fee).toLocaleString()}</p></div>}
+                            {(isSet ? gTot.deliveryFee : Number(r.delivery_fee)) > 0 && <div><p className="text-[10px] text-gray-400 mb-0.5">ค่าส่ง</p><p className="font-medium text-blue-500">+฿{(isSet ? gTot.deliveryFee : Number(r.delivery_fee)).toLocaleString()}</p></div>}
                             <div className="col-span-2 bg-brand-50 rounded-xl p-2.5">
                               <p className="text-[10px] text-gray-400 mb-0.5">จ่ายวันรับกล้อง</p>
-                              <p className="font-bold text-brand-600 text-base">฿{Number(r.due_on_pickup||0).toLocaleString()}</p>
+                              <p className="font-bold text-brand-600 text-base">฿{(isSet ? gTot.dueOnPickup : Number(r.due_on_pickup||0)).toLocaleString()}</p>
                             </div>
                             {r.return_location && <div className="col-span-2"><p className="text-[10px] text-gray-400 mb-0.5">สถานที่คืน</p><p className="font-medium text-gray-700 text-sm">{r.return_location}</p></div>}
                             {r.notes && <div className="col-span-2"><p className="text-[10px] text-gray-400 mb-0.5">หมายเหตุ</p><p className="font-medium text-gray-700 text-sm">{r.notes}</p></div>}
@@ -894,13 +1012,13 @@ export default function RentalsPage() {
                             {/* ยกเลิก = เก็บประวัติไว้ · ลบ = หายถาวร — แยกกันให้ชัด
                                 วางยกเลิกไว้ก่อนและเด่นกว่า เพราะเป็นสิ่งที่ควรใช้บ่อยกว่า */}
                             {r.status !== 'cancelled' && r.status !== 'returned' && (
-                              <button onClick={() => handleCancel(r)}
+                              <button onClick={() => handleCancelGroup(r)}
                                 className="flex-1 flex items-center justify-center gap-1.5 h-11 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-100">
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                                 ยกเลิกรายการ
                               </button>
                             )}
-                            <button onClick={() => handleDelete(r)}
+                            <button onClick={() => handleDeleteGroup(r)}
                               className="flex-1 flex items-center justify-center gap-1.5 h-11 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                               ลบถาวร
@@ -917,8 +1035,12 @@ export default function RentalsPage() {
               {/* ── DESKTOP row view (sm+) ──────────────────────── */}
               <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="divide-y divide-gray-50">
-                  {filteredRentals.map(r => {
+                  {visibleRentals.map(r => {
                     const noti = notifications.find(n => n.rental?.id === r.id)
+                    // ชุดนี้มีกล้องกี่ตัว + ยอดรวมของทั้งชุด
+                    const mates = matesOf(r)
+                    const isSet = mates.length > 1
+                    const gTot  = groupTotals(mates)
                     return (
                       <div key={r.id}>
                         {/* Row */}
@@ -928,15 +1050,25 @@ export default function RentalsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-medium text-gray-900 text-sm">{r.camera?.name || '—'}</p>
+                              {isSet && (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-semibold text-brand-700 bg-brand-50">
+                                  ชุด {mates.length} ตัว
+                                </span>
+                              )}
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${R_STATUS[r.status]?.cls}`}>{R_STATUS[r.status]?.label}</span>
                               {noti && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${NOTI_CFG[noti.type]?.cls}`}>{NOTI_CFG[noti.type]?.label}</span>}
                             </div>
                             <p className="text-xs text-gray-400 mt-0.5">{r.customer?.name}{r.customer?.phone ? ` · ${r.customer.phone}` : ''}</p>
+                            {isSet && (
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">
+                                📷 {mates.map(m => m.camera?.name || 'กล้อง').join(', ')}
+                              </p>
+                            )}
                             <div className="mt-1.5 flex flex-col gap-0.5">
                               <p className="text-xs text-gray-600">📅 {fmtDateFull(r.start_date)}{r.pickup_time ? ` · ${fmtTime(r.pickup_time)}` : ''} → {fmtDateFull(r.end_date)}{r.return_time ? ` · ${fmtTime(r.return_time)}` : ''}</p>
                               <div className="flex items-center gap-3">
                                 {r.pickup_location && <span className="text-xs text-gray-400">📍 {r.pickup_location}</span>}
-                                <span className="text-xs font-bold text-brand-500">฿{Number(r.total_price).toLocaleString()}</span>
+                                <span className="text-xs font-bold text-brand-500">฿{(isSet ? gTot.totalPrice : Number(r.total_price)).toLocaleString()}</span>
                               </div>
                             </div>
                           </div>
@@ -950,20 +1082,20 @@ export default function RentalsPage() {
                             <div className="px-4 pt-1 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm border-t border-gray-100">
                               <div><p className="text-xs text-gray-400 mb-0.5">จำนวนวัน</p><p className="font-medium">{calcDays(r)} วัน</p></div>
                               <div><p className="text-xs text-gray-400 mb-0.5">ราคา/วัน</p><p className="font-medium">฿{Number(r.price_per_day).toLocaleString()}</p></div>
-                              <div><p className="text-xs text-gray-400 mb-0.5">ราคาเช่ารวม</p><p className="font-medium">฿{Number(r.total_price).toLocaleString()}</p></div>
-                              <div><p className="text-xs text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-emerald-600">-฿{Number(r.deposit).toLocaleString()}</p></div>
-                              {Number(r.insurance)>0 && (
+                              <div><p className="text-xs text-gray-400 mb-0.5">ราคาเช่ารวม</p><p className="font-medium">฿{(isSet ? gTot.totalPrice : Number(r.total_price)).toLocaleString()}</p></div>
+                              <div><p className="text-xs text-gray-400 mb-0.5">มัดจำแล้ว</p><p className="font-medium text-emerald-600">-฿{(isSet ? gTot.deposit : Number(r.deposit)).toLocaleString()}</p></div>
+                              {(isSet ? gTot.insurance : Number(r.insurance)) > 0 && (
                                 <div>
                                   <p className="text-xs text-gray-400 mb-0.5">ค่าประกัน</p>
                                   {r.status === 'returned'
-                                    ? <span className="text-xs font-medium text-emerald-600">✅ คืนแล้ว ฿{Number(r.insurance).toLocaleString()}</span>
-                                    : <p className="font-medium text-orange-500">+฿{Number(r.insurance).toLocaleString()}</p>}
+                                    ? <span className="text-xs font-medium text-emerald-600">✅ คืนแล้ว ฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</span>
+                                    : <p className="font-medium text-orange-500">+฿{(isSet ? gTot.insurance : Number(r.insurance)).toLocaleString()}</p>}
                                 </div>
                               )}
-                              {Number(r.delivery_fee)>0 && <div><p className="text-xs text-gray-400 mb-0.5">ค่าส่ง</p><p className="font-medium text-blue-500">+฿{Number(r.delivery_fee).toLocaleString()}</p></div>}
+                              {(isSet ? gTot.deliveryFee : Number(r.delivery_fee)) > 0 && <div><p className="text-xs text-gray-400 mb-0.5">ค่าส่ง</p><p className="font-medium text-blue-500">+฿{(isSet ? gTot.deliveryFee : Number(r.delivery_fee)).toLocaleString()}</p></div>}
                               <div className="col-span-2 bg-brand-50 rounded-xl p-2.5">
                                 <p className="text-xs text-gray-400 mb-0.5">จ่ายวันรับกล้อง</p>
-                                <p className="font-bold text-brand-600 text-base">฿{Number(r.due_on_pickup||0).toLocaleString()}</p>
+                                <p className="font-bold text-brand-600 text-base">฿{(isSet ? gTot.dueOnPickup : Number(r.due_on_pickup||0)).toLocaleString()}</p>
                               </div>
                               {r.pickup_time && <div><p className="text-xs text-gray-400 mb-0.5">เวลารับ</p><p className="font-medium">{fmtTime(r.pickup_time)}</p></div>}
                               {r.return_time && <div><p className="text-xs text-gray-400 mb-0.5">เวลาคืน</p><p className="font-medium">{fmtTime(r.return_time)}</p></div>}
@@ -971,6 +1103,37 @@ export default function RentalsPage() {
                               {r.return_location && <div className="col-span-2"><p className="text-xs text-gray-400 mb-0.5">สถานที่คืน</p><p className="font-medium">{r.return_location}</p></div>}
                               {r.notes && <div className="col-span-4"><p className="text-xs text-gray-400 mb-0.5">หมายเหตุ</p><p className="font-medium">{r.notes}</p></div>}
                             </div>
+                            {isSet && (
+                              <div className="px-4 pb-3">
+                                <p className="text-xs text-gray-400 mb-1.5">กล้องในชุดนี้ ({mates.length} ตัว) — คืนทีละตัวได้</p>
+                                <div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50">
+                                  {mates.map(m => (
+                                    <div key={m.id} className="flex items-center gap-3 px-3 py-2">
+                                      <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{m.camera?.name || 'กล้อง'}</span>
+                                      <span className="text-xs text-gray-400 flex-shrink-0">
+                                        ฿{Number(m.total_price || 0).toLocaleString()}
+                                        {Number(m.insurance) > 0 ? ` · ประกัน ฿${Number(m.insurance).toLocaleString()}` : ''}
+                                      </span>
+                                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${R_STATUS[m.status]?.cls}`}>
+                                        {R_STATUS[m.status]?.label}
+                                      </span>
+                                      {m.status === 'active' && (
+                                        <button onClick={() => handleReturn(m)}
+                                          className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg flex-shrink-0">
+                                          รับคืน
+                                        </button>
+                                      )}
+                                      {m.status === 'booked' && (
+                                        <button onClick={() => handleDeliver(m)}
+                                          className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg flex-shrink-0">
+                                          ส่งกล้อง
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap gap-2">
                               <button onClick={() => setRentalModal(r)}
                                 className="flex items-center gap-1.5 whitespace-nowrap px-3 h-9 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
@@ -983,14 +1146,14 @@ export default function RentalsPage() {
                                 หนังสือสัญญา
                               </button>
                               {r.status === 'booked' && (
-                                <button onClick={() => handleDeliver(r)}
+                                <button onClick={() => handleDeliverGroup(r)}
                                   className="flex items-center gap-1.5 whitespace-nowrap px-4 h-9 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors">
                                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>
                                   ยืนยันส่งกล้อง
                                 </button>
                               )}
                               {r.status === 'active' && (
-                                <button onClick={() => handleReturn(r)}
+                                <button onClick={() => handleReturnGroup(r)}
                                   className="flex items-center gap-1.5 whitespace-nowrap px-4 h-9 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-colors">
                                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                                   ยืนยันคืนกล้อง
@@ -1007,13 +1170,13 @@ export default function RentalsPage() {
                                 </button>
                               )}
                               {r.status !== 'cancelled' && r.status !== 'returned' && (
-                                <button onClick={() => handleCancel(r)}
+                                <button onClick={() => handleCancelGroup(r)}
                                   className="flex items-center gap-1.5 whitespace-nowrap px-3 h-9 text-sm font-medium text-orange-600 bg-orange-50 border border-orange-100 hover:bg-orange-100 rounded-xl transition-colors ml-auto">
                                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                                   ยกเลิก
                                 </button>
                               )}
-                              <button onClick={() => handleDelete(r)}
+                              <button onClick={() => handleDeleteGroup(r)}
                                 className={`flex items-center gap-1.5 whitespace-nowrap px-3 h-9 text-sm font-medium text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 rounded-xl transition-colors
                                   ${r.status === 'cancelled' || r.status === 'returned' ? 'ml-auto' : ''}`}>
                                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
@@ -1113,7 +1276,7 @@ export default function RentalsPage() {
 
       {/* ── Contract Modal ───────────────────────────────────── */}
       {contractRental && (
-        <ContractModal rental={contractRental} onClose={() => setContractRental(null)} />
+        <ContractModal rental={contractRental} rentals={matesOf(contractRental)} onClose={() => setContractRental(null)} />
       )}
 
     </div>

@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { rentalDays } from '../lib/rentalDays'
+import { groupTotals } from '../lib/rentalGroup'
 
 // ── ข้อมูลผู้ให้เช่า (แก้ไขได้ตรงนี้) ───────────────────────────────
 const LESSOR = {
@@ -57,7 +58,8 @@ function withTimeout(promise, ms, label) {
 const BRAND = '#FF6B9D'
 const INK   = '#1f2937'
 
-export default function ContractModal({ rental, onClose }) {
+// rentals = ทุกแถวของชุด (เช่าหลายตัวพร้อมกัน) · ไม่ส่งมาก็ถือว่ามีตัวเดียว
+export default function ContractModal({ rental, rentals, onClose }) {
   const canvasRef = useRef(null)
   const docRef    = useRef(null)
   const drawing   = useRef(false)
@@ -69,16 +71,23 @@ export default function ContractModal({ rental, onClose }) {
   const [resultUrl, setResultUrl]   = useState('')
   const [resultFile, setResultFile] = useState(null)
 
+  // ── รายการอุปกรณ์ในสัญญาฉบับนี้ ────────────────────────────
+  // เช่าหลายตัวพร้อมกัน = หลายแถวที่ group_id เดียวกัน → สัญญาใบเดียว ยอดรวมของทั้งชุด
+  const items = (Array.isArray(rentals) && rentals.length > 0) ? rentals : [rental]
+  const multi = items.length > 1
+
   const days        = rentalDays(rental)
   const pricePerDay = Number(rental.price_per_day || 0)
-  const discount    = Number(rental.discount || 0)
-  const totalPrice  = Number(rental.total_price || 0)        // ค่าเช่าสุทธิหลังหักส่วนลด (ต้องตรงกับระบบ)
-  const rentalPrice = totalPrice + discount                    // ค่าเช่าก่อนหักส่วนลด
-  const deposit     = Number(rental.deposit || 0)
-  const insurance   = Number(rental.insurance || 0)
-  const deliveryFee = Number(rental.delivery_fee || 0)
-  const dueOnPickup = Number(rental.due_on_pickup || 0)         // ยอดที่ต้องชำระจริงวันรับอุปกรณ์ (ต้องตรงกับระบบ)
-  const contractNo  = `HC-CT-${rental.id?.slice(-8).toUpperCase() || '00000000'}`
+  const T           = groupTotals(items)
+  const discount    = T.discount
+  const totalPrice  = T.totalPrice      // ค่าเช่าสุทธิหลังหักส่วนลด (ต้องตรงกับระบบ)
+  const rentalPrice = T.rentalPrice     // ค่าเช่าก่อนหักส่วนลด
+  const deposit     = T.deposit
+  const insurance   = T.insurance
+  const deliveryFee = T.deliveryFee
+  const dueOnPickup = T.dueOnPickup     // ยอดที่ต้องชำระจริงวันรับอุปกรณ์ (ต้องตรงกับระบบ)
+  // เลขที่สัญญายึดแถวแรกของชุด — ทั้งชุดใช้เลขเดียวกัน
+  const contractNo  = `HC-CT-${items[0]?.id?.slice(-8).toUpperCase() || '00000000'}`
   const todayStr    = (() => { const d = new Date(); return `${d.getDate()} ${MONTHS_TH[d.getMonth()]} ${d.getFullYear() + 543}` })()
 
   const cust = rental.customer || {}
@@ -260,7 +269,9 @@ export default function ContractModal({ rental, onClose }) {
             </div>
             <div className="bg-gray-50 rounded-xl p-3.5">
               <p className="text-xs font-bold text-brand-500 mb-2">อุปกรณ์ & ระยะเวลา</p>
-              <RowL k="อุปกรณ์" v={`${cam.name || '—'}${cam.brand ? ' · ' + cam.brand : ''}`} />
+              <RowL k="อุปกรณ์" v={multi
+                ? `${items.length} ตัว — ${items.map(r => r.camera?.name || 'กล้อง').join(', ')}`
+                : `${cam.name || '—'}${cam.brand ? ' · ' + cam.brand : ''}`} />
               <RowL k="รับ" v={`${fmtDate(rental.start_date)} ${fmtTime(rental.pickup_time)}`} />
               <RowL k="คืน" v={`${fmtDate(rental.end_date)} ${fmtTime(rental.return_time)}`} />
               <RowL k="ค่าเช่าสุทธิ" v={baht(totalPrice)} />
@@ -391,7 +402,28 @@ export default function ContractModal({ rental, onClose }) {
                             border:'1px solid #e5e7eb', display:'flex',
                             alignItems:'center', justifyContent:'center', fontSize:34, lineHeight:1 }}>📷</div>
               <div style={{ flex:1 }}>
-                <div style={row}><span style={kCol}>อุปกรณ์</span><span style={vCol}>{cam.name || '—'}{cam.brand ? ' · ' + cam.brand : ''}</span></div>
+                {multi ? (
+                  <>
+                    <div style={row}><span style={kCol}>อุปกรณ์</span><span style={vCol}>รวม {items.length} รายการ</span></div>
+                    <table style={{ width:'100%', borderCollapse:'collapse', margin:'4px 0 8px' }}>
+                      <tbody>
+                        {items.map((it, i) => (
+                          <tr key={it.id || i}>
+                            <td style={{ padding:'3px 6px 3px 0', fontSize:12.5, color:'#6b7280', width:22 }}>{i + 1}.</td>
+                            <td style={{ padding:'3px 0', fontSize:13, fontWeight:600 }}>
+                              {it.camera?.name || '—'}{it.camera?.brand ? ' · ' + it.camera.brand : ''}
+                            </td>
+                            <td style={{ padding:'3px 0', fontSize:12.5, textAlign:'right', whiteSpace:'nowrap' }}>
+                              {baht(Number(it.total_price || 0) + Number(it.discount || 0))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                ) : (
+                  <div style={row}><span style={kCol}>อุปกรณ์</span><span style={vCol}>{cam.name || '—'}{cam.brand ? ' · ' + cam.brand : ''}</span></div>
+                )}
                 <div style={row}><span style={kCol}>รับวันที่</span><span style={vCol}>{fmtDate(rental.start_date)} {fmtTime(rental.pickup_time)}</span></div>
                 <div style={row}><span style={kCol}>คืนวันที่</span><span style={vCol}>{fmtDate(rental.end_date)} {fmtTime(rental.return_time)} (รวม {days} วัน)</span></div>
               </div>
@@ -405,7 +437,9 @@ export default function ContractModal({ rental, onClose }) {
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <tbody>
               {/* แสดง "฿X × N วัน" เฉพาะเมื่อคูณแล้วตรงกับยอดจริง — กันเลขไม่ตรง (เช่นรายการเก่าที่แก้วันภายหลัง) */}
-              <tr><td style={td}>ค่าเช่า ({pricePerDay > 0 && pricePerDay * days === rentalPrice ? `${baht(pricePerDay)} × ${days} วัน` : `รวม ${days} วัน`})</td><td style={tdR}>{baht(rentalPrice)}</td></tr>
+              <tr><td style={td}>ค่าเช่า ({multi
+                ? `${items.length} ตัว · ${days} วัน`
+                : (pricePerDay > 0 && pricePerDay * days === rentalPrice ? `${baht(pricePerDay)} × ${days} วัน` : `รวม ${days} วัน`)})</td><td style={tdR}>{baht(rentalPrice)}</td></tr>
               {discount > 0 && (
                 <tr><td style={td}>ส่วนลด</td><td style={{ ...tdR, color:'#7c3aed' }}>−{baht(discount)}</td></tr>
               )}
