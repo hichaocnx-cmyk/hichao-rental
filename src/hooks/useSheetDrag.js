@@ -80,10 +80,10 @@ export default function useSheetDrag({ onClose, closeAt = CLOSE_AT } = {}) {
       transition: dragging ? 'none' : 'transform .22s cubic-bezier(.22,1,.36,1)',
     },
     handleProps: {
-      onTouchStart: begin,
-      onTouchMove: move,
-      onTouchEnd: end,
-      onTouchCancel: end,
+      onTouchStart: (e) => { e.stopPropagation(); begin(e) },
+      onTouchMove:  (e) => { e.stopPropagation(); move(e) },
+      onTouchEnd:   (e) => { e.stopPropagation(); end(e) },
+      onTouchCancel:(e) => { e.stopPropagation(); end(e) },
       style: { touchAction: 'none' },   // บอกเบราว์เซอร์ว่าเราจัดการนิ้วเอง
     },
     bodyProps: {

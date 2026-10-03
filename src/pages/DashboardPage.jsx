@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext'
 import CameraIcon from '../components/CameraIcon'
 import ReportSection from '../components/ReportSection'
 import BookingCalendar, { useRentalColors, shortDate, daySpan, BOOKING_COLORS } from '../components/BookingCalendar'
+import useSheetDrag from '../hooks/useSheetDrag'
 
 // ── Donut Chart ────────────────────────────────────────────────────
 function DonutChart({ data, total, colors }) {
@@ -154,18 +155,23 @@ function BookingListCard({ title, note, items, colors, onPick, empty }) {
 // ── แผ่นรายละเอียดของวันที่กด ───────────────────────────────────
 // มือถือ = เด้งจากด้านล่าง · จอใหญ่ = กล่องกลางจอ
 function DaySheet({ ds, rentals, colors, onClose, onOpenRentals }) {
+  // มือถือ: ลากแผ่นลงเพื่อปิด (hook ต้องถูกเรียกก่อน return เสมอ)
+  const sheet = useSheetDrag({ onClose })
   if (!ds) return null
   const d = new Date(ds + 'T00:00:00')
   const label = `${DAYS_TH[d.getDay()]}ที่ ${d.getDate()} ${MONTHS_TH[d.getMonth()]}`
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/35" />
-      <div className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto pb-6 sm:pb-4"
-        onClick={e => e.stopPropagation()}>
-        <div className="sm:hidden flex justify-center pt-2.5 pb-1">
-          <span className="w-10 h-1 rounded-full bg-gray-200" />
+      <div {...sheet.bodyProps}
+        className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto pb-6 sm:pb-4"
+        style={sheet.style} onClick={e => e.stopPropagation()}>
+        {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
+        <div {...sheet.handleProps}
+          className="sm:hidden flex justify-center items-center h-7 cursor-grab active:cursor-grabbing">
+          <span className={`w-11 rounded-full transition-colors ${sheet.dragging ? 'h-1.5 bg-gray-300' : 'h-1 bg-gray-200'}`} />
         </div>
-        <div className="flex items-center gap-2.5 px-4 py-3">
+        <div {...sheet.handleProps} className="flex items-center gap-2.5 px-4 py-3">
           <h3 className="text-base font-bold text-gray-900">{label}</h3>
           <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-full">
             {rentals.length} ตัวถูกจอง

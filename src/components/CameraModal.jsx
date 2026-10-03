@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import useSheetDrag from '../hooks/useSheetDrag'
 import { createCamera, updateCamera } from '../lib/cameras'
 import { LADDER_DAYS, MAX_LADDER_DAYS } from '../lib/ladder'
 
@@ -25,6 +26,8 @@ function buildInitialLadder(camera) {
 }
 
 export default function CameraModal({ camera, onClose, onSaved }) {
+  // มือถือ: ลากแผ่นลงเพื่อปิด
+  const sheet = useSheetDrag({ onClose })
   const isEdit = !!camera
   const [form, setForm] = useState(isEdit ? {
     name: camera.name || '',
@@ -103,10 +106,17 @@ export default function CameraModal({ camera, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div {...sheet.bodyProps}
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto"
+        style={sheet.style}>
+        {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
+        <div {...sheet.handleProps}
+          className="flex justify-center items-center h-7 sm:hidden cursor-grab active:cursor-grabbing">
+          <div className={`w-11 rounded-full transition-colors ${sheet.dragging ? 'h-1.5 bg-gray-300' : 'h-1 bg-gray-200'}`} />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div {...sheet.handleProps} className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900">{isEdit ? 'แก้ไขกล้อง' : 'เพิ่มกล้องใหม่'}</h3>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

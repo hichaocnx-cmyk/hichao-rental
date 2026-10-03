@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
+import useSheetDrag from '../hooks/useSheetDrag'
 import { rentalDays } from '../lib/rentalDays'
 import { groupTotals } from '../lib/rentalGroup'
 
@@ -60,6 +61,8 @@ const INK   = '#1f2937'
 
 // rentals = ทุกแถวของชุด (เช่าหลายตัวพร้อมกัน) · ไม่ส่งมาก็ถือว่ามีตัวเดียว
 export default function ContractModal({ rental, rentals, onClose }) {
+  // มือถือ: ลากแผ่นลงเพื่อปิด
+  const sheet = useSheetDrag({ onClose })
   const canvasRef = useRef(null)
   const docRef    = useRef(null)
   const drawing   = useRef(false)
@@ -245,10 +248,18 @@ export default function ContractModal({ rental, rentals, onClose }) {
   return (
     <>
       {/* ── พรีวิว + เซ็น (บนจอ) ───────────────────────────────────── */}
-      <div className="fixed inset-0 z-[10000] bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[10000] bg-black/40 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+        <div {...sheet.bodyProps}
+          className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+          style={sheet.style} onClick={e => e.stopPropagation()}>
 
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+          {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
+          <div {...sheet.handleProps}
+            className="flex justify-center items-center h-7 sm:hidden cursor-grab active:cursor-grabbing">
+            <div className={`w-11 rounded-full transition-colors ${sheet.dragging ? 'h-1.5 bg-gray-300' : 'h-1 bg-gray-200'}`} />
+          </div>
+
+          <div {...sheet.handleProps} className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
             <div>
               <h2 className="text-base font-bold text-gray-900">หนังสือสัญญาเช่ากล้อง</h2>
               <p className="text-xs text-gray-400">{contractNo}</p>
