@@ -124,8 +124,7 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
 
-      <aside {...drawer.handleProps}
-        style={open ? { ...drawer.handleProps.style, ...drawer.style } : drawer.handleProps.style}
+      <aside {...drawer.handleProps} ref={drawer.sheetRef}
         className={`
         fixed top-0 left-0 h-full w-60 bg-white z-30
         flex flex-col border-r border-gray-100

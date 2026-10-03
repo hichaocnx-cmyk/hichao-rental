@@ -162,10 +162,10 @@ function DaySheet({ ds, rentals, colors, onClose, onOpenRentals }) {
   const label = `${DAYS_TH[d.getDay()]}ที่ ${d.getDate()} ${MONTHS_TH[d.getMonth()]}`
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/35" />
-      <div {...sheet.bodyProps}
+      <div ref={sheet.backdropRef} className="absolute inset-0 bg-black/35" />
+      <div {...sheet.bodyProps} ref={sheet.sheetRef}
         className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl max-h-[80vh] overflow-y-auto pb-6 sm:pb-4"
-        style={sheet.style} onClick={e => e.stopPropagation()}>
+        onClick={e => e.stopPropagation()}>
         {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
         <div {...sheet.handleProps}
           className="sm:hidden flex justify-center items-center h-7 cursor-grab active:cursor-grabbing">

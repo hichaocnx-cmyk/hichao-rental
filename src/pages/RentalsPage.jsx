@@ -1206,10 +1206,11 @@ export default function RentalsPage() {
 
       {/* ── Notification Modal ────────────────────────────────── */}
       {notiOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center sm:p-4"
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
           onClick={e => e.target === e.currentTarget && setNotiOpen(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] flex flex-col"
-            style={notiSheet.style}>
+          <div ref={notiSheet.backdropRef} className="absolute inset-0 bg-black/40 pointer-events-none" />
+          <div ref={notiSheet.sheetRef}
+            className="relative bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] flex flex-col">
             {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
             <div {...notiSheet.handleProps}
               className="sm:hidden flex justify-center items-center h-7 flex-shrink-0 cursor-grab active:cursor-grabbing">

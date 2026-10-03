@@ -472,10 +472,13 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   )
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+      {/* พื้นมืดเป็นชั้นของตัวเอง — ตอนลากแผ่นลง พื้นจะจางลงตาม ทำให้รู้สึกว่าดึงจริง */}
+      <div ref={sheet.backdropRef} className="absolute inset-0 bg-black/60" />
       {/* Sheet wrapper — flex column so header+footer stay fixed, content scrolls */}
-      <div className="bg-white w-full sm:max-w-xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '92dvh', ...sheet.style }}>
+      <div ref={sheet.sheetRef}
+        className="relative bg-white w-full sm:max-w-xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '92dvh' }}>
 
         {/* ── ขีดจับ (มือถือ) — ลากลงเพื่อปิด ──
             พื้นที่กดต้องสูงพอให้นิ้วโป้งโดนง่าย ขีดที่เห็นเลยเล็กกว่ากรอบที่กดได้ */}

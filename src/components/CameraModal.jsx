@@ -106,10 +106,10 @@ export default function CameraModal({ camera, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div {...sheet.bodyProps}
-        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto"
-        style={sheet.style}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div ref={sheet.backdropRef} className="absolute inset-0 bg-black/50 pointer-events-none" />
+      <div {...sheet.bodyProps} ref={sheet.sheetRef}
+        className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto">
         {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
         <div {...sheet.handleProps}
           className="flex justify-center items-center h-7 sm:hidden cursor-grab active:cursor-grabbing">

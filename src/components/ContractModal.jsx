@@ -248,10 +248,11 @@ export default function ContractModal({ rental, rentals, onClose }) {
   return (
     <>
       {/* ── พรีวิว + เซ็น (บนจอ) ───────────────────────────────────── */}
-      <div className="fixed inset-0 z-[10000] bg-black/40 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-        <div {...sheet.bodyProps}
-          className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
-          style={sheet.style} onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+        <div ref={sheet.backdropRef} className="absolute inset-0 bg-black/40 pointer-events-none" />
+        <div {...sheet.bodyProps} ref={sheet.sheetRef}
+          className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+          onClick={e => e.stopPropagation()}>
 
           {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
           <div {...sheet.handleProps}
