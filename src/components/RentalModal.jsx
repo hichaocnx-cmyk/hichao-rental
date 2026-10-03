@@ -443,7 +443,17 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
       }
 
       onSaved(savedId, !isEdit)
-    } catch (err) { setError(err?.message || 'บันทึกไม่สำเร็จ') }
+    } catch (err) {
+      // ข้อความดิบจาก Supabase อ่านไม่รู้เรื่องสำหรับคนหน้าร้าน — แปลเคสที่เจอบ่อย
+      const raw = err?.message || 'บันทึกไม่สำเร็จ'
+      setError(
+        /group_id/i.test(raw) && /schema cache|column/i.test(raw)
+          ? 'ยังเปิดใช้ "เช่าหลายตัวพร้อมกัน" ไม่ได้ — ต้องรันไฟล์ supabase/migration_015.sql '
+            + 'ใน Supabase (SQL Editor) ก่อน 1 ครั้ง แล้วลองใหม่อีกที '
+            + '· ระหว่างนี้เลือกกล้องทีละตัวยังบันทึกได้ตามปกติ'
+          : raw
+      )
+    }
     finally { setSaving(false) }
   }
 

@@ -28,6 +28,13 @@ create index if not exists rentals_group_id_idx
   on rentals (group_id)
   where group_id is not null;
 
+-- ── สั่ง Supabase โหลดโครงสร้างตารางใหม่ ──────────────────────
+-- ⚠️ ขาดบรรทัดนี้ไม่ได้ — Supabase (PostgREST) จำ "หน้าตาตาราง" ไว้ในแคช
+-- เพิ่มคอลัมน์แล้วแต่แคชยังเป็นของเก่า แอปจะขึ้นว่า
+--   Could not find the 'group_id' column of 'rentals' in the schema cache
+-- ทั้งที่คอลัมน์มีอยู่จริงในฐานข้อมูลแล้ว
+notify pgrst, 'reload schema';
+
 -- ── ตรวจผลหลังรัน ─────────────────────────────────────────────
 -- ควรเห็น group_id เป็น uuid, is_nullable = YES
 select column_name, data_type, is_nullable
