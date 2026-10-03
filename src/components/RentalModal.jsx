@@ -8,6 +8,7 @@ import { LADDER_DAYS } from '../lib/ladder'
 import { rentalDays, daysBetween, endDateFromDays } from '../lib/rentalDays'
 import { splitGroupMoney, insuranceForSet, usesFlatInsurance, GROUP_INSURANCE_FLAT, GROUP_INSURANCE_FROM } from '../lib/rentalGroup'
 import { useToast } from '../context/ToastContext'
+import useSheetDrag from '../hooks/useSheetDrag'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
 
@@ -143,6 +144,9 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const [newCustomer, setNewCustomer] = useState(EMPTY_CUSTOMER)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // มือถือ: ลากแผ่นลงเพื่อปิด (ไม่ต้องเล็งกดกากบาทมุมบน)
+  const sheet = useSheetDrag({ onClose })
 
   useEffect(() => {
     Promise.all([
@@ -471,19 +475,23 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* Sheet wrapper — flex column so header+footer stay fixed, content scrolls */}
       <div className="bg-white w-full sm:max-w-xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '92dvh' }}>
+        style={{ maxHeight: '92dvh', ...sheet.style }}>
 
-        {/* ── Drag handle (mobile) ── */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        {/* ── ขีดจับ (มือถือ) — ลากลงเพื่อปิด ──
+            พื้นที่กดต้องสูงพอให้นิ้วโป้งโดนง่าย ขีดที่เห็นเลยเล็กกว่ากรอบที่กดได้ */}
+        <div {...sheet.handleProps}
+          className="flex justify-center items-center h-7 sm:hidden cursor-grab active:cursor-grabbing">
+          <div className={`w-11 rounded-full transition-colors ${sheet.dragging ? 'h-1.5 bg-gray-300' : 'h-1 bg-gray-200'}`} />
         </div>
 
-        {/* ── Header (sticky) ── */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 flex-shrink-0">
+        {/* ── Header (sticky) — ลากจากแถบนี้ได้ด้วย ── */}
+        <div {...sheet.handleProps}
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 flex-shrink-0">
           <h3 className="text-base font-semibold text-gray-900">
             {isEdit ? 'แก้ไขรายการเช่า' : 'สร้างรายการเช่า'}
           </h3>
           <button type="button" onClick={onClose}
+            style={{ touchAction: 'auto' }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -491,8 +499,9 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
           </button>
         </div>
 
-        {/* ── Scrollable form body ── */}
-        <form id="rental-form" onSubmit={handleSubmit}
+        {/* ── Scrollable form body ──
+            เลื่อนอ่านอยู่บนสุดแล้วลากลงต่อ = ปิดได้เหมือนกัน */}
+        <form id="rental-form" onSubmit={handleSubmit} {...sheet.bodyProps}
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-5"
           style={{ WebkitOverflowScrolling: 'touch' }}>
 
