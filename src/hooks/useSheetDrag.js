@@ -29,6 +29,10 @@ import { useRef, useState, useEffect } from 'react'
    · handleProps — ลากได้เสมอ (ขีดจับและแถบหัวข้อ)
    · bodyProps   — ลากได้เฉพาะตอนเลื่อนเนื้อหาอยู่บนสุดแล้ว
                    ไม่งั้นจะแย่งกับการสกรอลล์อ่านเนื้อหา
+   · lockProps   — ใส่ตรงที่ "ห้ามลากเด็ดขาด" เช่นช่องเซ็นลายเซ็น
+                   (นิ้วลากในช่องนั้นคือการเขียน ไม่ใช่การปิดหน้าต่าง)
+   · lock(true/false) — ล็อก/ปลดล็อกด้วยมือ ใช้คู่กับ lockProps
+                   เรียก lock(true) ตอนเริ่มเขียน ปิดกันเหนียวไว้อีกชั้น
    · backdropRef — พื้นมืดจะจางลงตามระยะที่ลาก ทำให้รู้สึกว่ากำลังดึงจริงๆ
    · reset()     — ล้างระยะที่ลากค้างไว้ จำเป็นกับตัวที่ไม่ถูกถอดออกจากหน้า
                    เวลาปิด (เช่น เมนูข้าง) ไม่งั้นเปิดใหม่จะค้างอยู่นอกจอ
@@ -43,6 +47,13 @@ const FADE           = 'opacity .28s ease'
 const RUBBER         = 0.22 // ลากผิดทาง ให้ขยับตามนิดเดียวแบบมีแรงต้าน (รู้สึกว่าจับติด)
 const RUBBER_MAX     = 14   // แต่ไม่เกินเท่านี้ ไม่งั้นจะเห็นช่องว่างที่ขอบจอ ดูเหมือนจอเพี้ยน
 
+/* ที่ห้ามลาก — ใส่ attribute นี้ไว้ที่ element ไหน การลากที่เริ่มจากตรงนั้นจะไม่ทำงาน
+   เคสจริง: ช่องเซ็นลายเซ็นในหนังสือสัญญา นิ้วลากลงในช่องคือการ "ขีดเส้น"
+   ถ้าไม่กันไว้ ลายเซ็นที่ลากลงยาวๆ จะกลายเป็นคำสั่งปิดหน้าต่างทิ้งทั้งหน้า
+   (ลากในช่องนั้นได้ตามปกติ แค่แผ่นไม่ขยับ) */
+const LOCK_ATTR = 'data-sheet-lock'
+const insideLocked = (el) => !!(el && typeof el.closest === 'function' && el.closest(`[${LOCK_ATTR}]`))
+
 export default function useSheetDrag({
   onClose,
   closeAt  = CLOSE_AT,
@@ -55,6 +66,7 @@ export default function useSheetDrag({
   const offset  = useRef(0)      // ระยะล่าสุด (px, บวกเสมอ = ทิศที่จะปิด)
   const pending = useRef(null)   // ค่าที่รอเขียนลงจอในเฟรมถัดไป
   const frame   = useRef(0)
+  const locked  = useRef(false)  // true = ห้ามลากชั่วคราว (เช่น กำลังเซ็นลายเซ็น)
   const [dragging, setDragging] = useState(false)
 
   const vertical = axis !== 'x'
@@ -99,8 +111,27 @@ export default function useSheetDrag({
 
   useEffect(() => stopFrame, [])
 
+  // ยกเลิกการลากที่ค้างอยู่ทันที แผ่นกลับที่เดิมแบบไม่มีแอนิเมชัน (ไม่ปิดหน้าต่าง)
+  const cancel = () => {
+    start.current = null
+    offset.current = 0
+    stopFrame()
+    paint(0, false)
+    setDragging(false)
+  }
+
+  /* ล็อกการลากด้วยมือ — เรียก lock(true) ตอนเริ่มเซ็น, lock(false) ตอนยกนิ้ว
+     ถ้ามีการลากค้างอยู่ จะยกเลิกให้ด้วย แผ่นจะไม่ปิดกลางทางเด็ดขาด */
+  const lock = (on) => {
+    const next = !!on
+    if (locked.current === next) return
+    locked.current = next
+    if (next && start.current) cancel()
+  }
+
   const begin = (e) => {
     if (!canDrag() || e.touches.length !== 1) return
+    if (locked.current || insideLocked(e.target)) return
     start.current = { pos: posOf(e.touches[0]), t: Date.now() }
     offset.current = 0
     const n = sheetRef.current
@@ -110,6 +141,7 @@ export default function useSheetDrag({
 
   const move = (e) => {
     if (!start.current) return
+    if (locked.current || insideLocked(e.target)) { cancel(); return }
     const delta = posOf(e.touches[0]) - start.current.pos
     const d = vertical ? delta : -delta
     // ลากผิดทางให้ขยับตามแบบมีแรงต้าน จะได้รู้สึกว่านิ้วจับติดอยู่จริง
@@ -148,7 +180,7 @@ export default function useSheetDrag({
   }
   const moveFromBody = (e) => {
     if (!start.current) return
-    if (vertical && e.currentTarget.scrollTop > 0) { start.current = null; stopFrame(); paint(0, false); setDragging(false); return }
+    if (vertical && e.currentTarget.scrollTop > 0) { cancel(); return }
     move(e)
   }
 
@@ -156,7 +188,10 @@ export default function useSheetDrag({
     dragging,
     sheetRef,
     backdropRef,
-    reset: () => { start.current = null; offset.current = 0; stopFrame(); paint(0, false); setDragging(false) },
+    reset: () => { locked.current = false; cancel() },
+    lock,
+    // ใส่ตรง element ที่ห้ามลาก (ช่องเซ็นลายเซ็น ฯลฯ) — ลากจากตรงนั้นแผ่นจะไม่ขยับ
+    lockProps: { [LOCK_ATTR]: '' },
     handleProps: {
       onTouchStart: (e) => { e.stopPropagation(); begin(e) },
       onTouchMove:  (e) => { e.stopPropagation(); move(e) },
