@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { exportBackup, fetchLastBackup, backupUrgency, backupLabel } from '../lib/backup'
-import useSheetDrag from '../hooks/useSheetDrag'
 
 const navItems = [
   {
@@ -66,12 +65,6 @@ const navItems = [
 ]
 
 export default function Sidebar({ open, onClose }) {
-  // มือถือ/แท็บเล็ต: ลากเมนูไปทางซ้ายเพื่อปิด (เมนูขยับตามนิ้ว)
-  // maxWidth 1024 เพราะเมนูนี้เป็นแบบลอยจนถึงขนาด lg
-  const drawer = useSheetDrag({ onClose, axis: 'x', maxWidth: 1024 })
-  // ปิดแล้วต้องล้างระยะที่ลากค้างไว้ — เมนูนี้ไม่ได้ถูกถอดออกจากหน้า
-  // ถ้าไม่ล้าง เปิดใหม่รอบหน้าจะยังค้างอยู่นอกจอ กดแล้วเหมือนเมนูไม่ขึ้น
-  useEffect(() => { if (!open) drawer.reset() }, [open])
   const { logout, user } = useAuth()
   const toast = useToast()
   const [backingUp, setBackingUp] = useState(false)
@@ -124,7 +117,7 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
 
-      <aside {...drawer.handleProps} ref={drawer.sheetRef}
+      <aside
         className={`
         hc-safe-top fixed top-0 left-0 h-full w-60 bg-white z-30
         flex flex-col border-r border-gray-100
@@ -133,9 +126,15 @@ export default function Sidebar({ open, onClose }) {
         ${open ? 'translate-x-0' : '-translate-x-full'}
       `}>
 
-        {/* Logo */}
+        {/* Logo + ปุ่มปิด (มือถือ) */}
         <div className="flex items-center px-5 py-5 border-b border-gray-50">
           <img src="/logo.png" alt="HICHAO Camera" className="h-9 w-auto" />
+          <button type="button" onClick={onClose} aria-label="ปิดเมนู"
+            className="lg:hidden ml-auto w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Nav */}

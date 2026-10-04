@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { updateRental, deleteRental } from '../lib/rentals'
 import { rentalDays } from '../lib/rentalDays'
 import { membersOf, groupTotals, groupKeyOf } from '../lib/rentalGroup'
-import useSheetDrag from '../hooks/useSheetDrag'
 import { updateCamera } from '../lib/cameras'
 import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
@@ -238,7 +237,6 @@ export default function RentalsPage() {
   const [pendingContractId, setPendingContractId] = useState(null)
   const [notiOpen, setNotiOpen]         = useState(false)
   // มือถือ: ลากแผ่นแจ้งเตือนลงเพื่อปิด
-  const notiSheet = useSheetDrag({ onClose: () => setNotiOpen(false) })
   const [bannerDismissed, setBannerDismissed] = useState(false)
 
   // LINE state
@@ -1208,15 +1206,10 @@ export default function RentalsPage() {
       {notiOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
           onClick={e => e.target === e.currentTarget && setNotiOpen(false)}>
-          <div ref={notiSheet.backdropRef} className="absolute inset-0 bg-black/40 pointer-events-none" />
-          <div ref={notiSheet.sheetRef}
+          <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+          <div
             className="relative bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] flex flex-col">
-            {/* ขีดจับ (มือถือ) — ลากลงเพื่อปิด */}
-            <div {...notiSheet.handleProps}
-              className="sm:hidden flex justify-center items-center h-7 flex-shrink-0 cursor-grab active:cursor-grabbing">
-              <div className={`w-11 rounded-full transition-colors ${notiSheet.dragging ? 'h-1.5 bg-gray-300' : 'h-1 bg-gray-200'}`} />
-            </div>
-            <div {...notiSheet.handleProps} className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
               <p className="font-semibold text-gray-900">การแจ้งเตือน
                 {unreadCount > 0 && <span className="ml-2 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
               </p>
@@ -1227,7 +1220,7 @@ export default function RentalsPage() {
                 </button>
               </div>
             </div>
-            <div {...notiSheet.bodyProps} className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="py-12 text-center text-sm text-gray-400">ไม่มีการแจ้งเตือน</div>
               ) : (

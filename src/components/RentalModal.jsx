@@ -8,7 +8,6 @@ import { LADDER_DAYS } from '../lib/ladder'
 import { rentalDays, daysBetween, endDateFromDays } from '../lib/rentalDays'
 import { splitGroupMoney, insuranceForSet, usesFlatInsurance, GROUP_INSURANCE_FLAT, GROUP_INSURANCE_FROM } from '../lib/rentalGroup'
 import { useToast } from '../context/ToastContext'
-import useSheetDrag from '../hooks/useSheetDrag'
 
 const EMPTY_CUSTOMER = { name: '', phone: '' }
 
@@ -116,6 +115,9 @@ const fmtConflictDate = (start, end) => {
   return `${fmt(start)} - ${fmt(end)}`
 }
 
+// แสดงกล้องกี่ตัวก่อนจะต้องกด "ดูทั้งหมด"
+const CAM_PREVIEW = 6
+
 export default function RentalModal({ rental = null, onClose, onSaved }) {
   const toast = useToast()
   const isEdit = !!rental
@@ -144,9 +146,13 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
   const [newCustomer, setNewCustomer] = useState(EMPTY_CUSTOMER)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // ⚠️ ห้ามทำรายการกล้องเป็นกล่องเลื่อนซ้อนในฟอร์ม (max-h + overflow-y-auto)
+  // มือถือจะล็อกการเลื่อนไว้กับกล่องในสุดตั้งแต่วางนิ้ว นิ้วที่เริ่มในรายการกล้อง
+  // จะเลื่อนฟอร์มลงไปหา วันที่/เวลา/ช่องล่างๆ ไม่ได้เลย แถมยังไปแย่งกับ
+  // ท่าลากปิดแผ่น ทำให้รู้สึกสะดุด — ใช้ "ย่อ/ขยายรายการ" แทน เลื่อนที่เดียวจบ
+  const [showAllCams, setShowAllCams] = useState(false)
 
   // มือถือ: ลากแผ่นลงเพื่อปิด (ไม่ต้องเล็งกดกากบาทมุมบน)
-  const sheet = useSheetDrag({ onClose })
 
   useEffect(() => {
     Promise.all([
@@ -209,6 +215,12 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
     .map(id => cameras.find(c => c.id === id))
     .filter(Boolean)
   const multi = !isEdit && form.camera_ids.length > 1
+
+  // รายการกล้องที่แสดงจริง — ย่อไว้ก่อนเพื่อให้ฟอร์มไม่ยาวเกิน
+  // ตัวที่เลือกไว้แล้วแสดงเสมอ ถึงจะอยู่นอก 6 ตัวแรกก็ตาม (ไม่งั้นกดเลือกแล้วหาย)
+  const visibleCams = (!showAllCams && cameras.length > CAM_PREVIEW)
+    ? cameras.filter((c, i) => i < CAM_PREVIEW || form.camera_ids.includes(c.id))
+    : cameras
 
   // ลูกค้าเดิมที่เบอร์โทรตรงกัน (กันสร้างลูกค้าซ้ำ) — เช็คเมื่อพิมพ์เบอร์ครบ 9 หลักขึ้นไป
   const matchedCustomer = !isEdit && normPhone(newCustomer.phone).length >= 9
@@ -473,28 +485,21 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-      {/* พื้นมืดเป็นชั้นของตัวเอง — ตอนลากแผ่นลง พื้นจะจางลงตาม ทำให้รู้สึกว่าดึงจริง */}
-      <div ref={sheet.backdropRef} className="absolute inset-0 bg-black/60" />
+      {/* ตั้งใจไม่ให้ปิดจากการแตะพื้นมืด — หน้านี้กรอกข้อมูลยาว
+          แตะพลาดทีเดียวข้อมูลหายหมด ปิดได้จากปุ่ม ✕ กับปุ่มยกเลิกเท่านั้น */}
+      <div className="absolute inset-0 bg-black/60" />
       {/* Sheet wrapper — flex column so header+footer stay fixed, content scrolls */}
-      <div ref={sheet.sheetRef}
+      <div
         className="relative bg-white w-full sm:max-w-xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col"
         style={{ maxHeight: '92dvh' }}>
 
-        {/* ── ขีดจับ (มือถือ) — ลากลงเพื่อปิด ──
-            พื้นที่กดต้องสูงพอให้นิ้วโป้งโดนง่าย ขีดที่เห็นเลยเล็กกว่ากรอบที่กดได้ */}
-        <div {...sheet.handleProps}
-          className="flex justify-center items-center h-7 sm:hidden cursor-grab active:cursor-grabbing">
-          <div className={`w-11 rounded-full transition-colors ${sheet.dragging ? 'h-1.5 bg-gray-300' : 'h-1 bg-gray-200'}`} />
-        </div>
-
-        {/* ── Header (sticky) — ลากจากแถบนี้ได้ด้วย ── */}
-        <div {...sheet.handleProps}
+        {/* ── Header ── ปิดด้วยปุ่ม ✕ มุมขวา */}
+        <div
           className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 flex-shrink-0">
           <h3 className="text-base font-semibold text-gray-900">
             {isEdit ? 'แก้ไขรายการเช่า' : 'สร้างรายการเช่า'}
           </h3>
-          <button type="button" onClick={onClose}
-            style={{ touchAction: 'auto' }}
+          <button type="button" onClick={onClose} aria-label="ปิด"
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -502,9 +507,8 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
           </button>
         </div>
 
-        {/* ── Scrollable form body ──
-            เลื่อนอ่านอยู่บนสุดแล้วลากลงต่อ = ปิดได้เหมือนกัน */}
-        <form id="rental-form" onSubmit={handleSubmit} {...sheet.bodyProps}
+        {/* ── Scrollable form body ── */}
+        <form id="rental-form" onSubmit={handleSubmit}
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-5"
           style={{ WebkitOverflowScrolling: 'touch' }}>
 
@@ -537,11 +541,11 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                       </span>
                     )}
                   </div>
-                  <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                  <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
                     {cameras.length === 0 && (
                       <p className="px-3 py-4 text-xs text-gray-400 text-center">ยังไม่มีกล้องให้เลือก</p>
                     )}
-                    {cameras.map(c => {
+                    {visibleCams.map(c => {
                       const picked = form.camera_ids.includes(c.id)
                       const order  = form.camera_ids.indexOf(c.id) + 1
                       const busy   = conflictIds.has(c.id)
@@ -576,6 +580,14 @@ export default function RentalModal({ rental = null, onClose, onSaved }) {
                         </button>
                       )
                     })}
+                    {cameras.length > CAM_PREVIEW && (
+                      <button type="button" onClick={() => setShowAllCams(v => !v)}
+                        className="w-full px-3 py-2.5 text-xs font-semibold text-brand-600 bg-brand-50/50 hover:bg-brand-50 transition-colors">
+                        {showAllCams
+                          ? 'ย่อรายการ'
+                          : `ดูกล้องทั้งหมด (${cameras.length} ตัว)`}
+                      </button>
+                    )}
                   </div>
                   {multi && (
                     <p className="text-[10.5px] text-gray-400">
