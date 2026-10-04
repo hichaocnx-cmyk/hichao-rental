@@ -45,6 +45,12 @@ function fmtDate(iso) {
   return `${d}/${m}/${String(y).slice(2)}`
 }
 
+// สีของแถบสถานะ = สีแถบบนของแอป (ต้องตรงกับ header.h-16 ใน index.css)
+const paintStatusBar = (dark) => {
+  const el = document.querySelector('meta[name="theme-color"]')
+  if (el) el.setAttribute('content', dark ? '#17121f' : '#ffffff')
+}
+
 export default function Topbar({ onMenuClick, title = 'Dashboard' }) {
   const { notifications, unreadCount, readIds, markRead, markAllRead } = useApp()
   const [open, setOpen] = useState(false)
@@ -62,6 +68,12 @@ export default function Topbar({ onMenuClick, title = 'Dashboard' }) {
       return next
     })
   }
+
+  // แถบสถานะของเครื่อง (นาฬิกา/สัญญาณ/แบต) วางทับพื้นที่แอปตอนเปิดจากไอคอน
+  // ตอนนี้ด้านบนเว้นที่ให้แล้ว (.hc-safe-top) ช่องนั้นจึงเป็นสีของแถบบนแอป
+  // ต้องบอกสีนั้นกับเครื่องด้วย เครื่องจะได้เลือกสีตัวเลขเวลาให้ตัดกัน
+  // ไม่งั้นโหมดสว่าง = ช่องขาว + ตัวเลขขาว = มองไม่เห็นเวลา
+  useEffect(() => { paintStatusBar(dark) }, [dark])
 
   const today = new Date().toLocaleDateString('th-TH', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -90,7 +102,7 @@ export default function Topbar({ onMenuClick, title = 'Dashboard' }) {
   ].filter(g => g.items.length > 0)
 
   return (
-    <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 lg:px-6 flex-shrink-0">
+    <header className="hc-safe-top h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 lg:px-6 flex-shrink-0">
       <div className="flex items-center gap-3">
         <button onClick={onMenuClick}
           className="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">

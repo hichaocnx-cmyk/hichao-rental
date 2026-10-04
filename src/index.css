@@ -16,6 +16,41 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   เว้นที่ให้ "แถบสถานะ" ของเครื่อง (นาฬิกา · สัญญาณ · แบตเตอรี่)
+   ──────────────────────────────────────────────────────────────
+   ติดตั้งแอปเป็น PWA แล้วเปิดจากไอคอน เครื่องจะให้พื้นที่แอป
+   เริ่มจากขอบบนสุดจริงๆ (index.html ตั้ง viewport-fit=cover +
+   iOS black-translucent) เนื้อหาจึงไหลขึ้นไปอยู่ "ใต้" แถบสถานะ
+   ถ้าไม่เว้นที่ไว้ โลโก้/ชื่อหน้า/ปุ่ม จะไปทับเวลากับไอคอนของเครื่อง
+
+   env(safe-area-inset-top) = ความสูงแถบสถานะที่เครื่องบอกมา
+   · เปิดในเบราว์เซอร์ปกติ / จอคอม = 0 → ไม่มีอะไรเปลี่ยน
+   · iPhone มีติ่ง/Dynamic Island = 44–59px
+   · Android ทั่วไป = 24–36px
+   แถบล่างใช้ safe-area-bottom อยู่แล้ว (ด้านบนเดิมไม่ได้ทำไว้)
+   ══════════════════════════════════════════════════════════════ */
+.hc-safe-top { padding-top: env(safe-area-inset-top, 0px); }
+
+/* แถบบนของแอป — ดันลงมาทั้งแถบ แล้วเพิ่มความสูงชดเชย
+   เพื่อให้ "เนื้อใน" ยังสูง 4rem เท่าเดิมเป๊ะ ไม่ถูกบีบ */
+header.hc-safe-top {
+  height: calc(4rem + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* กันเหนียว: Android บางรุ่น (edge-to-edge) เปิดเต็มจอแต่รายงาน
+   safe-area มาเป็น 0 ทำให้ทับอยู่ดี — บังคับขั้นต่ำไว้ 26px
+   เฉพาะตอนเปิดจากไอคอนแอปบนจอมือถือเท่านั้น (max() เลือกค่ามากกว่า
+   ถ้าเครื่องบอกค่าจริงมา 48px ก็ใช้ 48 ไม่ใช่ 26) */
+@media (display-mode: standalone) and (max-width: 1023px) {
+  .hc-safe-top       { padding-top: max(env(safe-area-inset-top, 0px), 26px); }
+  header.hc-safe-top {
+    height: calc(4rem + max(env(safe-area-inset-top, 0px), 26px));
+    padding-top: max(env(safe-area-inset-top, 0px), 26px);
+  }
+}
+
 /* ป้องกัน zoom เมื่อ focus input บน iOS */
 input, select, textarea {
   font-size: 16px !important;

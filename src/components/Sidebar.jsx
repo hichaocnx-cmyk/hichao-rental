@@ -126,7 +126,7 @@ export default function Sidebar({ open, onClose }) {
 
       <aside {...drawer.handleProps} ref={drawer.sheetRef}
         className={`
-        fixed top-0 left-0 h-full w-60 bg-white z-30
+        hc-safe-top fixed top-0 left-0 h-full w-60 bg-white z-30
         flex flex-col border-r border-gray-100
         transition-transform duration-300 ease-in-out
         lg:translate-x-0 lg:static lg:z-auto
