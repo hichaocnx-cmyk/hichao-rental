@@ -62,9 +62,9 @@ const INK   = '#1f2937'
 export default function ContractModal({ rental, rentals, onClose }) {
   const canvasRef = useRef(null)
   const docRef    = useRef(null)
-  const drawing   = useRef(false)
+  const drawing   = useRef(false)  // กำลังลากเส้นอยู่ไหม (ref ล้วน — ไม่ทำให้ React วาดหน้าใหม่)
+  const hasSigRef = useRef(false)
   const [hasSig, setHasSig]       = useState(false)
-  const [signing, setSigning]     = useState(false)   // กำลังเซ็นอยู่ (ไว้ไฮไลต์กรอบช่องเซ็น)
   const [sigImg, setSigImg]       = useState('')
   const [logoB64, setLogoB64]     = useState('')
   const [lessorSigB64, setLessorSigB64] = useState('')
@@ -124,36 +124,148 @@ export default function ContractModal({ rental, rentals, onClose }) {
   useEffect(() => () => { if (resultUrl) URL.revokeObjectURL(resultUrl) }, [resultUrl])
 
   // ── signature pad ────────────────────────────────────────────────
-  const getPos = (e) => {
+  /* ── สาเหตุที่เดิม "ขยับ/กระตุก" ตอนเซ็น (แก้ 19 ต.ค. 2569) ──
+     1) แตะช่องเซ็นแล้ว setSigning → React วาดทั้งหน้าใหม่ + ข้อความใต้ช่องเปลี่ยนจาก
+        2 บรรทัดเหลือ 1 บรรทัด → ความสูงแผ่นเปลี่ยน → หน้ากระโดดทุกครั้งที่เริ่ม/ยกนิ้ว
+     2) keepStill ดึง scrollTop กลับทุกครั้งที่หน้าเลื่อน → เลื่อนไป-ดึงกลับ = ภาพสั่น
+     3) ทุกครั้งที่นิ้วขยับ วาดเส้นทั้งเส้นซ้ำตั้งแต่ต้น (ctx.stroke ทั้ง path)
+        ยิ่งเซ็นยาวยิ่งหน่วง → เส้นกระตุก / ขาดเป็นท่อน
+     4) canvas ความละเอียดตายตัว 440×150 ถูกยืดตามจอ → เส้นแตก เบลอ
+     วิธีใหม่: ใช้ Pointer Events + วาดเฉพาะท่อนใหม่ (เส้นโค้งนุ่ม) + ไม่แตะ React state
+     ระหว่างลาก (แค่ครั้งแรกครั้งเดียว) + canvas คมตามความละเอียดจอ */
+  const last = useRef(null)   // จุดล่าสุด
+  const mid  = useRef(null)   // จุดกึ่งกลางล่าสุด (ไว้ทำเส้นโค้ง)
+  const rect = useRef(null)   // ตำแหน่งช่องเซ็น — วัดครั้งเดียวตอนเริ่มลาก ไม่วัดทุกจุด
+  const moved = useRef(false)
+
+  const ctxOf = () => canvasRef.current.getContext('2d')
+
+  const setupCtx = (ctx) => {
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#111827'; ctx.fillStyle = '#111827'
+  }
+
+  // ปรับขนาด canvas ให้ตรงกับขนาดจริงบนจอ × ความละเอียดจอ (เส้นคม ไม่ยืด)
+  // ถ้ามีลายเซ็นอยู่แล้ว (เช่น หมุนจอ) จะคัดลอกภาพเดิมไปวางใหม่ ไม่หาย
+  const fitCanvas = () => {
     const c = canvasRef.current
-    const rect = c.getBoundingClientRect()
-    const t = e.touches ? e.touches[0] : e
-    return { x: (t.clientX - rect.left) * (c.width / rect.width),
-             y: (t.clientY - rect.top)  * (c.height / rect.height) }
+    if (!c) return
+    // clientWidth/Height = ขนาดพื้นที่วาดจริง (ไม่รวมขอบ และไม่โดนแอนิเมชันเปิดหน้าต่าง scale)
+    const cw = c.clientWidth, ch = c.clientHeight
+    if (!cw || !ch) return
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)
+    const W = Math.round(cw * dpr), H = Math.round(ch * dpr)
+    if (c.width === W && c.height === H) return
+    let old = null
+    if (hasSigRef.current && c.width && c.height) {
+      old = document.createElement('canvas'); old.width = c.width; old.height = c.height
+      old.getContext('2d').drawImage(c, 0, 0)
+    }
+    c.width = W; c.height = H
+    const ctx = ctxOf()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    if (old) ctx.drawImage(old, 0, 0, W, H)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)   // ต่อจากนี้วาดด้วยหน่วย px ของจอ
+    setupCtx(ctx)
   }
-  const start = (e) => {
+
+  useEffect(() => {
+    fitCanvas()
+    const c = canvasRef.current
+    if (!c || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => { if (!drawing.current) fitCanvas() })
+    ro.observe(c)
+    return () => ro.disconnect()
+  }, [])
+
+  // แปลงพิกัดนิ้ว → พิกัดในช่องเซ็น (หักขอบ 2px + เผื่อกรณีหน้าถูกย่อ/ขยาย)
+  const posOf = (e) => {
+    const c = canvasRef.current, r = rect.current
+    const sx = c.clientWidth  ? (r.width  - c.clientLeft * 2) / c.clientWidth  : 1
+    const sy = c.clientHeight ? (r.height - c.clientTop  * 2) / c.clientHeight : 1
+    return { x: (e.clientX - r.left - c.clientLeft) / (sx || 1),
+             y: (e.clientY - r.top  - c.clientTop)  / (sy || 1) }
+  }
+
+  const setActive = (on) => {
+    // เปลี่ยนสีกรอบตรง ๆ ที่ DOM — ไม่ผ่าน React จึงไม่มีการวาดหน้าใหม่/เลย์เอาต์ขยับ
+    const c = canvasRef.current
+    if (c) c.style.borderColor = on ? BRAND : ''
+  }
+
+  const onDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     e.preventDefault()
+    const c = canvasRef.current
+    try { c.setPointerCapture(e.pointerId) } catch {}
+    fitCanvas()                               // เผื่อขนาดยังไม่ถูก (เปิดหน้าต่างครั้งแรก)
+    rect.current = c.getBoundingClientRect()
     drawing.current = true
-    setSigning(true)
-    const ctx = canvasRef.current.getContext('2d')
-    const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y)
+    moved.current = false
+    const p = posOf(e)
+    last.current = p; mid.current = p
+    setActive(true)
   }
-  const move = (e) => {
+
+  const drawTo = (p) => {
+    const ctx = ctxOf()
+    const m = { x: (last.current.x + p.x) / 2, y: (last.current.y + p.y) / 2 }
+    // วาดเฉพาะท่อนใหม่ (เส้นโค้งจากกึ่งกลางเก่า → กึ่งกลางใหม่) — เร็วคงที่ ไม่ว่าเซ็นยาวแค่ไหน
+    ctx.beginPath()
+    ctx.moveTo(mid.current.x, mid.current.y)
+    ctx.quadraticCurveTo(last.current.x, last.current.y, m.x, m.y)
+    ctx.stroke()
+    last.current = p; mid.current = m
+  }
+
+  const onMove = (e) => {
     if (!drawing.current) return
     e.preventDefault()
-    const ctx = canvasRef.current.getContext('2d')
-    const p = getPos(e)
-    ctx.lineTo(p.x, p.y); ctx.lineWidth = 2.2; ctx.lineCap = 'round'
-    ctx.strokeStyle = '#111827'; ctx.stroke()
-    if (!hasSig) setHasSig(true)
+    // getCoalescedEvents = จุดที่เบราว์เซอร์ยุบรวมไว้ระหว่างเฟรม → เส้นเนียน ไม่เป็นเหลี่ยม
+    const pts = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : null
+    const list = pts && pts.length ? pts : [e]
+    for (const pe of list) drawTo(posOf(pe))
+    moved.current = true
+    if (!hasSigRef.current) { hasSigRef.current = true; setHasSig(true) }   // setState ครั้งเดียวพอ
   }
-  const end = () => {
+
+  const onUp = (e) => {
+    if (!drawing.current) return
     drawing.current = false
-    setSigning(false)
+    const ctx = ctxOf()
+    if (!moved.current && last.current) {
+      // แตะจุดเดียว → วาดเป็นจุด
+      ctx.beginPath(); ctx.arc(last.current.x, last.current.y, 1.3, 0, Math.PI * 2); ctx.fill()
+      if (!hasSigRef.current) { hasSigRef.current = true; setHasSig(true) }
+    } else if (last.current && mid.current) {
+      ctx.beginPath(); ctx.moveTo(mid.current.x, mid.current.y)
+      ctx.lineTo(last.current.x, last.current.y); ctx.stroke()
+    }
+    try { canvasRef.current.releasePointerCapture(e.pointerId) } catch {}
+    setActive(false)
   }
+
+  /* ⚠️ กันหน้าเลื่อนตอนเอานิ้วลากบนช่องเซ็น (สำหรับ iOS/WebView เก่าที่ไม่เคารพ touch-action)
+     ต้องต่อเองแบบ { passive: false } — onTouchMove ของ React เป็น passive จึง preventDefault ไม่ได้
+     การวาดจริงใช้ Pointer Events ด้านบน ตรงนี้มีหน้าที่ "ห้ามเลื่อน/ห้ามซูม" อย่างเดียว */
+  useEffect(() => {
+    const c = canvasRef.current
+    if (!c) return
+    const no = { passive: false }
+    const stop = (e) => { if (e.cancelable) e.preventDefault() }
+    c.addEventListener('touchstart', stop, no)
+    c.addEventListener('touchmove',  stop, no)
+    return () => {
+      c.removeEventListener('touchstart', stop, no)
+      c.removeEventListener('touchmove',  stop, no)
+    }
+  }, [])
+
   const clearSig = () => {
     const c = canvasRef.current
-    c.getContext('2d').clearRect(0, 0, c.width, c.height)
+    const ctx = c.getContext('2d')
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore()
+    hasSigRef.current = false
     setHasSig(false); setSigImg('')
   }
 
@@ -255,6 +367,7 @@ export default function ContractModal({ rental, rentals, onClose }) {
         <div className="absolute inset-0 bg-black/40 pointer-events-none" />
         <div
           className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+          style={{ overscrollBehavior: 'contain' }}
           onClick={e => e.stopPropagation()}>
 
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
@@ -298,16 +411,18 @@ export default function ContractModal({ rental, rentals, onClose }) {
                 <p className="text-sm font-semibold text-gray-700">ลายเซ็นผู้เช่า (เซ็นบนจอ)</p>
                 <button onClick={clearSig} className="text-xs text-gray-400 hover:text-gray-600">ล้าง</button>
               </div>
+              {/* Pointer Events ครอบทั้งนิ้ว/ปากกา/เมาส์ · ข้อความด้านล่างคงที่ (ห้ามเปลี่ยนตอนเซ็น — ความสูงเปลี่ยน = หน้าขยับ) */}
               <canvas
-                ref={canvasRef} width={440} height={150}
-                onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-                onTouchStart={start} onTouchMove={move} onTouchEnd={end} onTouchCancel={end}
-                className={`w-full h-[150px] border-2 border-dashed rounded-xl bg-white touch-none transition-colors ${signing ? 'border-brand-400' : 'border-gray-200'}`}
+                ref={canvasRef}
+                onPointerDown={onDown} onPointerMove={onMove}
+                onPointerUp={onUp} onPointerCancel={onUp}
+                onContextMenu={e => e.preventDefault()}
+                style={{ touchAction: 'none', overscrollBehavior: 'contain',
+                         userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+                className="block w-full h-[150px] border-2 border-dashed border-gray-200 rounded-xl bg-white touch-none select-none transition-colors"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                {signing
-                  ? '✍️ กำลังเซ็น…'
-                  : 'เซ็นนิ้ว/เมาส์ตรงนี้ แล้วกดบันทึกรูป — ลายเซ็นจะอยู่ในภาพ (หรือเว้นว่างไว้เซ็นบนกระดาษก็ได้)'}
+                เซ็นนิ้ว/เมาส์ตรงนี้ แล้วกดบันทึกรูป — ลายเซ็นจะอยู่ในภาพ (หรือเว้นว่างไว้เซ็นบนกระดาษก็ได้)
               </p>
             </div>
 
