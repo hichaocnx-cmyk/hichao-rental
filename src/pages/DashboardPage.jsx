@@ -367,7 +367,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs text-gray-400">ประกันถือไว้</p>
               <p className="text-base font-bold text-gray-900">{fmtMoney(bd.heldInsurance ?? 0)}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">คืนให้ลูกค้าวันรับกล้อง 🔒</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">คืนให้ลูกค้าวันคืนกล้อง 🔒</p>
             </div>
           </div>
         </div>
