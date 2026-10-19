@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { clearBadgeOnOpen } from './lib/push'
 
 // ── ล้าง localStorage ของฟีเจอร์ที่ถอดออกไปแล้ว ─────────────────
 // ฟีเจอร์บางอย่างเก็บ state ไว้ในเครื่องผู้ใช้ ไม่ได้อยู่ในฐานข้อมูล
@@ -34,6 +35,9 @@ try {
     localStorage.setItem('hichao_cleanup', CLEANUP_VERSION)
   }
 } catch { /* โหมดส่วนตัว / storage เต็ม — ข้ามไป ไม่ critical */ }
+
+// ล้างตัวเลขแดงบนไอคอนแอป (จากแจ้งเตือน) เมื่อเปิดแอปขึ้นมาดู
+try { clearBadgeOnOpen() } catch { /* ไม่รองรับ */ }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

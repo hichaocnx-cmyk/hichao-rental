@@ -1,7 +1,8 @@
-// v9 — ระบบเลิกใช้รูปถ่ายกล้องแล้ว (เปลี่ยนเป็น emoji 📷)
+// v10 — เพิ่มรับแจ้งเตือนเด้งบนหน้าล็อค (Web Push) ดูท้ายไฟล์
+// v9  — ระบบเลิกใช้รูปถ่ายกล้องแล้ว (เปลี่ยนเป็น emoji 📷)
 //      จึงตัด logic cache รูปจาก Supabase Storage ออกทั้งหมด
 //      ตอนนี้ไม่มีคำขอไป storage อีกเลย → Cached Egress = 0
-const CACHE_NAME = 'hichao-v9'
+const CACHE_NAME = 'hichao-v10'
 const STATIC_ASSETS = [
   '/manifest.json',
   '/logo.png',
@@ -58,4 +59,44 @@ self.addEventListener('fetch', e => {
       })
     })
   )
+})
+
+// ── Push: แจ้งเตือนจากเซิร์ฟเวอร์ (supabase/functions/push-notify) ──
+// iPhone บังคับว่าทุก push ต้องแสดงแจ้งเตือนจริงเสมอ ห้ามเงียบ
+// ไม่งั้นจะถูกตัดสิทธิ์ส่งแจ้งเตือน — เลยมี fallback ข้อความเสมอ
+self.addEventListener('push', e => {
+  let d = {}
+  try { d = e.data ? e.data.json() : {} } catch { d = { body: e.data ? e.data.text() : '' } }
+  const title = d.title || 'HICHAO.CNX'
+  const tasks = [
+    self.registration.showNotification(title, {
+      body: d.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: d.tag || undefined,
+      data: { url: d.url || '/dashboard' },
+    }),
+  ]
+  // ตัวเลขแดงบนไอคอนแอป = จำนวนคิววันนี้
+  if (typeof d.badge === 'number' && self.navigator.setAppBadge) {
+    tasks.push((d.badge > 0 ? self.navigator.setAppBadge(d.badge) : self.navigator.clearAppBadge()).catch(() => {}))
+  }
+  e.waitUntil(Promise.all(tasks))
+})
+
+// แตะแจ้งเตือน → เปิดแอปที่หน้าที่เกี่ยวข้อง (ใช้หน้าต่างเดิมถ้าเปิดอยู่แล้ว)
+self.addEventListener('notificationclick', e => {
+  e.notification.close()
+  const url = new URL((e.notification.data && e.notification.data.url) || '/dashboard', self.location.origin).href
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const w of wins) {
+      if (w.url.startsWith(self.location.origin)) {
+        await w.focus()
+        if ('navigate' in w) await w.navigate(url).catch(() => {})
+        return
+      }
+    }
+    await self.clients.openWindow(url)
+  })())
 })

@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { sendLineNotify } from '../lib/lineNotify'
 import { useToast } from '../context/ToastContext'
 import EmptyState from '../components/EmptyState'
+import PushSettingsCard from '../components/PushSettingsCard'
 
 const TYPE_CONFIG = {
   overdue:      { label: 'เกินกำหนด',      cls: 'bg-red-100 text-red-700',      dot: 'bg-red-500',    border: 'border-red-200'    },
@@ -92,6 +93,9 @@ export default function NotificationsPage() {
           </button>
         </div>
       </div>
+
+      {/* แจ้งเตือนบนหน้าล็อค iPhone (Web Push) */}
+      <PushSettingsCard />
 
       {/* Filter tabs */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-5 w-fit flex-wrap">
