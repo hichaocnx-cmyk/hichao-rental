@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { rentalRevenue, cashReceived, pendingAmount, hasStarted, todayStr } from '../lib/revenue'
+import TopCameras from './TopCameras'
+import { cashReceived, pendingAmount, hasStarted, todayStr } from '../lib/revenue'
 
 // ══════════════════════════════════════════════════════════════
 // ReportSection — เดิมคือหน้า "รายงาน" แยกต่างหาก (src/pages/ReportPage.jsx)
@@ -203,22 +204,6 @@ export default function ReportSection() {
     return set.size
   }, [expenses, months])
 
-  const cameraRankings = useMemo(() => {
-    const prefixes = new Set(months.map(m => m.prefix))
-    const map = {}
-    const today = todayStr()
-    rentals
-      .filter(r => r.status !== 'cancelled' && prefixes.has((r.start_date || '').slice(0, 7)) && hasStarted(r, today))
-      .forEach(r => {
-        if (!r.camera_id) return
-        if (!map[r.camera_id]) map[r.camera_id] = { count: 0, revenue: 0, camera: r.camera }
-        map[r.camera_id].count += 1
-        // รวมค่าส่งด้วย ให้ตรงกับนิยามรายได้ที่ใช้ในกราฟรายเดือน (เดิมตกค่าส่งไป)
-        map[r.camera_id].revenue += rentalRevenue(r)
-      })
-    return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5)
-  }, [rentals, months])
-
   const expCategories = { length: expCategoryCount }   // ใช้แค่จำนวนหมวดในการ์ดสรุป
 
   return (
@@ -308,43 +293,8 @@ export default function ReportSection() {
         )}
       </div>
 
-      {/* ── กล้องยอดนิยม (รวมจำนวนครั้ง + รายได้ไว้ด้วยกัน) ──── */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">กล้องที่ถูกเช่ามากสุด</h3>
-          {cameraRankings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <svg className="w-8 h-8 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-              </svg>
-              <p className="text-gray-400 text-sm">ยังไม่มีข้อมูล</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cameraRankings.map((item, i) => {
-                const pct = Math.round((item.count / cameraRankings[0].count) * 100)
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`
-                return (
-                  <div key={i}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm w-6 text-center">{medal}</span>
-                        <p className="text-sm text-gray-800 font-medium">{item.camera?.name || '—'}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-2">
-                        <span className="text-xs font-bold text-gray-700">{item.count} ครั้ง</span>
-                        <span className="text-xs text-brand-500 ml-2">{fmtMoney(item.revenue)}</span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-brand-400 transition-all duration-500"
-                        style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+      {/* ── กล้องยอดนิยม (ออกแบบใหม่ — src/components/TopCameras.jsx) ── */}
+      <TopCameras rentals={rentals} months={months} period={period} />
 
     </div>
   )
