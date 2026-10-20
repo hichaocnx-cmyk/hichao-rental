@@ -271,164 +271,86 @@ export default function DashboardPage() {
       </div>
       </div>
 
-      {/* ── Stats Cards Row ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-
-        {/* รายได้ค่าเช่า */}
-        <div className="bg-brand-50 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-            <svg style={{width:20,height:20}} className="text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg sm:text-xl font-bold text-brand-700 leading-tight truncate">{loading ? '—' : <CountUp value={bd.rentalIncome ?? 0} format={(v) => `฿${v.toLocaleString()}`} />}</p>
-            <p className="text-[11px] font-medium text-brand-500 mt-0.5">รายได้ค่าเช่า</p>
-          </div>
-        </div>
-
-        {/* กำไรสุทธิ */}
-        <div className={`rounded-2xl p-4 flex items-center gap-3 ${(stats.monthProfit ?? 0) >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-            <svg style={{width:20,height:20}} className={`${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className={`text-lg sm:text-xl font-bold leading-tight truncate ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}</p>
-            <p className={`text-[11px] font-medium mt-0.5 ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>กำไรสุทธิเดือนนี้</p>
-          </div>
-        </div>
-
-        {/* ลูกค้าเช่าเดือนนี้ */}
-        <div className="bg-violet-50 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-            <svg style={{width:20,height:20}} className="text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg sm:text-xl font-bold text-violet-700 leading-tight">{loading ? '—' : <CountUp value={stats.monthCustomerCount ?? 0} />}</p>
-            <p className="text-[11px] font-medium text-violet-500 mt-0.5">ลูกค้าเช่าเดือนนี้ · {stats.monthRentalCount ?? 0} รายการ</p>
-          </div>
-        </div>
-
-        {/* คิววันนี้ */}
-        <div className="bg-orange-50 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-            <svg style={{width:20,height:20}} className="text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg sm:text-xl font-bold text-orange-600 leading-tight">{loading ? '—' : <CountUp value={pickups.length + returns.length} />}</p>
-            <p className="text-[11px] font-medium text-orange-500 mt-0.5">คิววันนี้ · รับ {pickups.length} คืน {returns.length}</p>
-          </div>
-        </div>
-
-        {/* กล้องว่าง */}
-        <div className="bg-sky-50 rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-            <svg style={{width:20,height:20}} className="text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg sm:text-xl font-bold text-sky-700 leading-tight">{loading ? '—' : <CountUp value={stats.availableCameras ?? 0} />}</p>
-            <p className="text-[11px] font-medium text-sky-600 mt-0.5">กล้องว่าง · จาก {fmt(stats.totalCameras)} ตัว</p>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── รายงานย้อนหลัง (ย้ายมาจากหน้า "รายงาน" เดิม) ──────────── */}
-      <ReportSection />
-
-      {/* ── Revenue Breakdown ────────────────────────────────────── */}
+      {/* ── สรุปเดือนนี้ (รวมแถวตัวเลข + รายได้ + รายจ่าย ไว้การ์ดเดียว) ──────
+           นับถึง "วันนี้" เท่านั้น — คิวที่ยังไม่ถึงวันรับกล้องยังไม่นับ (src/lib/revenue.js) */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-50">
           <div>
-            <h3 className="text-sm font-semibold text-gray-800">รายได้เดือนนี้ — {currentMonthLabel()}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">แยกตามสถานะการเช่า</p>
+            <h3 className="text-sm font-semibold text-gray-800">สรุปเดือนนี้ — {currentMonthLabel()}</h3>
+            <p className="text-xs text-gray-400 mt-0.5">นับถึงวันที่ {today.getDate()} · คิวที่ยังไม่ถึงวันรับกล้องยังไม่นับ</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="text-[11px] font-semibold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-full">
+              📅 คิววันนี้ {pickups.length + returns.length} · รับ {pickups.length} คืน {returns.length}
+            </span>
+            <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full">
+              📷 กล้องว่าง {fmt(stats.availableCameras ?? 0)}/{fmt(stats.totalCameras)} ตัว
+            </span>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
-          <div className="px-5 py-4 flex items-center gap-3">
-            <div className="w-1.5 h-10 rounded-full bg-brand-400 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-gray-400">รายได้ค่าเช่า</p>
-              <p className="text-base font-bold text-gray-900">{fmtMoney(bd.rentalIncome ?? 0)}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">คืนแล้ว + กำลังเช่า + มัดจำ ✅</p>
-            </div>
+
+        {/* ตัวเลขหลัก */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4">
+          <div className="bg-brand-50 rounded-2xl p-4">
+            <p className="text-[11px] font-medium text-brand-500">รายได้ค่าเช่า</p>
+            <p className="text-lg sm:text-xl font-bold text-brand-700 leading-tight truncate mt-1">{loading ? '—' : <CountUp value={bd.rentalIncome ?? 0} format={(v) => `฿${v.toLocaleString()}`} />}</p>
           </div>
-          <div className="px-5 py-4 flex items-center gap-3">
-            <div className="w-1.5 h-10 rounded-full bg-amber-400 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-gray-400">ประกันถือไว้</p>
-              <p className="text-base font-bold text-gray-900">{fmtMoney(bd.heldInsurance ?? 0)}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">คืนให้ลูกค้าวันคืนกล้อง 🔒</p>
-            </div>
+          <div className="bg-red-50 rounded-2xl p-4">
+            <p className="text-[11px] font-medium text-red-500">รายจ่าย</p>
+            <p className="text-lg sm:text-xl font-bold text-red-600 leading-tight truncate mt-1">{loading ? '—' : <CountUp value={stats.monthExpenseTotal ?? 0} format={(v) => `฿${v.toLocaleString()}`} />}</p>
+          </div>
+          <div className={`rounded-2xl p-4 ${(stats.monthProfit ?? 0) >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            <p className={`text-[11px] font-medium ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>กำไรสุทธิ</p>
+            <p className={`text-lg sm:text-xl font-bold leading-tight truncate mt-1 ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}</p>
+          </div>
+          <div className="bg-violet-50 rounded-2xl p-4">
+            <p className="text-[11px] font-medium text-violet-500">ลูกค้าเช่า</p>
+            <p className="text-lg sm:text-xl font-bold text-violet-700 leading-tight mt-1">{loading ? '—' : <CountUp value={stats.monthCustomerCount ?? 0} />} <span className="text-xs font-medium text-violet-500">คน · {stats.monthRentalCount ?? 0} รายการ</span></p>
           </div>
         </div>
-        {revTotal > 0 && (
-          <div className="px-5 pb-4">
-            <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100">
-              {[{v:bd.rentalIncome??0,c:'#C9376B'},{v:bd.heldInsurance??0,c:'#f59e0b'}]
-                .filter(s => s.v > 0)
-                .map((s, i) => (
-                  <div key={i} style={{width:`${(s.v/revTotal)*100}%`,background:s.c}} />
-                ))}
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* ── รายจ่ายเดือนนี้ ──────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800">รายจ่ายเดือนนี้ — {currentMonthLabel()}</h3>
-          </div>
-          <button onClick={() => navigate('/expenses')}
-            className="text-xs text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1">
-            ดูทั้งหมด
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 divide-y xl:divide-y-0 xl:divide-x divide-gray-50">
-
-          {/* Summary */}
-          <div className="px-5 py-5 flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                <svg style={{width:18,height:18}} className="text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6 9 12.75l4.286-4.286a11.948 11.948 0 0 1 4.306 6.43l.776 2.898m0 0 3.182-5.511m-3.182 5.51-5.511-3.181" />
-                </svg>
+        {/* รายละเอียด: รายได้ (ซ้าย) · รายจ่ายแยกหมวด (ขวา) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 border-t border-gray-50 divide-y lg:divide-y-0 lg:divide-x divide-gray-50">
+          <div className="px-5 py-4">
+            <p className="text-xs font-semibold text-gray-500 mb-3">รายได้ · แยกตามสถานะ</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-10 rounded-full bg-brand-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-400">รายได้ค่าเช่า</p>
+                  <p className="text-[11px] text-gray-400">คืนแล้ว + กำลังเช่า + มัดจำ ✅</p>
+                </div>
+                <p className="text-base font-bold text-gray-900">{fmtMoney(bd.rentalIncome ?? 0)}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-400">รายจ่ายรวมเดือนนี้</p>
-                <p className="text-lg font-bold text-red-500">{fmtMoney(stats.monthExpenseTotal)}</p>
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-10 rounded-full bg-amber-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-400">ประกันถือไว้ <span className="text-gray-300">(ไม่นับเป็นรายได้)</span></p>
+                  <p className="text-[11px] text-gray-400">คืนให้ลูกค้าวันคืนกล้อง 🔒</p>
+                </div>
+                <p className="text-base font-bold text-gray-900">{fmtMoney(bd.heldInsurance ?? 0)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${(stats.monthProfit ?? 0) >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                <svg style={{width:18,height:18}} className={`${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                </svg>
+            {revTotal > 0 && (
+              <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-4">
+                {[{v:bd.rentalIncome??0,c:'#C9376B'},{v:bd.heldInsurance??0,c:'#f59e0b'}]
+                  .filter(x => x.v > 0)
+                  .map((x, i) => (
+                    <div key={i} style={{width:`${(x.v/revTotal)*100}%`,background:x.c}} />
+                  ))}
               </div>
-              <div>
-                <p className="text-xs text-gray-400">กำไรสุทธิ</p>
-                <p className={`text-lg font-bold ${(stats.monthProfit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {loading ? '—' : <CountUp value={Math.abs(stats.monthProfit ?? 0)} format={(v) => `${(stats.monthProfit ?? 0) < 0 ? '−' : ''}฿${v.toLocaleString()}`} />}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Donut Chart */}
-          <div className="xl:col-span-2 px-5 py-5">
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-500">รายจ่าย · แยกหมวด</p>
+              <button onClick={() => navigate('/expenses')}
+                className="text-xs text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1">
+                ดูทั้งหมด
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+              </button>
+            </div>
             {loading ? (
               <div className="flex justify-center py-8">
                 <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
@@ -444,6 +366,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── รายงานย้อนหลัง ─────────────────────────────────────── */}
+      <ReportSection />
 
     </div>
   )
