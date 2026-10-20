@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { rentalRevenue, cashReceived, pendingAmount } from '../lib/revenue'
+import { rentalRevenue, cashReceived, pendingAmount, hasStarted, todayStr } from '../lib/revenue'
 
 // ══════════════════════════════════════════════════════════════
 // ReportSection — เดิมคือหน้า "รายงาน" แยกต่างหาก (src/pages/ReportPage.jsx)
@@ -170,11 +170,13 @@ export default function ReportSection() {
   const months = useMemo(() => getLastNMonths(period), [period])
 
   const monthlyData = useMemo(() => {
+    // นับถึง "วันนี้" เท่านั้น — คิวที่จองไว้วันหลังๆ ของเดือน ยังไม่นับจนกว่าจะถึงวัน
+    const today = todayStr()
     return months.map(m => {
       const mRentals = rentals.filter(r =>
-        r.status !== 'cancelled' && (r.start_date || '').startsWith(m.prefix)
+        r.status !== 'cancelled' && (r.start_date || '').startsWith(m.prefix) && hasStarted(r, today)
       )
-      const mExpenses = expenses.filter(e => (e.date || '').startsWith(m.prefix))
+      const mExpenses = expenses.filter(e => (e.date || '').startsWith(m.prefix) && (e.date || '') <= today)
       // รายรับ = เงินที่รับแล้วจริง (นิยามกลางอยู่ที่ src/lib/revenue.js)
       const revenue = mRentals.reduce((s, r) => s + cashReceived(r), 0)
       // ยอดรอรับจากคิวจอง (ส่วนที่ยังไม่ได้เก็บ)
@@ -204,8 +206,9 @@ export default function ReportSection() {
   const cameraRankings = useMemo(() => {
     const prefixes = new Set(months.map(m => m.prefix))
     const map = {}
+    const today = todayStr()
     rentals
-      .filter(r => r.status !== 'cancelled' && prefixes.has((r.start_date || '').slice(0, 7)))
+      .filter(r => r.status !== 'cancelled' && prefixes.has((r.start_date || '').slice(0, 7)) && hasStarted(r, today))
       .forEach(r => {
         if (!r.camera_id) return
         if (!map[r.camera_id]) map[r.camera_id] = { count: 0, revenue: 0, camera: r.camera }

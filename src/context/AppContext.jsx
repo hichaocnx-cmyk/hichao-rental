@@ -4,7 +4,7 @@ import { getCustomers } from '../lib/customers'
 import { getRentals } from '../lib/rentals'
 import { getExpenses } from '../lib/expenses'
 import { supabase } from '../lib/supabaseClient'
-import { cashReceived } from '../lib/revenue'
+import { cashReceived, hasStarted } from '../lib/revenue'
 import { useAuth } from './AuthContext'
 
 const AppContext = createContext(null)
@@ -212,9 +212,10 @@ export function AppProvider({ children }) {
     const today = localDateStr()
     // นับเฉพาะเดือนปัจจุบันเท่านั้น (เทียบ YYYY-MM ตรงๆ) — ไม่รวมคิวจอง/รายจ่ายของเดือนหน้า
     const monthKey = today.slice(0, 7)
-    const monthExpenses = expenses.filter(e => (e.date || '').slice(0, 7) === monthKey)
+    // นับถึง "วันนี้" เท่านั้น — คิว/รายจ่ายที่ลงวันที่ล่วงหน้าในเดือนนี้ ยังไม่นับจนกว่าจะถึงวัน
+    const monthExpenses = expenses.filter(e => (e.date || '').slice(0, 7) === monthKey && (e.date || '') <= today)
     // รายได้แยกตามสถานะ
-    const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && (r.start_date || '').slice(0, 7) === monthKey)
+    const thisMonthRentals = rentals.filter(r => r.status !== 'cancelled' && (r.start_date || '').slice(0, 7) === monthKey && hasStarted(r, today))
     const active       = thisMonthRentals.filter(r => r.status === 'active')
     const booked       = thisMonthRentals.filter(r => r.status === 'booked')
     const revenueBreakdown = {

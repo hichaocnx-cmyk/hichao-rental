@@ -40,3 +40,17 @@ export const pendingAmount = r =>
   r?.status === 'booked'
     ? Math.max(0, rentalRevenue(r) - Number(r?.deposit || 0))
     : 0
+
+/**
+ * วันนี้ตามเวลาเครื่อง (YYYY-MM-DD)
+ */
+export const todayStr = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/**
+ * นับเข้ายอดได้หรือยัง = ถึงวันรับกล้องแล้ว (start_date ≤ วันนี้)  (เพิ่ม 20 ต.ค. 2569)
+ * คิวที่จองไว้วันหลังๆ ของเดือน ยังไม่เอามานับในรายได้/กำไร/จำนวนลูกค้า จนกว่าจะถึงวันนั้น
+ * — เจ้าของร้านอยากเห็นยอด "ที่เกิดขึ้นจริงถึงวันนี้" ไม่ใช่ยอดรวมทั้งเดือนล่วงหน้า
+ * รายจ่ายใช้กติกาเดียวกัน (วันที่ ≤ วันนี้)
+ */
+export const hasStarted = (r, today = todayStr()) => (r?.start_date || '') <= today
