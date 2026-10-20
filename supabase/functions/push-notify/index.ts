@@ -13,14 +13,20 @@
 //   RFC 8291 (เข้ารหัสข้อความ aes128gcm) + RFC 8292 (VAPID ยืนยันตัวผู้ส่ง)
 //   ทดสอบกับชุดตัวเลขตัวอย่างของ RFC 8291 แล้ว ได้ผลตรงทุกไบต์
 //
-// Secrets ที่ต้องตั้ง (Edge Functions → Secrets):
-//   VAPID_PUBLIC_KEY   — คีย์สาธารณะ (ตัวเดียวกับใน src/lib/push.js)
+// Secret ที่ต้องตั้ง (Edge Functions → Secrets) มีตัวเดียว:
 //   VAPID_PRIVATE_KEY  — คีย์ลับ (ห้ามใส่ในโค้ด/GitHub เด็ดขาด)
-//   VAPID_SUBJECT      — mailto:hichao.cnx@gmail.com
+// คีย์สาธารณะ + subject ใส่ไว้ในโค้ดด้านล่างแล้ว (ไม่ใช่ความลับ) — ตั้ง Secret ชื่อเดียวกันเพื่อทับได้
+//
+// ⚠️ Deploy โดยปิด "Verify JWT" — cron เรียกโดยไม่ต้องแนบคีย์
+//    (โหมด cron ส่งเฉพาะคิวจริงและกันซ้ำ ยิงซ้ำก็ไม่เกิดอะไร · โหมด test ตรวจว่าล็อกอินเองในโค้ด)
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY มีให้อัตโนมัติ
 // ══════════════════════════════════════════════════════════════
 
 // ── ตั้งค่า ─────────────────────────────────────────────────────
+// คีย์สาธารณะ VAPID — ต้องตรงกับ src/lib/push.js
+const VAPID_PUBLIC_DEFAULT = 'BHYbAd4K27DOBShtWkPOO4swhbChFhGYrdwQuD6K2jKjIYynYVd1CfTbc6Ebv2qllw8ruXeJlGkiqV2NeaPjeDU'
+const vapidPublic = () => Deno.env.get('VAPID_PUBLIC_KEY') || VAPID_PUBLIC_DEFAULT
+
 export const CONFIG = {
   summaryHour: 8,        // สรุปคิวตอนเช้า: ส่งรอบแรกหลังเวลานี้ (เวลาไทย)
   remindBeforeMin: 60,   // เตือนก่อนรับ/คืนกล้องกี่นาที
@@ -116,7 +122,7 @@ type Sub = { endpoint: string, p256dh: string, auth: string }
 type Note = { title: string, body: string, url?: string, tag?: string, badge?: number }
 
 async function sendOne(sub: Sub, note: Note, ttl: number) {
-  const pub = Deno.env.get('VAPID_PUBLIC_KEY')!, priv = Deno.env.get('VAPID_PRIVATE_KEY')!
+  const pub = vapidPublic(), priv = Deno.env.get('VAPID_PRIVATE_KEY')!
   const subject = Deno.env.get('VAPID_SUBJECT') || 'mailto:hichao.cnx@gmail.com'
   const jwt = await vapidJwt(new URL(sub.endpoint).origin, subject, pub, priv)
   const body = await encryptPayload(sub.p256dh, sub.auth, te.encode(JSON.stringify(note)))
@@ -321,8 +327,8 @@ const RENTAL_SELECT = 'id,group_id,status,start_date,end_date,pickup_time,return
 
 async function handle(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (!Deno.env.get('VAPID_PUBLIC_KEY') || !Deno.env.get('VAPID_PRIVATE_KEY')) {
-    return reply({ error: 'ยังไม่ได้ตั้งค่า VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ใน Secrets' }, 500)
+  if (!Deno.env.get('VAPID_PRIVATE_KEY')) {
+    return reply({ error: 'ยังไม่ได้ตั้งค่า VAPID_PRIVATE_KEY ใน Secrets' }, 500)
   }
   const body = await req.json().catch(() => ({}))
 

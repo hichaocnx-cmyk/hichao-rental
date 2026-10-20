@@ -1,8 +1,9 @@
+// v11 — ไอคอนแอปใหม่ (พื้นแดงเลือดนก) → เปลี่ยนชื่อ cache ให้โหลดรูปใหม่
 // v10 — เพิ่มรับแจ้งเตือนเด้งบนหน้าล็อค (Web Push) ดูท้ายไฟล์
 // v9  — ระบบเลิกใช้รูปถ่ายกล้องแล้ว (เปลี่ยนเป็น emoji 📷)
 //      จึงตัด logic cache รูปจาก Supabase Storage ออกทั้งหมด
 //      ตอนนี้ไม่มีคำขอไป storage อีกเลย → Cached Egress = 0
-const CACHE_NAME = 'hichao-v10'
+const CACHE_NAME = 'hichao-v11'
 const STATIC_ASSETS = [
   '/manifest.json',
   '/logo.png',

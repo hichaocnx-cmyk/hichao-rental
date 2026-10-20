@@ -58,11 +58,8 @@ select cron.schedule(
   $$
   select net.http_post(
     url     := 'https://ceutmrmtebnprbkotqzy.supabase.co/functions/v1/push-notify',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      -- anon key ตัวเดียวกับ cron ตัวอื่น (public key ไม่ใช่ความลับ)
-      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNldXRtcm10ZWJucHJia290cXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjAyNjIsImV4cCI6MjA5NTY5NjI2Mn0._1wHTiFkTCyto2ip8YohENmBnsqdFiBgt-tdgDXbH3E'
-    ),
+    -- ฟังก์ชัน push-notify ปิด Verify JWT ไว้ จึงไม่ต้องแนบคีย์
+    headers := jsonb_build_object('Content-Type', 'application/json'),
     body    := '{}'::jsonb
   );
   $$
